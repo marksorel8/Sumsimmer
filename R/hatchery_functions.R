@@ -1,16 +1,20 @@
 
 
 # natural origin broodstock
-NOB_fun<-function(escapement, met_target = 122, oka_target=650, wen_target = 310,NOB_err){
+NOB_fun<-function(escapement,
+                  met_target = 122,
+                  oka_target=650,
+                  wen_target = 310,
+                  NOB_err){
 
   # for methow and wenatchee, use 2024 NOB goals but not to exceed 30% of escapement. For okanogan using a declining function from the escapement goal based on the data.
-  methow <- min(c((.3*escapement[1]),met_target))*exp(NOB_err[1]*.05)  #apply 5% error
+  methow <- min(c((.3*escapement[1]),met_target))*NOB_err[1]
 
-  okanogan <- min(c((.3*escapement[2]),oka_target,exp(.713*log(escapement[2]))))*exp(NOB_err[2]*.05)
+  okanogan <- min(c((.3*escapement[2]),oka_target,exp(.713*log(escapement[2]))))*NOB_err[2])
 
-  wenatchee <- min(c((.3*escapement[3]),wen_target))*exp(NOB_err[3]*.05)
+  wenatchee <- min(c((.3*escapement[3]),wen_target))*NOB_err[3]
 
-  return(c(methow,okanogan,wenatchee))
+  c(methow,okanogan,wenatchee)
 }
 
 
@@ -39,5 +43,5 @@ pHOS_fun <- function (NOS, #natural origin spawners
 hatchery_smolt_fun <- function(smolts_mu,
                                smolts_sd,
                                smolts_err){
- exp(smolts_mu+smolts_err*smolts_sd)
+ exp(smolts_mu+smolts_err*smolts_sd-(smolts_sd^2/2))
 }

@@ -1,21 +1,31 @@
-#spawners in first 6 years
 
-init_S<-esc_dat |> filter(between(year,start_year,start_year+5)) |>
-  select(year,basin=population_name,total_spawners) |>
-  arrange(basin) |> pivot_wider(names_from = basin,values_from=total_spawners) |>
-  left_join(rel3 |> select(year=brood_year,Hatchery=releases)) |>
-  select(Hatchery,Methow,Okanogan,Wenatchee)
-##whoa! 2022 total spawners in methow in 2022. Doesn't appear to be a data entry mistake!
-
-
+#' Title
+#'
+#' @param n_years
+#' @param start_year
+#' @param init_S
+#' @param MREER_matrix
+#' @param age_prop_array
+#' @param SR_err
+#' @param pHOS_err
+#' @param NOB_err
+#' @param pfmc_err
+#' @param in_river_err
+#' @param smolts_err
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 pop_sim<-function(n_years=25,
                   start_year=2017,
                   init_S,
-                  MREER_matrix,
+                  MREER_matrix, # simulatered MREER by age and year
                   age_prop_array,
                   SR_err,
                   pHOS_err,
-                  NOB_err,
+                  NOB_err, #already exponentiation
                   pfmc_err,
                   in_river_err,
                   smolts_err,
@@ -90,3 +100,4 @@ pop_sim<-function(n_years=25,
 
 
 }
+
