@@ -25,23 +25,21 @@ NOB_fun<-function(escapement,
 #proportion of hatchery origin spawners. Assumes available.
 pHOS_fun <- function (NOS, #natural origin spawners
                       HOR, # hatchery origin returns
-                      ints=pHOS_mod$fit$par[1:3], #intercepts
-                      slopes=pHOS_mod$fit$par[5:7], # effect of NOS
-                      hatch_effect=pHOS_mod$fit$par[4], # effect of HOR
-                      pop_sd=exp(pHOS_mod$fit$par[8:10]), # process error sd
+                      ints=c(4.9158452, 5.2047245, 0.8179949), #intercepts
+                      slopes= c(-1.2659862, -1.1420163, -0.7434057), # effect of NOS
+                      hatch_effect=0.3469403 , # effect of HOR
                       pHOS_err
 )
 {
 
-  plogis(ints+slopes*log(NOS)+hatch_effect*log(HOR)+pHOS_err*pop_sd)
+  plogis(ints+slopes*log(NOS)+hatch_effect*log(HOR)+pHOS_err)
 
 }
 
 
 #-------------------------------------------------
 
-hatchery_smolt_fun <- function(smolts_mu,
-                               smolts_sd,
+hatchery_smolt_fun <- function(smolts_mu= 7.962251 ,
                                smolts_err){
- exp(smolts_mu+smolts_err*smolts_sd-(smolts_sd^2/2))
+ exp(smolts_mu+smolts_err)
 }
