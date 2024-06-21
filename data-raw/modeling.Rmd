@@ -8,6 +8,8 @@ date: "2024-05-15"
 knitr::opts_chunk$set(echo = FALSE)
 
 library(tidyverse)
+
+internal_data<-list()
 ```
 
 
@@ -201,7 +203,7 @@ sim_MREER<-t((cbind(fit.dfa.surv$ytT,sim_MREER[,,1])*scales$sd+scales$mu))|> `co
   ungroup() 
 
 
-sim_MREER |> ggplot(aes(x=cy,y=MREER))+geom_point()+facet_wrap(~Age)+geom_line()+geom_vline(aes(xintercept=2022))
+sim_MREER |> ggplot(aes(x=by,y=MREER))+geom_point()+facet_wrap(~Age)+geom_line()+geom_vline(aes(xintercept=2022))
 
 
 sim_for_model<-FALSE
@@ -210,25 +212,33 @@ if(sim_for_model){
   
   n_sims<-500
   
-   sim_MREER_for_mod<-MARSS::MARSSsimulate(sim_surv_mod,tSteps = 50,n_sims)$sim.data  
+  #these are actually logit transformed annual survivivals by age and catch year, which we will use to calculate MREER by age and brood year
+  set.seed(623) 
+  sim_surv_for_mod<-MARSS::MARSSsimulate(sim_surv_mod,tSteps = 50,n_sims)$sim.data  
    
    
-  #first col is calendar year 2013
-  MREER_out<-array(NA,dim=c(5,60,n_sims))
-  MREER_out[,1:10,]<-fit.dfa.surv$ytT[,41:50]
-  MREER_out[,11:60,]<-sim_MREER_for_mod
-  MREER_out<-MREER_out*scales$sd+scales$mu
-  MREER_out<-plogis(MREER_out)
-  for (i in 2:5){
+
+  surv_array<-array(NA,dim=c(5,54,n_sims)) #first col will be catch year 2019
+  surv_array[,1:4,]<-fit.dfa.surv$ytT[,47:50] #estimated in 2019:2022
+  surv_array[,5:54,]<-sim_surv_for_mod # simulated in 2023:2072
+  surv_array_unscaled<-surv_array*scales$sd+scales$mu # rescale
+  surv_array_unscaled_backtransformed<-plogis(surv_array_unscaled) #inverse logit
+  for (i in 2:5){ #lead data by row to allign by brood year. after this, the first col is brood year 2017
     for ( j in 1:n_sims){
-      MREER_out[i,,j]<-dplyr::lead(c(MREER_out[i,,j]),(i-1))
+      surv_array_unscaled_backtransformed[i,,j]<-dplyr::lead(c(surv_array_unscaled_backtransformed[i,,j]),(i-1))
     }
   }
-  MREER_out<-apply(MREER_out,2:3,cumprod)
   
-  dimnames(MREER_out)[1:2]<-list(age=2:6,Brood_year=2011:(2011+59))
+  #calculate MREER
+  MREER_out<-apply(surv_array_unscaled_backtransformed,2:3,cumprod)
+  
+  dimnames(MREER_out)[1:2]<-list(age=2:6,Brood_year=2017:(2017+53))
 
-}
+#save to list that will be saved as internal data
+  internal_data$MREER_out<-MREER_out
+  
+  
+  }
 
 ```
 
@@ -549,8 +559,8 @@ W <- function(x) {
   
   alpha_corrected<-exp(log((alpha))+bias_correction)
   beta_corrected<-beta*(alpha_corrected[-1]/(alpha[-1]))
-   umsy <- (1 - W(exp(1-alpha_corrected[-1])))
-   Smsy <- (1 - W(exp(1-alpha_corrected[-1]))) / beta_corrected
+   umsy <- (1 - W(exp(1-alpha[-1])))
+   Smsy <- (1 - W(exp(1-alpha[-1]))) / beta
   
 
 
@@ -580,7 +590,10 @@ for ( i in 1:4){
 SR_err<-SR_err_fun(t1 = mod_pars$b[30],n_years = 50, n_sims = 500)
 
 
-
+internal_data$alphas<-alpha
+internal_data$betas<-beta
+internal_data$SR_err<-SR_err
+internal_data$Smsy<-Smsy
 
 
 ```
@@ -672,6 +685,7 @@ mat_age_dat |>
 
 # prep Z-scored alr age prop MARSS
 wide_age<-mat_age_dat_mod |> select(brood_year,scale_log_prop,basin,age) |> ungroup() |> 
+  filter(brood_year<=2016) |> 
   arrange(basin,age) |> 
   pivot_wider(values_from =scale_log_prop ,names_from = c(basin,age)) |> 
   arrange(brood_year) |> 
@@ -782,6 +796,11 @@ nSim<-500
   apply(age_props,1:2,quantile,.975)
 apply(age_props,1:2,sd)
 
+
+internal_data$age_props<-age_props
+
+
+
 ```
 
 ## ocean exploitation
@@ -842,6 +861,11 @@ points(seq(1000,150000,by=10000),exp(pred_harv+(-1.96*sd_lar_pfmc)),type="l",lty
 n_year<-50
 n_sim<-500
 pfmc_err<-matrix(rnorm(n_year*n_sim,-(sd_lar_pfmc^2/2),sd_lar_pfmc),n_year,n_sim)
+
+
+internal_data$pfmc_err<-pfmc_err
+internal_data$PFMC_ave_prop<-PFMC_ave_prop
+
 ```
 
 
@@ -889,13 +913,8 @@ in_riv_pred<-data.frame(Allowed_in_river=rep(seq(0,100000,5000),times=2), Sector
 in_riv_pred$pred=(predict(in_riv_mod,newdata=in_riv_pred))
 
 in_riv_pred |> 
-   ggplot(aes(x=Allowed_in_river,y=pred))+geom_line(color="red",lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=Allowed_in_river,y=In_river_harvest))+geom_abline(intercept=0,slope=1)+ylim(0,100000)
+   ggplot(aes(x=Allowed_in_river,y=pred,color=Sector))+geom_line(lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=Allowed_in_river,y=In_river_harvest))+geom_abline(intercept=0,slope=1)+ylim(0,100000)
 
-
-in_riv_mod_treaty<-lm(In_river_harvest~Allowed_in_river*Sector,data=pfmc_morts_2 )
-AIC(in_riv_mod_treaty)
-segmented_model <- segmented::segmented(in_riv_mod_treaty, seg.Z = ~Allowed_in_river,by=Sector)
-AIC(segmented_model)
 
 
 library(segmented)
@@ -933,12 +952,18 @@ pfmc_morts_2 |>ggplot(aes(y=log(pred/In_river_harvest),x=Allowed_in_river))+geom
 
 sd_in_river<-sigma(segmented_model)
 
-
+# are the annual errors highly correlated among sectors... not enought ow orry about in my opinion
 pfmc_morts_2 |> dplyr::select(Sector,resids,RMRS) |> pivot_wider(values_from = resids,names_from = Sector) |>  dplyr::select(-RMRS) |> cor(use="pairwise.complete.obs")
 
 pfmc_morts_2 |> summarize(sd_lar=mean(abs(log(pred/In_river_harvest))))
 
 in_river_err<-array(rnorm(n_year*n_sim*2,0,sd_in_river),dim=c(2,n_year,n_sim))
+
+in_river_coefs<-c(coef(segmented_model))
+in_river_coefs["psi1.Allowed_in_river"]<-segmented_model$psi[,'Est.']
+internal_data$in_river_coefs<-in_river_coefs
+internal_data$in_river_err<-in_river_err
+
 ```
 
 
@@ -1015,7 +1040,7 @@ esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> dplyr::select(year,population_name
   drop_na()  %>% ggplot(aes(x=year,y=NOR))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+ylab("Natural origin returns")
 
 esc_dat %>% filter(year>=2012)|> dplyr::select(year,population_name ,Broodstock=NOBroodStockRemoved,NOR) %>%
-  drop_na()  %>% ggplot(aes(x=(NOR),y=(Broodstock)))+geom_point()+facet_wrap(~population_name,scales="free_x")+geom_smooth(method = "lm",formula="log(y)~log(x)")
+  drop_na()  %>% ggplot(aes(x=(NOR),y=(Broodstock)))+geom_point()+facet_wrap(~population_name,scales="free_x")+geom_smooth(method = "lm",formula="(y)~log(x)")
 
 
 Ok_bs_mod<-(lm(log(NOBroodStockRemoved)~log(NOR)-1,
@@ -1026,6 +1051,9 @@ AIC(mod)
 
 
 NOB_err<-array(exp(rnorm(n_year*n_sim*3,0,.1)),dim=c(3,n_year,n_sim))
+
+internal_data$NOB_err<-NOB_err
+internal_data$Ok_BS_coef<-coef(Ok_bs_mod)
 
 ```
 
@@ -1100,10 +1128,16 @@ pdat<-pdat |> mutate(pred=plogis(pred))
 pdat |> ggplot(aes(y=pred,x=NOS,color=hatch_return))+geom_point(lwd=2)+facet_wrap(~population_name,scales="free_x")
 #note different scales
 
+internal_data$pHOS_mod_coefs<-
+pHOS_mod$fit$par
 
 pHOS_err<-
+sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
 
-# deciding whether to log transform NOS and hatchery returns could have considerable effect on oucome. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
+
+internal_data$pHOS_err<-pHOS_err
+# deciding whether to log transform NOS and hatchery returns could have considerable effect on outcome. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
 ```
 
 
@@ -1138,6 +1172,15 @@ rel3 |> filter(brood_year >=2000) |> pull(releases) |> hist()
 
 smolt_err<-matrix(rnorm(n_year*n_sim,-smolts_sd^2/2,smolts_sd),n_year,n_sim)
 
+internal_data$smolts_mu<-smolts_mu
+internal_data$smolt_err<-smolt_err
+
+
+write_internal<-FALSE
+if(write_internal){
+usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
+}  
+  
 ```
 
 
@@ -1203,10 +1246,7 @@ pHOS_fun <- function (NOS, #natural origin spawners
 
 #---------------------------------------------------
 
-pHOS_err<-
-sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
 
-pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
 
 ```
 
