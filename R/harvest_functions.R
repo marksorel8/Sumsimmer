@@ -4,7 +4,7 @@
 
 sim_PFMC<-function(RMRS,
                    pfmc_err,
-                    PFMC_ave_prop=0.7570474
+                    PFMC_ave_prop=internal_data$PFMC_ave_prop
                     ){
 
   exp(PFMC_ave_prop*log(RMRS)+pfmc_err)
@@ -16,9 +16,7 @@ sim_in_river<-function(allowed_Treaty,
                        allowed_NT_tot,
                        PFMC,
                        in_river_err,
-                       coefs=c(Intercept=6316.1067775,SectorTreaty=-425.7992964,
-                       Allowed_in_river=0.2882035,U1.Allowed_in_river=0.6436054),
-                       psi=1497
+                       coefs=internal_data$in_river_coefs
                        ){
 
 
@@ -26,9 +24,9 @@ sim_in_river<-function(allowed_Treaty,
 
   #Segmented model of expected actual harvest as a funciton of allowed).
   #Non-treaty
-  NT<-coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>psi,NT_allowed_in_river*coefs[4],0)
+  NT<-coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>coefs[5],NT_allowed_in_river*coefs[4],0)
   #Treaty
-  Treaty<- coefs[1]+coefs[2]+allowed_Treaty*coefs[3]+ifelse(allowed_Treaty>psi,allowed_Treaty*coefs[4],0)
+  Treaty<- coefs[1]+coefs[2]+allowed_Treaty*coefs[3]+ifelse(allowed_Treaty>coefs[5],allowed_Treaty*coefs[4],0)
 
   #going with truncated normal errors because I would foresee management error in terms of numbers of fish being relatively constant across allowed harvest rates.
   c(NT=max(NT+(in_river_err[1]),0),
