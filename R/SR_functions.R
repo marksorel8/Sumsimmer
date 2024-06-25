@@ -3,7 +3,7 @@
 Ricker_fun<-function(S,
                      err,
                      alpha=internal_data$alpha,
-                     beta=internal_data$beta
+                     beta=c(0,internal_data$beta)
                      )
                      {
 

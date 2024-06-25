@@ -52,6 +52,11 @@ above_bon_HR<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xl
   group_by(Year) |>
   summarize(above_bon_HR=sum(UM_HR_aboveBon))
 
+URR<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),sheet="Sheet1",range="A1:m256") |>
+  filter(Fishery !="Zone 6 Treaty Total") |>
+  group_by(Year) |>
+  summarize(URR=weighted.mean(URR,Handle))
+
 
 # conversion rates from Bonneville to Rock Island from DART
 conv_rate<-read_csv("data-raw/data/pitconrate_1716318730_518.csv",n_max=11)
@@ -416,13 +421,30 @@ rel2<-releases %>%
                    age=mean_rel_date-as.Date(paste0(brood_year,"-10-01")),lifestage=ifelse(age<=400,"sub","yrlng")) %>% 
   filter(brood_year<=2021) |>
   pivot_longer(Ad_CWT:Unclipped_NoCWT,names_to = "mark",values_to = "count") |> 
-  mutate(count2=ifelse(lifestage=="sub",count*.5,count)) |> 
+  mutate(count2=ifelse(lifestage=="sub",count*.5,count),
+         mark=ifelse(grepl("Ad",mark),"Ad","UM")) |> 
   group_by(brood_year,lifestage) |> 
-  summarise(releases=sum(count),releases2=sum(count2))
+  summarise(releases=sum(count),releases2=sum(count2),
+            ad_releases=sum(count[mark=="Ad"]),
+            ad_releases2=sum(count2[mark=="Ad"]),
+            MR=ad_releases/releases
+            )
 
 rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=releases,fill=lifestage))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
 
 rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=releases2))+geom_col()+ylab("Smolt releases (yearlings + 0.5 * subyearlings)")+xlab("Brood year")
+
+
+rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=MR,fill=lifestage))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+
+rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> ggplot(aes(x=brood_year,y=MR))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+ave_MR<-rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> 
+  filter(brood_year>=2008 &brood_year!=2019) |> summarize(mean(MR),sd(MR))
+
+
+internal_data$hatch_MR_mu<-ave_MR$`mean(MR)`
 ```
 
 We count each subyearling release as 0.5 of a yearling release when calculating the recruits per release.
@@ -898,7 +920,7 @@ pfmc_morts_2|>
 
 
 pfmc_morts_2|>
-  ggplot(aes(x=qlogis(in_river_allowed_HR),y=qlogis(in_river_HR)))+geom_point()+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+facet_wrap(~Sector)+geom_abline(intercept=0,slope=1,lwd=1.5)
+  ggplot(aes(x=(in_river_allowed_HR),y=qlogis(in_river_HR)))+geom_point()+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+facet_wrap(~Sector)+geom_abline(intercept=0,slope=1,lwd=1.5)
 
 
 ## explore
@@ -1122,6 +1144,19 @@ smolt_err<-matrix(rnorm(n_year*n_sim,-smolts_sd^2/2,smolts_sd),n_year,n_sim)
 
 internal_data$smolts_mu<-smolts_mu
 internal_data$smolt_err<-smolt_err
+```
+
+## Unmarked release rate
+
+Proportion of handled unmarked fish that are released in non-treaty fisheries. 
+```{r}
+# Unmarked release rates
+URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()
+
+URR |> filter(Year>=2013) |> summarize(URR=mean(URR))
+internal_data$URR<-URR |> filter(Year>=2013) |> summarize(URR=mean(URR)) |> pull(URR)
+
+
 
 #spawners in first 6 years
 
