@@ -920,7 +920,7 @@ pfmc_morts_2|>
 
 
 pfmc_morts_2|>
-  ggplot(aes(x=(in_river_allowed_HR),y=qlogis(in_river_HR)))+geom_point()+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+facet_wrap(~Sector)+geom_abline(intercept=0,slope=1,lwd=1.5)
+  ggplot(aes(x=qlogis(in_river_allowed_HR),y=qlogis(in_river_HR),color=Sector))+geom_point()+geom_abline(intercept=0,slope=1,lwd=1.5)#+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)#+facet_wrap(~Sector)
 
 
 ## explore
@@ -943,22 +943,48 @@ in_riv_pred |>
    ggplot(aes(x=Allowed_in_river,y=pred,color=Sector))+geom_line(lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=Allowed_in_river,y=In_river_harvest))+geom_abline(intercept=0,slope=1)+ylim(0,100000)
 
 
+lin_mod<-lm(qlogis(in_river_HR)~qlogis(in_river_allowed_HR ), data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))
+AIC(lin_mod)
+summary(lin_mod)
 
 library(segmented)
-segmented_model <-segmented::segreg(In_river_harvest~Sector+seg(Allowed_in_river),data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))
+segmented_model <-segmented::segreg(qlogis(in_river_HR)~seg(qlogis(in_river_allowed_HR),psi=list(xx=-.3)),data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))
 summary(segmented_model)
 AIC(segmented_model)
 
+segmented_model$coefficients[2:3]<-0:1
 
 
-in_riv_pred<-data.frame(Allowed_in_river=rep(seq(0,100000,5000),times=1),
- Sector=as.factor(rep(c("NT","Treaty"),each=21)))
-in_riv_pred$pred=(predict(segmented_model,newdata=in_riv_pred))
+mod_fun<-function(x,psi,int){
+  int+ifelse(x>psi,x-psi,0)
+}
 
+mod_fun_2<-function(par,dat,y){
+  -sum(dnorm(mod_fun(dat,par[1],par[2]),y,exp(par[3]),log = TRUE))
+}
+
+seg_fit<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR),y=qlogis(pfmc_morts_2$in_river_HR))
+
+
+
+
+
+in_riv_pred<-data.frame(#Allowed_in_river=rep(seq(0,100000,5000),times=1),
+                        in_river_allowed_HR=rep(seq(0,.5,.01),times=1))
+,
+ Sector=as.factor(rep(c("NT","Treaty"),each=102)))
+
+
+
+# in_riv_pred$pred=plogis(predict(segmented_model,newdata=in_riv_pred))
+in_riv_pred$pred=plogis(mod_fun(x=qlogis(seq(0,.5,.01)),seg_fit$par[1],seg_fit$par[2]))
+
+in_riv_pred$ucl<-plogis(qlogis(in_riv_pred$pred)+2*exp(seg_fit$par[3]))
+in_riv_pred$lcl<-plogis(qlogis(in_riv_pred$pred)-2*exp(seg_fit$par[3]))
 
 
 in_riv_pred |> 
-   ggplot(aes(x=Allowed_in_river,y=pred,color=Sector))+geom_line(lwd=1.25)+geom_point(data=pfmc_morts_2,aes(x=Allowed_in_river,y=In_river_harvest,color=Sector),cex=1.5)+geom_abline(intercept=0,slope=1)+ylim(0,100000)
+   ggplot(aes(x=in_river_allowed_HR,y=pred))+geom_line(lwd=1.25)+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR,color=Sector),cex=1.5)+geom_abline(intercept=0,slope=1)+geom_line(aes(x=in_river_allowed_HR,y=lcl),lty=2)+geom_line(aes(x=in_river_allowed_HR,y=ucl),lty=2)
 
 
 
@@ -966,19 +992,20 @@ in_riv_pred |>
 
 
 #residuals
-pfmc_morts_2$pred=predict(segmented_model)
-pfmc_morts_2$resids=pfmc_morts_2$In_river_harvest-pfmc_morts_2$pred
-
+# pfmc_morts_2$pred=predict(segmented_model)
+# pfmc_morts_2$resids=pfmc_morts_2$In_river_harvest-pfmc_morts_2$pred
+pfmc_morts_2<-pfmc_morts_2 |> mutate(pred=plogis(mod_fun(x=qlogis(in_river_allowed_HR),seg_fit$par[1],seg_fit$par[2])),
+                                     resid = In_river_harvest-pred)
 # 
 # pfmc_morts_2 |>ggplot(aes(x=resids))+geom_histogram()+facet_wrap(~Sector)
 # pfmc_morts_2 |>ggplot(aes(x=log(pred/In_river_harvest)))+geom_histogram()+facet_wrap(~Sector)
 
-pfmc_morts_2 |>ggplot(aes(y=log(pred/In_river_harvest),x=Allowed_in_river))+geom_point()+facet_wrap(~Sector)+geom_hline(yintercept=0)
+pfmc_morts_2 |>ggplot(aes(y=log(pred/in_river_HR),x=in_river_allowed_HR))+geom_point()+facet_wrap(~Sector)+geom_hline(yintercept=0)
 
 # calculate the standard deviation of the log accuracy ratio
 
-sd_in_river<-sigma(segmented_model)
-
+# sd_in_river<-sigma(segmented_model)
+sd_in_river<-exp(seg_fit$par[3])
 # are the annual errors highly correlated among sectors... not enought ow orry about in my opinion
 pfmc_morts_2 |> dplyr::select(Sector,resids,RMRS) |> pivot_wider(values_from = resids,names_from = Sector) |>  dplyr::select(-RMRS) |> cor(use="pairwise.complete.obs")
 
@@ -988,7 +1015,8 @@ in_river_err<-array(rnorm(n_year*n_sim*2,0,sd_in_river),dim=c(2,n_year,n_sim))
 
 in_river_coefs<-c(coef(segmented_model))
 in_river_coefs["psi1.Allowed_in_river"]<-segmented_model$psi[,'Est.']
-internal_data$in_river_coefs<-in_river_coefs
+# internal_data$in_river_coefs<-in_river_coefs
+internal_data$in_river_coefs<-seg_fit$par[1:2]
 internal_data$in_river_err<-in_river_err
 
 ```
