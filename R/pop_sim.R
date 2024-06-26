@@ -19,17 +19,18 @@
 #' @export
 #'
 #' @examples
+
 pop_sim<-function(n_years=25,
                   start_year=2017,
                   init_S=internal_data$init_S,
-                  MREER_matrix=internal_data$MREER_out[,,1],
-                  age_prop_array=internal_data$age_props[,,,1],
-                  SR_err=internal_data$SR_err[,,1],
-                  pHOS_err=internal_data$pHOS_err[,,1],
-                  NOB_err=internal_data$NOB_err[,,1], #already exponentiation
-                  pfmc_err=internal_data$pfmc_err[,1],
-                  in_river_err=internal_data$in_river_err[,,1],
-                  smolts=hatchery_smolt_fun(smolts_err =internal_data$smolt_err)[,1],
+                  MREER_matrix=internal_data$MREER_out[,,iter],
+                  age_prop_array=internal_data$age_props[,,,iter],
+                  SR_err=internal_data$SR_err[,,iter],
+                  pHOS_err=internal_data$pHOS_err[,,iter],
+                  NOB_err=internal_data$NOB_err[,,iter], #already exponentiation
+                  pfmc_err=internal_data$pfmc_err[,iter],
+                  in_river_err=internal_data$in_river_err[,,iter],
+                  smolts=hatchery_smolt_fun(smolts_err =internal_data$smolt_err)[,iter],
                   hatchery_mark_rate = internal_data$hatch_MR_mu,
                   HO_broodstock_need = 2000,
                   NO_broodstock_target = c("Methow"=122,"Okanogan" = 650, "Wenatchee" = 310),
@@ -45,7 +46,9 @@ pop_sim<-function(n_years=25,
   S[,1:6] <- t(init_S)
   S[1,-c(1:6,(n_years+(7:12)))] <- smolts[1:(n_years)]
 
-  for (y in 1 : 6){
+
+
+  for (y in 1 : (n_years+6)){
 
 
     if(y>6){
@@ -58,8 +61,7 @@ pop_sim<-function(n_years=25,
       in_river_h_rate<-sim_in_river(allowed_Treaty=Treaty_allowed,
                                     NT_allowed_in_river=NT_allowed,
                                      in_river_err=in_river_err[,y],
-                                    mark_rate=Mark_rate,
-                                    RMRS=RMRS)
+                                    mark_rate=Mark_rate)
 
       terminal_NT[1,y] <- returns[1,y] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
       terminal_NT[2:4,y] <- returns[2:4,y] * in_river_h_rate["NT_unmarked"]
@@ -67,25 +69,23 @@ pop_sim<-function(n_years=25,
 
       escapement<-returns[,y]-terminal_NT[,y]-terminal_treaty[,y]
       NOB[,y]<-NOB_fun(escapement[-1],NOB_err=NOB_err[,y],
-                       NO_broodstock_target["Methow"],
-                       NO_broodstock_target["Okanogan"],
-                       NO_broodstock_target["Wenatchee"])
+                       met_target=NO_broodstock_target["Methow"],
+                       oka_target=NO_broodstock_target["Okanogan"],
+                       wen_target=NO_broodstock_target["Wenatchee"])
       NOS[,y]<-escapement[-1]-NOB[,y]
       # is there sufficient hatchery escapement to meet broodstock needs
-       if(escapement[1]<HO_broodstock_need){
-        S[1,y]<-S[1,y]*(escapement[1]/HO_broodstock_need)
-        HOS<-c(0,0,0)
+      HO_broodstock_need_2<-HO_broodstock_need+(sum(NO_broodstock_target)-sum(NOB[,y]))
+       if(escapement[1]<HO_broodstock_need_2){
+        S[1,y]<-S[1,y]*(escapement[1]/HO_broodstock_need_2)
        }else{ # if hatchery escapement exceed broodstock needs,hatchery origin spawners
-
+       pHOS<-pHOS_fun(NOS = NOS[,y], HOR = returns[1,y],pHOS_err=pHOS_err[,y]) # predicted pHOS
+       HOS_max<-escapement[1]-HO_broodstock_need_2
+       HOS<-NOS[,y]*((1/(1-pHOS))-1)
+       if(sum(HOS)>HOS_max){
+         HOS<-proportions(HOS)*HOS_max
+       }
+       S[2:4,y]<-NOS[,y]+HOS
             }
-
-      pHOS<-pHOS_fun(NOS = NOS[,y], HOR = returns[1,y],pHOS_err=pHOS_err[,y]) # predicted pHOS
-      HOS<-NOS[,y]*((1/(1-pHOS))-1) # predicted HOS
-
-
-      if(sum(HOS)<escapement[1]-HO_broodstock_need) # check if hatchery escapement sufficient
-      S[2:4,y]<-(NOS[,y]/(1-pHOS))
-
 
     }
 
@@ -107,7 +107,7 @@ pop_sim<-function(n_years=25,
 
   }
 
-
+  Sys.time()-start_time
   list(
     NOS = NOS,
     S = S,
