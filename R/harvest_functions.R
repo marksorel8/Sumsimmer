@@ -26,7 +26,7 @@ sim_in_river<-function(allowed_Treaty,
   NT<-plogis(coefs[2]+ifelse(qlogis(NT_allowed_in_river)>coefs[1],qlogis(NT_allowed_in_river)-coefs[1],0)+in_river_err[1])
 
   #Treaty
-  Treaty<- plogis(coefs[2]+ifelse(qlogis(NT_allowed_in_river)>coefs[1],qlogis(NT_allowed_in_river)-coefs[1],0)+in_river_err[1])
+  Treaty<- plogis(coefs[2]+ifelse(qlogis(allowed_Treaty)>coefs[1],qlogis(allowed_Treaty)-coefs[1],0)+in_river_err[1])
 
 
   #   NT<- coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>coefs[5],(NT_allowed_in_river-coefs[5])*coefs[4],0)+(in_river_err[1])
@@ -79,7 +79,7 @@ allowed_NT<-function(Run_size,
                                      ))))))
 
 
- max(tot-PFMC/Run_size,.001)
+ max(tot-(PFMC/Run_size),.001)
 
 
 }
