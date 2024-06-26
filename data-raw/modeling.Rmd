@@ -602,7 +602,7 @@ W <- function(x) {
   
   proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
 for ( i in 1:4){
-  proc_err[i,,]<-(rnorm(n_years*n_sims,-bias_correction[i],sigma_unique[i])+shared)
+  proc_err[i,,]<-(rnorm(n_years*n_sims,0,sigma_unique[i])+shared)
 }
 
   return(proc_err)
@@ -887,7 +887,7 @@ points(seq(1000,150000,by=10000),exp(pred_harv+(-1.96*sd_lar_pfmc)),type="l",lty
 n_year<-50
 n_sim<-500
 set.seed(910)
-pfmc_err<-matrix(rnorm(n_year*n_sim,-(sd_lar_pfmc^2/2),sd_lar_pfmc),n_year,n_sim)
+pfmc_err<-matrix(rnorm(n_year*n_sim,0,sd_lar_pfmc),n_year,n_sim)
 
 
 internal_data$pfmc_err<-pfmc_err
@@ -920,7 +920,7 @@ pfmc_morts_2|>
 
 
 pfmc_morts_2|>
-  ggplot(aes(x=qlogis(in_river_allowed_HR),y=qlogis(in_river_HR),color=Sector))+geom_point()+geom_abline(intercept=0,slope=1,lwd=1.5)#+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)#+facet_wrap(~Sector)
+  ggplot(aes(x=qlogis(in_river_allowed_HR),y=qlogis(in_river_HR),color=Sector))+geom_point()+geom_abline(intercept=0,slope=1,lwd=1.5)+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)#+facet_wrap(~Sector)
 
 
 ## explore
@@ -929,7 +929,7 @@ pfmc_morts_2 |>
   ggplot(aes(x=Allowed_in_river,y=log(HoA_HR)))+geom_point()+geom_smooth(method="lm",formula=("y~log(x)"),se=TRUE)+facet_wrap(~Sector)
 
 
-in_riv_mod<-lm(In_river_harvest~Sector*Allowed_in_river,data=pfmc_morts_2)
+in_riv_mod<-lm((In_river_harvest)~Sector*Allowed_in_river,data=pfmc_morts_2)
 summary(in_riv_mod)
 AIC(in_riv_mod)
 
@@ -952,9 +952,7 @@ segmented_model <-segmented::segreg(qlogis(in_river_HR)~seg(qlogis(in_river_allo
 summary(segmented_model)
 AIC(segmented_model)
 
-segmented_model$coefficients[2:3]<-0:1
-
-
+#segmented model with a slope of zero before the break and slope of 1 after the break
 mod_fun<-function(x,psi,int){
   int+ifelse(x>psi,x-psi,0)
 }
@@ -971,8 +969,8 @@ seg_fit<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR
 
 in_riv_pred<-data.frame(#Allowed_in_river=rep(seq(0,100000,5000),times=1),
                         in_river_allowed_HR=rep(seq(0,.5,.01),times=1))
-,
- Sector=as.factor(rep(c("NT","Treaty"),each=102)))
+# ,
+#  Sector=as.factor(rep(c("NT","Treaty"),each=102)))
 
 
 
@@ -989,13 +987,11 @@ in_riv_pred |>
 
 
 
-
-
 #residuals
 # pfmc_morts_2$pred=predict(segmented_model)
 # pfmc_morts_2$resids=pfmc_morts_2$In_river_harvest-pfmc_morts_2$pred
 pfmc_morts_2<-pfmc_morts_2 |> mutate(pred=plogis(mod_fun(x=qlogis(in_river_allowed_HR),seg_fit$par[1],seg_fit$par[2])),
-                                     resid = In_river_harvest-pred)
+                                     resid = in_river_HR-pred)
 # 
 # pfmc_morts_2 |>ggplot(aes(x=resids))+geom_histogram()+facet_wrap(~Sector)
 # pfmc_morts_2 |>ggplot(aes(x=log(pred/In_river_harvest)))+geom_histogram()+facet_wrap(~Sector)
@@ -1006,10 +1002,10 @@ pfmc_morts_2 |>ggplot(aes(y=log(pred/in_river_HR),x=in_river_allowed_HR))+geom_p
 
 # sd_in_river<-sigma(segmented_model)
 sd_in_river<-exp(seg_fit$par[3])
-# are the annual errors highly correlated among sectors... not enought ow orry about in my opinion
-pfmc_morts_2 |> dplyr::select(Sector,resids,RMRS) |> pivot_wider(values_from = resids,names_from = Sector) |>  dplyr::select(-RMRS) |> cor(use="pairwise.complete.obs")
+# are the annual errors highly correlated among sectors... nope
+pfmc_morts_2 |> dplyr::select(Sector,resid,RMRS) |> pivot_wider(values_from = resid,names_from = Sector) |>  dplyr::select(-RMRS) |> cor(use="pairwise.complete.obs")
 
-pfmc_morts_2 |> summarize(sd_lar=mean(abs(log(pred/In_river_harvest))))
+pfmc_morts_2 |> summarize(sd_lar=mean(abs(log(pred/in_river_HR))))
 set.seed(1112)
 in_river_err<-array(rnorm(n_year*n_sim*2,0,sd_in_river),dim=c(2,n_year,n_sim))
 
@@ -1168,7 +1164,7 @@ hist(exp(rnorm(1000,smolts_mu,smolts_sd)))
 rel3 |> filter(brood_year >=2000) |> pull(releases) |> hist()
 
 set.seed(1819)
-smolt_err<-matrix(rnorm(n_year*n_sim,-smolts_sd^2/2,smolts_sd),n_year,n_sim)
+smolt_err<-matrix(rnorm(n_year*n_sim,0,smolts_sd),n_year,n_sim)
 
 internal_data$smolts_mu<-smolts_mu
 internal_data$smolt_err<-smolt_err
