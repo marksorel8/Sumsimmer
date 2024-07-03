@@ -76,7 +76,8 @@ summarize_sim<-function(sim,yrs=7:31){
 
   rbind(
 quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total In-river NT`,-1)),
-quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1)))
+quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1))
+)
 
 
     ## harvest variability (year to year)
@@ -118,6 +119,8 @@ quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1)))
 pNOB_quants<-   data.frame(cbind(
      apply(apply(sim_pNOB,c(1,3),quantile),1:2,mean),
      Total=apply(apply(sim_pNOB_tot,2,quantile),1,mean)))
+ave_quants(sim$NOB+sim$mean)
+
 
 Mean_pNOB_quants<-
   data.frame(cbind(
@@ -129,7 +132,7 @@ Mean_pNOB_quants<-
 sim_pHOS<-1-(sim$NOS[,yrs,]/sim$S[-1,yrs,])
 sim_pHOS_tot<-1-(apply(sim$NOS[,yrs,],2:3,sum)/apply(sim$S[-1,yrs,],2:3,sum))
 
-   pHOS_quants<- data.frame(cbind(
+   pHOS_quants<-
      data.frame(cbind(
        apply(apply(sim_pHOS,c(1,3),mean),1,quantile),
        Total=quantile(apply(sim_pNOB_tot,2,mean))))

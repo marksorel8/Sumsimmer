@@ -42,15 +42,18 @@ pop_sim<-function(n_years=25,
                   ...
                   ){
 
+  tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
+
   NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
 
   PFMC<-matrix(NA,n_years+6,n_iter)
 
-  S<-returns<-recruits<-terminal_NT<-terminal_treaty<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
+  S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
+
 
   S[,1:6,] <- t(init_S)
   S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter]
-
+  HOB[1,,]<-HO_broodstock_need
 
 for(i in 1:n_iter){
   for (y in 1 : (n_years+6)){
@@ -77,20 +80,29 @@ for(i in 1:n_iter){
                        met_target=NO_broodstock_target["Methow"],
                        oka_target=NO_broodstock_target["Okanogan"],
                        wen_target=NO_broodstock_target["Wenatchee"])
+      HOB[2:4,y,i]<-NO_broodstock_target-NOB[,y,i]
       NOS[,y,i]<-escapement[-1]-NOB[,y,i]
-      # is there sufficient hatchery escapement to meet broodstock needs
-      HO_broodstock_need_2<-HO_broodstock_need+(sum(NO_broodstock_target)-sum(NOB[,y,i]))
-       if(escapement[1]<HO_broodstock_need_2){
-        S[1,y,i]<-S[1,y,i]*(escapement[1]/HO_broodstock_need_2)
-       }else{ # if hatchery escapement exceed broodstock needs,hatchery origin spawners
-       pHOS<-pHOS_fun(NOS = NOS[,y,i], HOR = returns[1,y,i],pHOS_err=pHOS_err[,y,i]) # predicted pHOS
-       HOS_max<-escapement[1]-HO_broodstock_need_2
-       HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
-       if(sum(HOS)>HOS_max){
-         HOS<-proportions(HOS)*HOS_max
+      # hatchey broodstock needs for segregated and integrated programs
+      tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
+      # predicted pHOS
+      pHOS<-pHOS_fun(NOS = NOS[,y,i], HOR = returns[1,y,i],pHOS_err=pHOS_err[,y,i])
+      #predicted Hatchery origin spawners
+      HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
+      #total number of hatchery origin fish needed for broodstock and predicted HOS
+      tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
+
+      # if there is there sufficient hatchery escapement to meet broodstock needs
+       if(escapement[1]<tot_hatch_need){
+   # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
+        # every group is reduced proporitonally
+      prop_tot<-tot_hatch_need/escapement[1]
+      HOS<-HOS*prop_tot
+      HOB[,y,i]<-HOB[,y,i]*prop_tot
+      prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
+      S[1,y,i]<-S[1,y,i]*prop_tot2
+
        }
        S[2:4,y,i]<-NOS[,y,i]+HOS
-            }
 
     }
 
@@ -110,13 +122,14 @@ for(i in 1:n_iter){
     }
 
 
-  }
-}
 
+}
+}
    list(
     NOS = NOS,
     S = S,
     NOB = NOB,
+    HOB = HOB,
     returns = returns,
     recruits = recruits,
     terminal_NT = terminal_NT,
@@ -125,5 +138,5 @@ for(i in 1:n_iter){
   )
 
 
-}
 
+}
