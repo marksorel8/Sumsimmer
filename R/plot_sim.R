@@ -1,4 +1,24 @@
-sim<-pop_sim()
+# sim<-pop_sim()
+
+
+CV<-function(x){(sd(x)/mean(x))*100}
+
+
+geo_mean<-function(x){exp(mean(log(x)))}
+
+ave_quants<-function(x,fun=geo_mean){
+  data.frame(cbind(
+    apply(apply(x[,yrs,],c(1,3),quantile),1:2,fun),
+    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile),1,fun)))
+}
+
+quants_of_ave<-function(x,fun=geo_mean){
+  data.frame(cbind(
+    apply(apply(x[,yrs,],c(1,3),fun),1,quantile),
+    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun))))
+}
+
+
 
 summarize_sim<-function(sim,yrs=7:31){
   library(tidyverse)
@@ -10,8 +30,6 @@ summarize_sim<-function(sim,yrs=7:31){
   #Harvest
   ##  across-year quantiles: min, 25%, median, 75%, max
 
-  geo_mean<-function(x){exp(mean(log(x)))}
-
   harvest_quants<-data.frame(rbind(
   apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,quantile),1,geo_mean), # sum across populations, quantile across years, geometrtic mean across simulations
   apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,quantile),1,geo_mean),
@@ -19,6 +37,7 @@ summarize_sim<-function(sim,yrs=7:31){
   ))
   colnames(harvest_quants)<-c("min","LQI","med","UQI","max")
   harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
+
 
 
   harvest_quants
@@ -61,7 +80,7 @@ quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1)))
 
 
     ## harvest variability (year to year)
-  CV<-function(x){(sd(x)/mean(x))*100}
+
 
 
   CV_harvest_quants<-data.frame(rbind(
@@ -83,17 +102,6 @@ quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1)))
   #Conservation
 
 
-  ave_quants<-function(x){
-    data.frame(cbind(
-      apply(apply(x[,yrs,],c(1,3),quantile),1:2,geo_mean),
-      Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile),1,geo_mean)))
-  }
-
-  quants_of_ave<-function(x){
-    data.frame(cbind(
-      apply(apply(x[,yrs,],c(1,3),geo_mean),1,quantile),
-      Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,geo_mean))))
-  }
 
   ## Average NO spawners
    NOS_quants<-ave_quants(sim$NOS)
@@ -104,14 +112,33 @@ quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1)))
    Geomean_S_quants<-quants_of_ave(sim$S)
 
   ## Average pNOB
-   S_quants<-ave_quants(sim$S)
-   Geomean_S_quants<-quants_of_ave(sim$S)
+   sim_pNOB<-sim$NOB[,yrs,]/c("Methow"=122,"Okanogan" = 650, "Wenatchee" = 310)
+   sim_pNOB_tot<-apply(sim$NOB[,yrs,],2:3,sum)/sum(c("Methow"=122,"Okanogan" = 650, "Wenatchee" = 310))
+
+pNOB_quants<-   data.frame(cbind(
+     apply(apply(sim_pNOB,c(1,3),quantile),1:2,mean),
+     Total=apply(apply(sim_pNOB_tot,2,quantile),1,mean)))
+
+Mean_pNOB_quants<-
+  data.frame(cbind(
+    apply(apply(sim_pNOB,c(1,3),mean),1,quantile),
+    Total=quantile(apply(sim_pNOB_tot,2,mean))))
+
 
   ## Average pHOS
+sim_pHOS<-1-(sim$NOS[,yrs,]/sim$S[-1,yrs,])
+sim_pHOS_tot<-1-(apply(sim$NOS[,yrs,],2:3,sum)/apply(sim$S[-1,yrs,],2:3,sum))
 
+   pHOS_quants<- data.frame(cbind(
+     data.frame(cbind(
+       apply(apply(sim_pHOS,c(1,3),mean),1,quantile),
+       Total=quantile(apply(sim_pNOB_tot,2,mean))))
+
+   Mean_pHOS_quants<-
 
   ## Average pNI
-
+   S_quants<-ave_quants(sim$S)
+   Geomean_S_quants<-quants_of_ave(sim$S)
 
 
 }
