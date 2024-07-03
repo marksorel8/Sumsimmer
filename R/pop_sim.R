@@ -26,7 +26,7 @@
 
 pop_sim<-function(n_years=25,
                   start_year=2017,
-                  n_iter=100,
+                  n_iter=500,
                   init_S=internal_data$init_S,
                   MREER_matrix=internal_data$MREER_out[,,],
                   age_prop_array=internal_data$age_props[,,,],
@@ -60,8 +60,8 @@ for(i in 1:n_iter){
 
       RMRS<- sum(returns[,y,i])
       PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i])
-      NT_allowed<-allowed_NT(RMRS,PFMC[y,i])
-      Treaty_allowed<-allowed_Treaty(RMRS)
+      NT_allowed<-allowed_NT(RMRS+PFMC[y,i],PFMC[y,i])
+      Treaty_allowed<-allowed_Treaty(RMRS+PFMC[y,i],PFMC[y,i])
       Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
       in_river_h_rate<-sim_in_river(allowed_Treaty=Treaty_allowed,
                                     NT_allowed_in_river=NT_allowed,

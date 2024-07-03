@@ -904,8 +904,8 @@ pfmc_morts_2<-pfmc_morts |> select(`Allowed Treaty or NT Harvest`,`PFMC NT Harve
          Total_harvest=ifelse(Sector=="Total Treaty",In_river_harvest,`Total NT`))|> filter(In_river_harvest>0) |> 
   mutate(Sector=ifelse(Sector=="Total Treaty","Treaty","NT"))|>
   mutate(HoA=In_river_harvest/Allowed_in_river,
-         in_river_HR=In_river_harvest/(RMRS+`PFMC NT Harvest Total`),
-         in_river_allowed_HR=Allowed_in_river/(RMRS+`PFMC NT Harvest Total`),
+         in_river_HR=In_river_harvest/(RMRS),
+         in_river_allowed_HR=Allowed_in_river/(RMRS),
          HoA_HR=in_river_HR/in_river_allowed_HR) |> 
   rename(total_allowed=`Allowed Treaty or NT Harvest`)
   
@@ -963,26 +963,30 @@ mod_fun_2<-function(par,dat,y){
 
 seg_fit<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR),y=qlogis(pfmc_morts_2$in_river_HR))
 
+seg_fit_NT<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR[pfmc_morts_2$Sector=="NT"]),y=qlogis(pfmc_morts_2$in_river_HR[pfmc_morts_2$Sector=="NT"]))
+
+seg_fit_T<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR[pfmc_morts_2$Sector=="Treaty"]),y=qlogis(pfmc_morts_2$in_river_HR[pfmc_morts_2$Sector=="Treaty"]))
 
 
 
 
 in_riv_pred<-data.frame(#Allowed_in_river=rep(seq(0,100000,5000),times=1),
-                        in_river_allowed_HR=rep(seq(0,.5,.01),times=1))
-# ,
-#  Sector=as.factor(rep(c("NT","Treaty"),each=102)))
+                        in_river_allowed_HR=rep(seq(0,.5,.01),times=2),
+ Sector=as.factor(rep(c("NT","Treaty"),each=51)))
 
 
 
 # in_riv_pred$pred=plogis(predict(segmented_model,newdata=in_riv_pred))
-in_riv_pred$pred=plogis(mod_fun(x=qlogis(seq(0,.5,.01)),seg_fit$par[1],seg_fit$par[2]))
+in_riv_pred$pred=plogis(c(mod_fun(x=qlogis(seq(0,.5,.01)),seg_fit_NT$par[1],seg_fit_NT$par[2]),mod_fun(x=qlogis(seq(0,.5,.01)),seg_fit_T$par[1],seg_fit_T$par[2])))
 
-in_riv_pred$ucl<-plogis(qlogis(in_riv_pred$pred)+2*exp(seg_fit$par[3]))
-in_riv_pred$lcl<-plogis(qlogis(in_riv_pred$pred)-2*exp(seg_fit$par[3]))
+
+
+in_riv_pred$ucl<-plogis(qlogis(in_riv_pred$pred)+2*exp(ifelse(in_riv_pred$Sector=="Treaty",seg_fit_T$par[3],seg_fit_NT$par[3])))
+in_riv_pred$lcl<-plogis(qlogis(in_riv_pred$pred)-2*exp(ifelse(in_riv_pred$Sector=="Treaty",seg_fit_T$par[3],seg_fit_NT$par[3])))
 
 
 in_riv_pred |> 
-   ggplot(aes(x=in_river_allowed_HR,y=pred))+geom_line(lwd=1.25)+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR,color=Sector),cex=1.5)+geom_abline(intercept=0,slope=1)+geom_line(aes(x=in_river_allowed_HR,y=lcl),lty=2)+geom_line(aes(x=in_river_allowed_HR,y=ucl),lty=2)
+   ggplot(aes(x=in_river_allowed_HR,y=pred,color=Sector))+geom_line(lwd=1.25)+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR,color=Sector),cex=1.5)+geom_abline(intercept=0,slope=1)+geom_line(aes(x=in_river_allowed_HR,y=lcl),lty=2)+geom_line(aes(x=in_river_allowed_HR,y=ucl),lty=2)+facet_wrap(~Sector)
 
 
 
@@ -1005,14 +1009,17 @@ sd_in_river<-exp(seg_fit$par[3])
 # are the annual errors highly correlated among sectors... nope
 pfmc_morts_2 |> dplyr::select(Sector,resid,RMRS) |> pivot_wider(values_from = resid,names_from = Sector) |>  dplyr::select(-RMRS) |> cor(use="pairwise.complete.obs")
 
-pfmc_morts_2 |> summarize(sd_lar=mean(abs(log(pred/in_river_HR))))
+pfmc_morts_2 |> group_by(Sector) |>  summarize(sd_lar=mean((log(pred/in_river_HR))))
 set.seed(1112)
-in_river_err<-array(rnorm(n_year*n_sim*2,0,sd_in_river),dim=c(2,n_year,n_sim))
+in_river_err<-array(NA,dim=c(2,n_year,n_sim))
+in_river_err[1,,]<-rnorm(n_year*n_sim,0,exp(seg_fit_T$par[3]))
+in_river_err[2,,]<-rnorm(n_year*n_sim,0,exp(seg_fit_NT$par[3]))
+
 
 in_river_coefs<-c(coef(segmented_model))
 in_river_coefs["psi1.Allowed_in_river"]<-segmented_model$psi[,'Est.']
 # internal_data$in_river_coefs<-in_river_coefs
-internal_data$in_river_coefs<-seg_fit$par[1:2]
+internal_data$in_river_coefs<-c(seg_fit_T$par[1:2],seg_fit_NT$par[1:2])
 internal_data$in_river_err<-in_river_err
 
 ```

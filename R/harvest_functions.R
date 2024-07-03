@@ -22,11 +22,11 @@ sim_in_river<-function(allowed_Treaty,
                        ){
 
   #Segmented model of expected actual total harvest mortality as a funciton of allowed).
-  #Non-treaty
-  NT<-plogis(coefs[2]+ifelse(qlogis(NT_allowed_in_river)>coefs[1],qlogis(NT_allowed_in_river)-coefs[1],0)+in_river_err[1])
-
   #Treaty
   Treaty<- plogis(coefs[2]+ifelse(qlogis(allowed_Treaty)>coefs[1],qlogis(allowed_Treaty)-coefs[1],0)+in_river_err[1])
+
+  #Non-treaty
+  NT<-plogis(coefs[4]+ifelse(qlogis(NT_allowed_in_river)>coefs[3],qlogis(NT_allowed_in_river)-coefs[3],0)+in_river_err[2])
 
 
   #   NT<- coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>coefs[5],(NT_allowed_in_river-coefs[5])*coefs[4],0)+(in_river_err[1])
@@ -49,18 +49,23 @@ UHR=NT_handle*(1-URR*(1-release_mort_rate)) #unmarked harvest rate
     NT_unmarked=UHR)
 }
 
-
+# returns allowed treaty HR
 allowed_Treaty<-function(Run_size,
+                         PFMC,
                          tiers=c(16000,36250,50000),
                          rates=c(.05,.1,.5,.5)){
-  ifelse(Run_size<=tiers[1],rates[1],
+ ER<- ifelse(Run_size<=tiers[1],rates[1],
          ifelse(Run_size<=tiers[2],rates[2],
                 ifelse(Run_size<=tiers[3],((rates[3]*(Run_size-29000)))/Run_size,#total harvestable = run size -29000
                        (rates[4]*((0.75 * (Run_size-50000)) + 21000))/Run_size
                 )))
+
+ ER*(Run_size/(Run_size-PFMC))
+
 }
 
 
+# returns allowed NT HR
 allowed_NT<-function(Run_size,
                      PFMC,
                      tiers=c(5000,16000,29000,32000,36250,50001),
@@ -69,7 +74,7 @@ allowed_NT<-function(Run_size,
 ){
 
 
- tot<- ifelse(Run_size<=tiers[1],rates[1]/Run_size,
+ tot_ER<- ifelse(Run_size<=tiers[1],rates[1]/Run_size,
          ifelse(Run_size<=tiers[2],rates[2]/Run_size,
                 ifelse(Run_size<=tiers[3],rates[3],
                        ifelse(Run_size<=tiers[4],rates[4],
@@ -78,8 +83,8 @@ allowed_NT<-function(Run_size,
                                             (rates[7]*((0.75 * (Run_size-50000)) + 21000))/Run_size
                                      ))))))
 
-
- max(tot-(PFMC/Run_size),.001)
+#subtract PFMC, make sure positive and convert from exploitation rate to harvest rate (i.e. denominator from RMRM+ PFMC to just RMRS)
+ max(tot_ER-(PFMC/Run_size),.001)*(Run_size/(Run_size-PFMC))
 
 
 }
