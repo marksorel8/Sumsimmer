@@ -113,14 +113,12 @@ quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1))
    Geomean_S_quants<-quants_of_ave(sim$S)
 
   ## Average pNOB
-   sim_pNOB<-sim$NOB[,yrs,]/c("Methow"=122,"Okanogan" = 650, "Wenatchee" = 310)
-   sim_pNOB_tot<-apply(sim$NOB[,yrs,],2:3,sum)/sum(c("Methow"=122,"Okanogan" = 650, "Wenatchee" = 310))
+  sim_pNOB<-sim$NOB[,yrs,]/(sim$HOB[-1,yrs,]+sim$NOB[,yrs,])
+   sim_pNOB_tot<-apply(sim$NOB[,yrs,],2:3,sum)/apply((sim$HOB[-1,yrs,]+sim$NOB[,yrs,]),2:3,sum)
 
 pNOB_quants<-   data.frame(cbind(
      apply(apply(sim_pNOB,c(1,3),quantile),1:2,mean),
      Total=apply(apply(sim_pNOB_tot,2,quantile),1,mean)))
-ave_quants(sim$NOB+sim$mean)
-
 
 Mean_pNOB_quants<-
   data.frame(cbind(
@@ -134,12 +132,15 @@ sim_pHOS_tot<-1-(apply(sim$NOS[,yrs,],2:3,sum)/apply(sim$S[-1,yrs,],2:3,sum))
 
    pHOS_quants<-
      data.frame(cbind(
-       apply(apply(sim_pHOS,c(1,3),mean),1,quantile),
-       Total=quantile(apply(sim_pNOB_tot,2,mean))))
+       apply(apply(sim_pHOS,c(1,3),quantile),1:2,mean),
+       Total=apply(apply(sim_pHOS_tot,2,quantile),1,mean)))
 
    Mean_pHOS_quants<-
+     data.frame(cbind(
+       apply(apply(sim_pHOS,c(1,3),mean),1,quantile),
+       Total=quantile(apply(sim_pHOS_tot,2,mean))))
 
-  ## Average pNI
+  ## Average PNI (pNOB/(pHOS + pNOB))
    S_quants<-ave_quants(sim$S)
    Geomean_S_quants<-quants_of_ave(sim$S)
 

@@ -80,7 +80,7 @@ for(i in 1:n_iter){
                        met_target=NO_broodstock_target["Methow"],
                        oka_target=NO_broodstock_target["Okanogan"],
                        wen_target=NO_broodstock_target["Wenatchee"])
-      HOB[2:4,y,i]<-NO_broodstock_target-NOB[,y,i]
+      HOB[2:4,y,i]<-pmax(NO_broodstock_target-NOB[,y,i],0)
       NOS[,y,i]<-escapement[-1]-NOB[,y,i]
       # hatchey broodstock needs for segregated and integrated programs
       tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
@@ -95,11 +95,11 @@ for(i in 1:n_iter){
        if(escapement[1]<tot_hatch_need){
    # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
         # every group is reduced proporitonally
-      prop_tot<-tot_hatch_need/escapement[1]
+      prop_tot<-escapement[1]/tot_hatch_need
       HOS<-HOS*prop_tot
       HOB[,y,i]<-HOB[,y,i]*prop_tot
       prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
-      S[1,y,i]<-S[1,y,i]*prop_tot2
+      S[1,y,i]<-max(S[1,y,i]*prop_tot2,S[1,y,i])
 
        }
        S[2:4,y,i]<-NOS[,y,i]+HOS
