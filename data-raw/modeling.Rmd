@@ -309,6 +309,8 @@ mutate(pop_group=ifelse(population_name=="Wenatchee","Wenatchee","OkMet")) |>
 
 # esc_dat |> ggplot(aes(y=NOR,x=year))+geom_point()+geom_line()+facet_wrap(~population_name)+ylab("Natural-origin spawners + broodstock") 
 
+internal_data$esc_dat<-esc_dat
+
 esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> select(year,population_name ,Spawn=NOS,Broodstock=NOBroodStockRemoved) %>%
   drop_na() |> pivot_longer(c(Spawn,Broodstock),values_to = "NO_Return") %>% ggplot(aes(x=year,y=NO_Return,fill=name))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+ylab("Nat. Origin Escapement")
 
