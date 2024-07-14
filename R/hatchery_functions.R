@@ -25,12 +25,12 @@ NOB_fun<-function(escapement,
 
 #proportion of hatchery origin spawners. Assumes available.
 pHOS_fun <- function (NOS, #natural origin spawners
-                      HOR, # hatchery origin returns
+                      HOE, # hatchery origin escapement
                       pHOS_mod_coefs=internal_data$pHOS_mod_coefs , # intercepts, effect of hatchery return
                       pHOS_err
 ){
 
-  plogis(pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(HOR)+pHOS_mod_coefs[5:7]*log(NOS)+pHOS_err)
+  plogis(pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(HOE)+pHOS_mod_coefs[5:7]*log(NOS)+pHOS_err)
 
 }
 

@@ -1097,11 +1097,17 @@ phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mut
   mutate(year_fac=as.factor(year),
          NOS_scale=scale(NOS),
          year_scale=scale(year),
-         hatch_return_scale=scale(hatch_return))
+         hatch_return_scale=scale(hatch_return)) |> 
+  left_join(term_ER,by=c("year"="Year")) |> 
+  ungroup() |> 
+  mutate(hatchery_escapement=hatch_return*(1-term_M_HR ))
 
 
+phos_dat %>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |>  
+ggplot(aes(x=hatchery_escapement,y=qlogis(PHOS)))+geom_point()+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+geom_smooth(method="lm")
 
-pHOS_mod<-glmmTMB::glmmTMB(logit_phos~population_name+log(NOS):population_name+log(hatch_return)-1+diag(population_name+0|year_fac),data=phos_dat|> filter(!is.na(hatch_return)),dispformula = ~0)
+
+pHOS_mod<-glmmTMB::glmmTMB(logit_phos~population_name+log(NOS):population_name+log(hatchery_escapement)-1+diag(population_name+0|year_fac),data=phos_dat|> filter(!is.na(hatchery_escapement)),dispformula = ~0)
 summary(pHOS_mod)
 AIC(pHOS_mod)
 
@@ -1116,7 +1122,7 @@ phos_dat |>
   rowwise() %>%
   mutate(value_sequence = list(seq(min_value, max_value,by=250))) %>%
   unnest(value_sequence) %>%
-  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatch_return=seq(5000,150000,by=10000),year_fac=as.factor(3000))
+  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(5000,150000,by=20000),year_fac=as.factor(3000))
 
 pred<-predict(pHOS_mod,newdata = pdat)
 pdat<-pdat |> mutate(pred=plogis(pred)) 
@@ -1124,7 +1130,7 @@ pdat<-pdat |> mutate(pred=plogis(pred))
 
 
 
-pdat |> ggplot(aes(y=pred,x=NOS,color=hatch_return))+geom_point(lwd=2)+facet_wrap(~population_name,scales="free_x")
+pdat |> ggplot(aes(y=pred,x=NOS,color=factor(hatchery_escapement)))+geom_line(lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])
 #note different scales
 
 internal_data$pHOS_mod_coefs<-
@@ -1137,7 +1143,7 @@ sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
 pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
 
 internal_data$pHOS_err<-pHOS_err
-# deciding whether to log transform NOS and hatchery returns could have considerable effect on outcome. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+# deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
 ```
 
 
