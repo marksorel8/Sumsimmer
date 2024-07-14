@@ -85,7 +85,7 @@ for(i in 1:n_iter){
       # hatchey broodstock needs for segregated and integrated programs
       tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
       # predicted pHOS
-      pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1,y,i],pHOS_err=pHOS_err[,y,i])
+      pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1],pHOS_err=pHOS_err[,y,i])
       #predicted Hatchery origin spawners
       HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
       #total number of hatchery origin fish needed for broodstock and predicted HOS
