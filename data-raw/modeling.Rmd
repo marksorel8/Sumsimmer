@@ -472,6 +472,17 @@ which represents random inter annual variation that is unique to each population
 
 
 ```{r hatch_recruits_per_release}
+  #lambert w function
+W <- function(x) {
+   logx <- log(x)
+   y <- pmax(logx, 0)
+   while (any(abs(logx - log(y) - y) > 1e-9, na.rm = TRUE)) {
+       y <- y - (y - exp(logx - y)) / (1 + y)
+   }
+   y
+ }
+  
+
 hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatchery) |> left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
   mutate(hatch_recruits=hatchery/(1-MREER)) 
 #combine hatchery and wild recruits per spawner/smolt 
@@ -517,22 +528,120 @@ test_mod_dat<-all_SR |> group_by(basin) |>
   mutate(year_fac=as.factor(brood_year),
          const=as.factor(1),
          s_scale=ifelse(basin=="Hatchery",0,s_scale),
-         wild=ifelse(basin=="Hatchery",0,1))
+         wild=ifelse(basin=="Hatchery",0,1),
+         S=ifelse(basin=="Hatchery",0,S))
 
-test_mod<-glmmTMB::glmmTMB(lrps~wild+S:wild:basin +ar1(year_fac+0|const)+diag(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+test_mod<-glmmTMB::glmmTMB(lrps~basin-1+S:basin +ar1(year_fac+0|const)+diag(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+
+test_mod<-glmmTMB::glmmTMB(lrps~wild+S:basin +us(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+
+
+## begin TMB ricker model
+library(RTMB)
+mod_mat<-model.matrix(lrps~basin-1+S:basin,data=test_mod_dat)
+
+n_yrs<-diff(range(test_mod_dat$brood_year))+1
+n_pops<-4
+
+##parameters
+params<-list(
+  alpha=c(3,1),
+  beta=rep(.00001,3),
+  log_sigma=rep(-1,4),
+  cors=rep(.2,6),
+  err=matrix(0,n_yrs+1,4),
+  # log_R=0
+  logit_rho=rep(0,4)
+)
+
+##data
+dat<-list(
+  lrps=test_mod_dat$lrps,
+  X=mod_mat,
+  err_ind=(as.numeric(test_mod_dat$year_fac))+(as.numeric(factor(test_mod_dat$basin))-1)*n_yrs
+)
+
+##objective function
+f<-function(parms){
+RTMB::getAll(dat, parms, warn=FALSE)
+
+par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
+
+pred<-X%*%par_vec #linear predictor
+
+
+rho<-plogis(logit_rho)
+adj<-sqrt(1-rho^2) # scalar from marginal to innovation error standard deviations
+sigma<-exp(log_sigma) #transformed marginal standard deviations
+
+err2<-matrix(nrow=nrow(err)-1,ncol=ncol(err))
+err2[1,]<-rho*err[1,]+adj*err[2,]
+for(i in 2:nrow(err2)){
+  err2[i,]<-rho*err2[i-1,]+adj*err[i+1,]
+}
+
+
+
+pred2<-pred+(err2)[err_ind]
+## Initialize joint negative log likelihood
+ nll <- 0
+ nll <- nll -sum(dnorm(lrps,pred2,.00001,log=TRUE))
+us<-unstructured(4)
+
+ nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
+ 
+ nll <- nll -sum(dnorm(logit_rho,-.5,1.5,log=TRUE))
+
+ nll
+}
+
+f(params) #test objective function 
+
+#cosntruct model object
+obj <- MakeADFun(f, params, random=c("err"))
+
+#optimize
+fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
+
+#fitted paramter values
+par_list<-obj$env$parList(par=obj$env$last.par.best)
+
+alpha<-exp(par_list$alpha)
+beta<- -par_list$beta
+marg_sd<-exp(par_list$log_sigma)
+rho<-plogis(par_list$logit_rho)
+rick_cor<-us$corr(par_list$cors)
+  Smsy <- (1 - W(exp(1-exp(par_list$alpha)[-1]))) / -par_list$beta
+Smsy
+fit$AIC
+
+
+test_mod<-glmmTMB::glmmTMB(lrps~1+wild+S:basin +us(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+
 
  summary(test_mod)
+
+ eval<-test_mod$frame |> as_tibble() |> mutate(pred= predict(test_mod,re.form=NA),resid=pred-lrps)
+ forecast::Acf(eval |> filter(basin=="Methow") |> pull(resid))
+  forecast::Acf(eval |> filter(basin=="Wenatchee") |> pull(resid))
+  forecast::Acf(eval |> filter(basin=="Okanogan") |> pull(resid))
+ forecast::Acf(eval |> filter(basin=="Hatchery") |> pull(resid))
  
- #played around some with including phos as variable in stock recruit model and found no support for it
+  #played around some with including phos as variable in stock recruit model and found no support for it
  
  
 
-ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(S)*1.5,length.out=50)) %>% 
+ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>% 
   mutate(year_fac=factor(3000)#,
          # s_scale=ifelse(basin=="Hatchery",0,(S-mu_s)/sd_s)
          ) |> 
            ungroup() %>% 
            modelr::add_predictions(test_mod) %>% mutate(recruits=exp(pred)*S) #
+
+ricker_pred <-ricker_pred |> mutate(pred=(
+model.matrix(const~basin-1+S:basin,data=ricker_pred)%*%c(log(alpha[1]),rep(log(alpha[2]),3),0,-beta) ),
+recruits=exp(pred)*S)
+
 
 
 ##plot spawners vs recruits (more years will be available if estimate age comp through IPM)
@@ -571,16 +680,7 @@ all_SR %>% ggplot(aes(x=S,y=R))+geom_point()+facet_wrap(~basin,scales="free") +
   
   bias_correction<-.5*(marginal_sigma^2)
   
-  #lambert w function
-W <- function(x) {
-   logx <- log(x)
-   y <- pmax(logx, 0)
-   while (any(abs(logx - log(y) - y) > 1e-9, na.rm = TRUE)) {
-       y <- y - (y - exp(logx - y)) / (1 + y)
-   }
-   y
- }
-  
+
   alpha_corrected<-exp(log((alpha))+bias_correction)
   beta_corrected<-beta*(alpha_corrected[-1]/(alpha[-1]))
    umsy <- (1 - W(exp(1-alpha[-1])))
@@ -901,7 +1001,7 @@ internal_data$PFMC_ave_prop<-PFMC_ave_prop
 ### In-river harvest
 
 ```{r term_HR_actual}
-pfmc_morts_2<-pfmc_morts |> select(`Allowed Treaty or NT Harvest`,`PFMC NT Harvest Total`,`Total In-river NT`,`Total Treaty`,`Total NT`,RMRS=`River Mouth Run Size`) |> pivot_longer(c(`Total Treaty`,`Total In-river NT`),values_to = "In_river_harvest",names_to = "Sector") |>
+pfmc_morts_2<-pfmc_morts |> select(`Allowed Treaty or NT Harvest`,`PFMC NT Harvest Total`,`Total In-river NT`,`Total Treaty`,`Total NT`,RMRS=`River Mouth Run Size`,Year) |> pivot_longer(c(`Total Treaty`,`Total In-river NT`),values_to = "In_river_harvest",names_to = "Sector") |>
   mutate(Allowed_in_river=ifelse(Sector=="Total In-river NT",`Allowed Treaty or NT Harvest`-`PFMC NT Harvest Total`,`Allowed Treaty or NT Harvest`),
          Total_harvest=ifelse(Sector=="Total Treaty",In_river_harvest,`Total NT`))|> filter(In_river_harvest>0) |> 
   mutate(Sector=ifelse(Sector=="Total Treaty","Treaty","NT"))|>
@@ -911,6 +1011,8 @@ pfmc_morts_2<-pfmc_morts |> select(`Allowed Treaty or NT Harvest`,`PFMC NT Harve
          HoA_HR=in_river_HR/in_river_allowed_HR) |> 
   rename(total_allowed=`Allowed Treaty or NT Harvest`)
   
+internal_data$pfmc_morts_2<-pfmc_morts_2
+
 #allowed vs actual HR
 ##total
 pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_smooth(method="lm",formula=("y~x"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
@@ -1367,7 +1469,7 @@ for (y in 1 : 6){
 
 
 
-
+###  SR
 
 
 ```{r}
@@ -1434,7 +1536,7 @@ SR %>% ggplot(aes(x=total_spawners,y=recruits))+geom_point()+facet_wrap(~basin,s
 SR %>% ggplot(aes(x=year,y=ricker_resid))+geom_point()+geom_line() +facet_wrap(~basin,scales="free")+ylab("Ricker residuals")
 
 ```
-
+### MARSS SR
 ```{r MARSS}
 
 # prep Z-scored log(recruits per Spawner/smolt) for MARSS
@@ -1462,14 +1564,64 @@ spawner_dat<-log_RPS |> select(brood_year) |>
 
 spawner_cov<-spawner_dat |> 
   select(-brood_year) |> 
-mutate(across(everything(),scale)) |> 
+# mutate(across(everything(),scale)) |> 
   as.matrix() |> 
   t()
 
+
+
+log_RPS<-test_mod_dat |> select(brood_year,basin,lrps) |> 
+  pivot_wider(values_from = lrps, names_from = basin) |> 
+  arrange(brood_year)
+
+
+ scale_log_RPS<-log_RPS |> select(-brood_year) |> 
+  # mutate(across(everything(),scale)) |>
+  as.matrix() |> 
+  t()
+ 
+ # 
+ # spawner_cov<-test_mod_dat |> select(brood_year,basin,S) |> 
+ #  pivot_wider(values_from = S, names_from = basin) |> 
+ #  arrange(brood_year) |> filter(brood_year>=1996) |> select(-brood_year) |> 
+ #  # mutate(across(everything(),scale)) |> 
+ #  as.matrix() |> 
+ #  t()
+
+
+spawner_cov<-spawner_dat |> 
+  select(-brood_year) |> 
+# mutate(across(everything(),scale)) |> 
+  as.matrix() |> 
+  t()
 #-----------------------------------------------
-### DFA
-ns<-nrow(scale_log_RPS)
+mus<-log_RPS |> select(-brood_year) |>   summarise(across(everything(),mean,na.rm=T)) 
+ sds<-log_RPS|> select(-brood_year) |>   summarise(across(everything(),sd,na.rm=T)) 
+ 
+ library(MARSS)
+ ns<-nrow(scale_log_RPS)
 n_fac<-1
+
+B=matrix(list(0),4,4)#"diagonal and unequal"
+diag(B)<-.5list("M",0,"W",0)
+B="diagonal and unequal"
+Q="unconstrained"
+# R=diag(4)*.01
+R="diagonal and unequal"
+D=matrix(list("M",0,0,0,0,"O",0,0,0,0,"W",0,0,0,0,0),4,4)
+U="zero"
+Z="identity"
+A=matrix(list("a","a","a",0),4,1)
+x0="unequal"
+ model.list<-list(B=B,Q=Q,R=R,d=spawner_cov,D=D,U=U,Z=Z,A=A,x0=x0)
+ 
+ fit <- MARSS(scale_log_RPS, model=model.list)
+ 
+ fit_coef<-coef(fit)
+ fit_coef$A*sds+mus
+ fit_coef$D*sds[1:3]
+### DFA### coefficients()DFA
+
 
 B <- matrix(list(0), n_fac, n_fac)
 diag(B)<-paste0("b",1:n_fac)
@@ -1530,6 +1682,8 @@ rec_func<-function(S # matrix or vector of spawners/smolts with rows Methow, Oka
   lrps<-(slrps-lrps_means)/lrps_sds
   S*lrps
 }
+
+
 
 
 ```
