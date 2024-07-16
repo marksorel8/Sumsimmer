@@ -453,7 +453,7 @@ We count each subyearling release as 0.5 of a yearling release when calculating 
 
 We account for random variation around the average recruits per spawner that is correlated from year to year and among populations, which occurs because survival is related to climate signals that vary at decade time scales and affect all of the populations simmilarly. It is important to account for this because it results in total returns being more variable than if each population varied independently (i.e., the portfolio effect) and is potentially increases risk if climate conditions are unfavorable for several consecutive years.
 
-
+FIXME:: This all needs to be redone to reflect the new RTMB model form
 The equation for the recruits per spawner in year $t$ was,
 
 $$ 
@@ -579,7 +579,7 @@ err2[1,]<-rho*err[1,]+adj*err[2,]
 for(i in 2:nrow(err2)){
   err2[i,]<-rho*err2[i-1,]+adj*err[i+1,]
 }
-
+REPORT(err2)
 
 
 pred2<-pred+(err2)[err_ind]
@@ -603,6 +603,7 @@ obj <- MakeADFun(f, params, random=c("err"))
 #optimize
 fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
 
+fit_rep<-obj$report(par=obj$env$last.par.best)
 #fitted paramter values
 par_list<-obj$env$parList(par=obj$env$last.par.best)
 
@@ -652,69 +653,92 @@ all_SR %>% ggplot(aes(x=S,y=R))+geom_point()+facet_wrap(~basin,scales="free") +
 
 
  
-  # spawner recruit model parameters
- mod_pars<-test_mod$obj$env$parList(par=test_mod$obj$env$last.par.best)
-  
-  # scales for log recruits per spawners
-  # lrps_scales<-test_mod_dat |> select(basin,mu_rps,sd_rps) |> distinct() |> arrange(basin)
-  
-  #log recruits per spawners
-  alpha<- exp(mod_pars$beta[1]+mod_pars$beta[2]*c(0,1,1,1)) #* 
-    # lrps_scales$sd_rps) + 
-    # lrps_scales$mu_rps
-  
-  
-  beta <- -c(mod_pars$beta[3:5]) #* 
-    # lrps_scales$sd_rps
+#   # spawner recruit model parameters
+#  mod_pars<-test_mod$obj$env$parList(par=test_mod$obj$env$last.par.best)
+#   
+#   # scales for log recruits per spawners
+#   # lrps_scales<-test_mod_dat |> select(basin,mu_rps,sd_rps) |> distinct() |> arrange(basin)
+#   
+#   #log recruits per spawners
+#   alpha<- exp(mod_pars$beta[1]+mod_pars$beta[2]*c(0,1,1,1)) #* 
+#     # lrps_scales$sd_rps) + 
+#     # lrps_scales$mu_rps
+#   
+#   
+#   beta <- -c(mod_pars$beta[3:5]) #* 
+#     # lrps_scales$sd_rps
+# 
+#   
+#   rho<- mod_pars$theta[2]/(sqrt(1+mod_pars$theta[2]^2)) ## autocorrelation coefficient
+#   sigma_ar<-exp(mod_pars$theta[1])*sqrt(1-rho^2)#* 
+#    # lrps_scales$sd_rps ## shared process error
+#  
+#   sigma_unique<-exp(mod_pars$theta[3:6])#* 
+#     #lrps_scales$sd_rps ## itosyncratic process error
+#   
+#   marginal_sigma<-sigma_unique+exp(mod_pars$theta[1])#*
+#     #lrps_scales$sd_rps)
+#   
+#   bias_correction<-.5*(marginal_sigma^2)
+#   
+# 
+#   alpha_corrected<-exp(log((alpha))+bias_correction)
+#   beta_corrected<-beta*(alpha_corrected[-1]/(alpha[-1]))
+#    umsy <- (1 - W(exp(1-alpha[-1])))
+#    Smsy <- (1 - W(exp(1-alpha[-1]))) / beta
+#   
+# 
+# 
+#    
+#    #function to simulate recruitment deviations
+#    SR_err_fun<-function(t1=mod_pars$b[30],# AR1 random effect in final year
+#                         n_years=50,
+#                         n_sims=500){
+#   
+#    # random deviates
+#   ## shared process error
+#   shared<-matrix(rnorm(n_years*n_sims,0,sigma_ar),n_years)
+#   shared[1,]<-t1*rho + shared[1,]
+#   for (i in 2:n_years){
+#       shared[i,]<-shared[i-1,]*rho + shared[i,]
+#   }
+#   
+#   proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
+# for ( i in 1:4){
+#   proc_err[i,,]<-(rnorm(n_years*n_sims,0,sigma_unique[i])+shared)
+# }
+# 
+#   return(proc_err)
+#   }
+# 
+#     set.seed(1234)
+# SR_err<-SR_err_fun(t1 = mod_pars$b[30],n_years = 50, n_sims = 500)
 
-  
-  rho<- mod_pars$theta[2]/(sqrt(1+mod_pars$theta[2]^2)) ## autocorrelation coefficient
-  sigma_ar<-exp(mod_pars$theta[1])*sqrt(1-rho^2)#* 
-   # lrps_scales$sd_rps ## shared process error
- 
-  sigma_unique<-exp(mod_pars$theta[3:6])#* 
-    #lrps_scales$sd_rps ## itosyncratic process error
-  
-  marginal_sigma<-sigma_unique+exp(mod_pars$theta[1])#*
-    #lrps_scales$sd_rps)
-  
-  bias_correction<-.5*(marginal_sigma^2)
-  
 
-  alpha_corrected<-exp(log((alpha))+bias_correction)
-  beta_corrected<-beta*(alpha_corrected[-1]/(alpha[-1]))
-   umsy <- (1 - W(exp(1-alpha[-1])))
-   Smsy <- (1 - W(exp(1-alpha[-1]))) / beta
-  
-
-
-   
    #function to simulate recruitment deviations
-   SR_err_fun<-function(t1=mod_pars$b[30],# AR1 random effect in final year
+   SR_err_fun_TMB<-function(t1=fit_rep$err2 |> tail(1) |> c(),# AR1 random effect in final year
                         n_years=50,
                         n_sims=500){
   
    # random deviates
-  ## shared process error
-  shared<-matrix(rnorm(n_years*n_sims,0,sigma_ar),n_years)
-  shared[1,]<-t1*rho + shared[1,]
+     err<-array(t(mvtnorm::rmvnorm(n=n_years*n_sims,sigma=rick_cor)),dim=c(4,n_years,n_sims))
+     innovation_sd<-marg_sd*sqrt(1-rho^2)
+     ##  process error
+     proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
+       proc_err[,1,]<-t1*rho + marg_sd*err[,1,]
   for (i in 2:n_years){
-      shared[i,]<-shared[i-1,]*rho + shared[i,]
+      proc_err[,i,]<-proc_err[,i-1,]*rho + innovation_sd*err[,i,]
   }
   
-  proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
-for ( i in 1:4){
-  proc_err[i,,]<-(rnorm(n_years*n_sims,0,sigma_unique[i])+shared)
-}
-
-  return(proc_err)
+  proc_err
   }
 
     set.seed(1234)
-SR_err<-SR_err_fun(t1 = mod_pars$b[30],n_years = 50, n_sims = 500)
+SR_err<-SR_err_fun_TMB(t1 = fit_rep$err2 |> tail(1) |> c(),n_years = 50, n_sims = 500)
 
 
-internal_data$alphas<-alpha
+
+internal_data$alphas<-c(alpha[1],rep(alpha[2],3))
 internal_data$betas<-beta
 internal_data$SR_err<-SR_err
 internal_data$Smsy<-Smsy
