@@ -590,8 +590,9 @@ us<-unstructured(4)
 
  nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
  
- nll <- nll -sum(dnorm(logit_rho,-.5,1.5,log=TRUE))
-
+ nll <- nll -sum(dnorm(logit_rho,-2,1.5,log=TRUE))
+ 
+ nll <- nll -sum(dexp(sigma,1,log=TRUE))+sum(log_sigma)
  nll
 }
 
@@ -611,6 +612,7 @@ alpha<-exp(par_list$alpha)
 beta<- -par_list$beta
 marg_sd<-exp(par_list$log_sigma)
 rho<-plogis(par_list$logit_rho)
+us<-unstructured(4)
 rick_cor<-us$corr(par_list$cors)
   Smsy <- (1 - W(exp(1-exp(par_list$alpha)[-1]))) / -par_list$beta
 Smsy
