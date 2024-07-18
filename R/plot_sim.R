@@ -1,4 +1,4 @@
-# sim<-pop_sim()
+# sim<-pop_sim( SR_err=internal_data$SR_err[,,])
 
 
 CV<-function(x){(sd(x)/mean(x))*100}
@@ -6,143 +6,147 @@ CV<-function(x){(sd(x)/mean(x))*100}
 
 geo_mean<-function(x){exp(mean(log(x)))}
 
-ave_quants<-function(x,fun=geo_mean){
+ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
   data.frame(cbind(
     apply(apply(x[,yrs,],c(1,3),quantile),1:2,fun),
-    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile),1,fun)))
+    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile),1,fun))) |>
+     t() |> data.frame() |>
+    `colnames<-`(c("min","LQI","med","UQI","max"))  |>
+      rownames_to_column(rnames)|>
+    mutate(HCR=HCR_name)
+
 }
 
-quants_of_ave<-function(x,fun=geo_mean){
+quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31){
   data.frame(cbind(
     apply(apply(x[,yrs,],c(1,3),fun),1,quantile),
-    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun))))
+    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun))))|>
+    t() |> data.frame() |>
+    `colnames<-`(c("min","LQI","med","UQI","max")) |>
+    rownames_to_column(rnames)|>
+    mutate(HCR=HCR_name)
+}
+
+
+harvest_quants_fun<-function(dat,HCR_name="Current",fun=geo_mean,qtiles=c(.025,.25,.5,.75,.975),yrs=7:31,...){
+data.frame(rbind(
+    apply(apply(apply(dat$terminal_NT[,yrs,],2:3,sum),2,quantile,qtiles,...),1,fun), # sum across populations, quantile across years, geometrtic mean across simulations
+    apply(apply(apply(dat$terminal_NT[,yrs,],2:3,sum) + dat$PFMC[yrs,],2,quantile,qtiles,...),1,fun),
+    apply(apply(apply(dat$terminal_treaty[,yrs,],2:3,sum),2,quantile,qtiles,...),1,fun)
+  )) |>
+    `colnames<-`(c("min","LQI","med","UQI","max")) |>
+    mutate(Sector=c("NT_in_river","NT_plus_PFMC","Treaty"),
+           HCR=HCR_name)
+}
+
+
+PNI_quants_fun<-function(dat,HCR_name="Current",rnames="River",qtiles=c(.025,.25,.5,.75,.975),yrs=7:31,...){
+
+  ##pHOS
+  sim_pHOS<-1-(dat$NOS[,yrs,]/dat$S[-1,yrs,])
+  sim_pHOS_tot<-1-(apply(dat$NOS[,yrs,],2:3,sum)/apply(dat$S[-1,yrs,],2:3,sum))
+
+  # pHOS_quants<-
+  #   data.frame(cbind(
+  #     apply(apply(sim_pHOS,c(1,3),quantile,qtiles),1:2,mean),
+  #     Total=apply(apply(sim_pHOS_tot,2,quantile,qtiles),1,mean)))
+  #
+  # Mean_pHOS_quants<-
+  #   data.frame(cbind(
+  #     apply(apply(sim_pHOS,c(1,3),mean),1,quantile,qtiles),
+  #     Total=quantile(apply(sim_pHOS_tot,2,mean),qtiles)))
+
+  ##pNOB
+  sim_pNOB<-dat$NOB[,yrs,]/(dat$HOB[-1,yrs,]+dat$NOB[,yrs,])
+  sim_pNOB_tot<-apply(dat$NOB[,yrs,],2:3,sum)/apply((dat$HOB[-1,yrs,]+dat$NOB[,yrs,]),2:3,sum)
+
+  # pNOB_quants<-   data.frame(cbind(
+  #   apply(apply(sim_pNOB,c(1,3),quantile,qtiles),1:2,mean),
+  #   Total=apply(apply(sim_pNOB_tot,2,quantile,qtiles),1,mean)))
+  #
+  # Mean_pNOB_quants<-
+  #   data.frame(cbind(
+  #     apply(apply(sim_pNOB,c(1,3),mean),1,quantile,qtiles),
+  #     Total=quantile(apply(sim_pNOB_tot,2,mean),qtiles)))
+
+  ##PNI
+  sim_PNI<-sim_pNOB/(sim_pNOB+sim_pHOS)
+  sim_PNI_tot<-sim_pNOB_tot/(sim_pNOB_tot+sim_pHOS_tot)
+
+  PNI_quants<-
+    data.frame(cbind(
+      apply(apply(sim_PNI,c(1,3),quantile,qtiles),1:2,mean),
+      Total=apply(apply(sim_PNI_tot,2,quantile,qtiles),1,mean)))
+
+  # Mean_PNI_quants<-
+  #   data.frame(cbind(
+  #     apply(apply(sim_PNI,c(1,3),mean),1,quantile,qtiles),
+  #     Total=quantile(apply(sim_PNI_tot,2,mean),qtiles)))
+
+  # list(
+  #   pHOS_quants=pHOS_quants,
+  #      Mean_pHOS_quants=Mean_pHOS_quants,
+  #      pNOB_quants=pNOB_quants,
+  #      Mean_pNOB_quants=Mean_pNOB_quants,
+  #      PNI_quants=PNI_quants,
+  #      Mean_PNI_quants=Mean_PNI_quants
+  #      ) |> lapply(function(x){x |> t()|>
+  #         `colnames<-`(c("min","LQI","med","UQI","max")) |>
+  #          data.frame() |>
+  #          rownames_to_column(rnames) |>
+  #          mutate( HCR=HCR_name)})
+  PNI_quants |> t()|>
+          `colnames<-`(c("min","LQI","med","UQI","max")) |>
+           data.frame() |>
+           rownames_to_column(rnames) |>
+           mutate( HCR=HCR_name)
+
 }
 
 
 
-summarize_sim<-function(sim,yrs=7:31){
-  library(tidyverse)
-  pfmc_morts<-readxl::read_xlsx("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx",sheet="TotalRunSize",skip=2,n_max = 45) |>
-    filter(Year>=2008) |> rename(`PFMC NT Harvest Total`=`PFMC NT Ocean Impacts`)
+plot_harvest_quants<-function(harvest_quants){
 
-  #Average RMRS
-
-  #Harvest
-  ##  across-year quantiles: min, 25%, median, 75%, max
-
-  harvest_quants<-data.frame(rbind(
-  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,quantile),1,geo_mean), # sum across populations, quantile across years, geometrtic mean across simulations
-  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,quantile),1,geo_mean),
-  apply(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,quantile),1,geo_mean)
-  ))
-  colnames(harvest_quants)<-c("min","LQI","med","UQI","max")
-  harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
-
-
-
-  harvest_quants
-  rbind(
-  quantile(head(pfmc_morts$`Total In-river NT`,-1)),
-  quantile(head(pfmc_morts$`Total NT`,-1)),
-  quantile(head(pfmc_morts$`Total Treaty`,-1))
-  )
-
-  ## Across year geometric mean harvest
-  average_harvest_quants<-data.frame(rbind(
-    quantile(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,geo_mean)), # sum across populations, geometrtic mean across simulations
-    quantile(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,geo_mean)),
-    quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,geo_mean))
-  ))
-  colnames(average_harvest_quants)<-c("min","LQI","med","UQI","max")
-  average_harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
-
-  average_harvest_quants
-  rbind(
-    geo_mean(head(pfmc_morts$`Total In-river NT`,-1)),
-    geo_mean(head(pfmc_morts$`Total NT`,-1)),
-    geo_mean(head(pfmc_morts$`Total Treaty`,-1))
-  )
-
-  ## average ratio of treaty to non-treaty
-  ### quantiles of across-year mean
-  Sector_ratio<-data.frame(rbind(
-  quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum)/apply(sim$terminal_NT[,yrs,],2:3,sum),2,mean)),
-  quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum)/(apply(sim$terminal_NT[,yrs,],2:3,sum)+ sim$PFMC[yrs,]),2,mean))
-  ))
-  colnames(Sector_ratio)<-c("min","LQI","med","UQI","max")
-  Sector_ratio$ratio<-c("Treaty:NT_in_river","Treaty:NT_Total")
-
-  Sector_ratio
-
-  rbind(
-quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total In-river NT`,-1)),
-quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1))
-)
-
-
-    ## harvest variability (year to year)
-
-
-
-  CV_harvest_quants<-data.frame(rbind(
-    quantile(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,CV)), # sum across populations, geometrtic mean across simulations
-    quantile(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,CV)),
-    quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,CV))
-  ))
-  colnames(CV_harvest_quants)<-c("min","LQI","med","UQI","max")
-  CV_harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
-
-  CV_harvest_quants
-  rbind(
-    CV(head(pfmc_morts$`Total In-river NT`,-1)),
-    CV(head(pfmc_morts$`Total NT`,-1)),
-    CV(head(pfmc_morts$`Total Treaty`,-1))
-  )
-
-
-  #Conservation
-
-
-
-  ## Average NO spawners
-   NOS_quants<-ave_quants(sim$NOS)
-   Geomean_NOS_quants<-quants_of_ave(sim$NOS)
-
-  ## Average total spawners
-   S_quants<-ave_quants(sim$S)
-   Geomean_S_quants<-quants_of_ave(sim$S)
-
-  ## Average pNOB
-  sim_pNOB<-sim$NOB[,yrs,]/(sim$HOB[-1,yrs,]+sim$NOB[,yrs,])
-   sim_pNOB_tot<-apply(sim$NOB[,yrs,],2:3,sum)/apply((sim$HOB[-1,yrs,]+sim$NOB[,yrs,]),2:3,sum)
-
-pNOB_quants<-   data.frame(cbind(
-     apply(apply(sim_pNOB,c(1,3),quantile),1:2,mean),
-     Total=apply(apply(sim_pNOB_tot,2,quantile),1,mean)))
-
-Mean_pNOB_quants<-
-  data.frame(cbind(
-    apply(apply(sim_pNOB,c(1,3),mean),1,quantile),
-    Total=quantile(apply(sim_pNOB_tot,2,mean))))
-
-
-  ## Average pHOS
-sim_pHOS<-1-(sim$NOS[,yrs,]/sim$S[-1,yrs,])
-sim_pHOS_tot<-1-(apply(sim$NOS[,yrs,],2:3,sum)/apply(sim$S[-1,yrs,],2:3,sum))
-
-   pHOS_quants<-
-     data.frame(cbind(
-       apply(apply(sim_pHOS,c(1,3),quantile),1:2,mean),
-       Total=apply(apply(sim_pHOS_tot,2,quantile),1,mean)))
-
-   Mean_pHOS_quants<-
-     data.frame(cbind(
-       apply(apply(sim_pHOS,c(1,3),mean),1,quantile),
-       Total=quantile(apply(sim_pHOS_tot,2,mean))))
-
-  ## Average PNI (pNOB/(pHOS + pNOB))
-   S_quants<-ave_quants(sim$S)
-   Geomean_S_quants<-quants_of_ave(sim$S)
-
+  harvest_quants |>
+    ggplot(aes(x = Sector, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Annual harvest")
 
 }
+
+plot_NOS_quants<-function(NOS_quants){
+  NOS_quants |>
+  ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Annual natural-origin spawners")#+geom_hline(yintercept=50,lty=2)
+
+}
+
+plot_PNI_quants<-function(PNI_quants){
+  PNI_quants|>
+    ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Annual Proportionate Natural Influence")
+
+}
+
+
+
+plot_all_fun<-function(sim_list){
+
+  # sim<-pop_sim()
+  # sim2<-pop_sim(NO_broodstock_target =c(Methow = 50, Okanogan = 50, Wenatchee = 50))
+  # sim_list<-list(Current=sim,weird=sim2)
+  # library(tidyverse)
+  harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)}))
+
+  NOS_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$NOS,rnames="River",HCR_name=x))) |> mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")))
+
+  PNI_quants<-do.call(rbind,lapply(names(sim_list),function(x) PNI_quants_fun(sim_list[[x]],rnames="River",HCR_name=x)))|> mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")))
+
+
+  harv_plot<-plot_harvest_quants(harvest_quants)
+
+  NOS_plot<-plot_NOS_quants(NOS_quants)
+
+  PNI_plot<-plot_PNI_quants(PNI_quants)
+
+  ggpubr::ggarrange(harv_plot,NOS_plot,PNI_plot,nrow=1,common.legend = TRUE, legend = "top")
+
+}
+
+# p1<-plot_all_fun(sim_list)

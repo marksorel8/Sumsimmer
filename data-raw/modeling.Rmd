@@ -591,8 +591,7 @@ us<-unstructured(4)
  nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
  
  nll <- nll -sum(dnorm(logit_rho,-2,1.5,log=TRUE))
- 
- nll <- nll -sum(dexp(sigma,1,log=TRUE))+sum(log_sigma)
+
  nll
 }
 
