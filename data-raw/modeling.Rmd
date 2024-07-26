@@ -366,6 +366,7 @@ We subtract the wild run size from the summer management period river mouth run 
 returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("Run size")
 
 
+
 ```
 
 ## Ocean harvest
@@ -633,12 +634,12 @@ test_mod<-glmmTMB::glmmTMB(lrps~1+wild+S:basin +us(basin+0|year_fac),data=test_m
  
  
 
-ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>% 
+ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)#,
          # s_scale=ifelse(basin=="Hatchery",0,(S-mu_s)/sd_s)
-         ) |> 
-           ungroup() %>% 
-           modelr::add_predictions(test_mod) %>% mutate(recruits=exp(pred)*S) #
+         ) #|>
+           # ungroup() %>%
+           # modelr::add_predictions(test_mod) %>% mutate(recruits=exp(pred)*S) #
 
 ricker_pred <-ricker_pred |> mutate(pred=(
 model.matrix(const~basin-1+S:basin,data=ricker_pred)%*%c(log(alpha[1]),rep(log(alpha[2]),3),0,-beta) ),
@@ -989,7 +990,7 @@ summary(pfm_mort_mod)
 AIC(pfm_mort_mod)
 
 
-pred_harv<-(stats::predict(pfm_mort_mod,newdata=data.frame(RMRS=seq(1000,150000,by=10000))))
+pred_harv<-exp(stats::predict(pfm_mort_mod,newdata=data.frame(RMRS=seq(1000,150000,by=10000))))
 
 
 plot(pfmc_mort_dat$RMRS,pfmc_mort_dat$`PFMC NT Ocean Impacts`,pch=19,ylab="PFMC NT AEQ HR",xlab="Rivermouth run size")
@@ -1005,12 +1006,28 @@ sd_lar_pfmc<-sigma(pfm_mort_mod)
 #
 mean(log(exp(predict(pfm_mort_mod))/pfmc_mort_dat$PFMCNT))
 
-plot(seq(1000,150000,by=10000),exp(pred_harv),type="l",ylab="PFMC NT AEQ morts",xlab="Rivermouth run size",ylim=c(0,20000))
-points(pfmc_mort_dat$RMRS,pfmc_mort_dat$PFMCNT)
-points(seq(1000,150000,by=10000),exp(pred_harv+(1*sd_lar_pfmc)),type="l",lty=2)
-points(seq(1000,150000,by=10000),exp(pred_harv+(-1*sd_lar_pfmc)),type="l",lty=2)
-points(seq(1000,150000,by=10000),exp(pred_harv+(1.96*sd_lar_pfmc)),type="l",lty=3)
-points(seq(1000,150000,by=10000),exp(pred_harv+(-1.96*sd_lar_pfmc)),type="l",lty=3)
+plot(seq(1000,150000,by=10000),(pred_harv),type="l",ylab="PFMC NT AEQ morts",xlab="Rivermouth run size",ylim=c(0,20000))
+
+
+
+polygon(c(seq(1000,150000,by=10000),rev(seq(1000,150000,by=10000))),
+        c(exp(log(pred_harv)+(2*sd_lar_pfmc)),rev(exp(log(pred_harv)-(2*sd_lar_pfmc)))),col="lightgrey",border="lightgrey")
+
+
+polygon(c(seq(1000,150000,by=10000),rev(seq(1000,150000,by=10000))),
+        c(exp(log(pred_harv)+(1*sd_lar_pfmc)),rev(exp(log(pred_harv)-(1*sd_lar_pfmc)))),col="grey",border="grey")
+
+points(seq(1000,150000,by=10000),(pred_harv),type="l")
+points(pfmc_mort_dat$RMRS,pfmc_mort_dat$PFMCNT,pch=19)
+
+
+
+
+
+points(seq(1000,150000,by=10000),exp(log(pred_harv)+(1*sd_lar_pfmc)),type="l",lty=2)
+points(seq(1000,150000,by=10000),exp(log(pred_harv)+(-1*sd_lar_pfmc)),type="l",lty=2)
+points(seq(1000,150000,by=10000),exp(log(pred_harv)+(1.96*sd_lar_pfmc)),type="l",lty=3)
+points(seq(1000,150000,by=10000),exp(log(pred_harv)+(-1.96*sd_lar_pfmc)),type="l",lty=3)
 n_year<-50
 n_sim<-500
 set.seed(910)
@@ -1045,11 +1062,13 @@ pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_sm
 
 ##in river
 pfmc_morts_2|> 
-  ggplot(aes(x=Allowed_in_river,y=(In_river_harvest)))+geom_point()+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
+  ggplot(aes(x=Allowed_in_river,y=In_river_harvest))+geom_point()+#geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+
+  geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)+ylim(0,38000)+ylab("In-rive harvest")+xlab("Allowed in river")
 
 
 pfmc_morts_2|>
-  ggplot(aes(x=qlogis(in_river_allowed_HR),y=qlogis(in_river_HR),color=Sector))+geom_point()+geom_abline(intercept=0,slope=1,lwd=1.5)+geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)#+facet_wrap(~Sector)
+  ggplot(aes(x=(in_river_allowed_HR),y=(in_river_HR)))+geom_point()+geom_abline(intercept=0,slope=1,lwd=1.5)+#geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)#+
+  facet_wrap(~Sector)+ylim(0,.3)+xlim(0,.3)+ylab("In-rive HR")+xlab("Allowed in-river HR")#+geom_smooth(method="lm",formula=("y~(x)-1"),se=FALSE)
 
 
 ## explore
@@ -1115,7 +1134,7 @@ in_riv_pred$lcl<-plogis(qlogis(in_riv_pred$pred)-2*exp(ifelse(in_riv_pred$Sector
 
 
 in_riv_pred |> 
-   ggplot(aes(x=in_river_allowed_HR,y=pred,color=Sector))+geom_line(lwd=1.25)+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR,color=Sector),cex=1.5)+geom_abline(intercept=0,slope=1)+geom_line(aes(x=in_river_allowed_HR,y=lcl),lty=2)+geom_line(aes(x=in_river_allowed_HR,y=ucl),lty=2)+facet_wrap(~Sector)
+   ggplot(aes(x=in_river_allowed_HR,y=pred))+geom_line(lwd=1.25,color="firebrick4")+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR),cex=1.75)+geom_abline(intercept=0,slope=1)+geom_line(aes(x=in_river_allowed_HR,y=lcl),lty=2,color="firebrick4")+geom_line(aes(x=in_river_allowed_HR,y=ucl),lty=2,color="firebrick4")+facet_wrap(~Sector)+ylim(.1,.35)+xlim(0,.4)+ylab("In-rive HR")+xlab("Allowed in-river HR")
 
 
 
@@ -1169,7 +1188,7 @@ esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> dplyr::select(year,population_name
   drop_na()  %>% ggplot(aes(x=year,y=NOR))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+ylab("Natural origin returns")
 
 esc_dat %>% filter(year>=2012)|> dplyr::select(year,population_name ,Broodstock=NOBroodStockRemoved,NOR) %>%
-  drop_na()  %>% ggplot(aes(x=(NOR),y=(Broodstock)))+geom_point()+facet_wrap(~population_name,scales="free_x")+geom_smooth(method = "lm",formula="(y)~log(x)")
+  drop_na()  %>% ggplot(aes(x=(NOR),y=(Broodstock)))+geom_point()+facet_wrap(~population_name,scales="free_x")+geom_smooth(method = "lm",formula="(y)~log(x)")+xlab("Natural-origin escapement")+ylab("Natural-origin broodstock")
 
 
 Ok_bs_mod<-(lm(log(NOBroodStockRemoved)~log(NOR)-1,
@@ -1232,6 +1251,10 @@ phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mut
   mutate(hatchery_escapement=hatch_return*(1-term_M_HR ))
 
 
+
+ phos_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |>  dplyr::select(year,population_name ,PHOS,NOS,hatchery_escapement) %>%
+  drop_na()  %>% ggplot(aes(x=NOS,y=PHOS,color=hatchery_escapement))+geom_point(cex=3)+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+geom_smooth(method="lm",formula = "y~log(x)")+ylab("Proportion hatchery origin spawners (pHOS)")+xlab("Natural origin spawners")
+
 phos_dat %>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |>  
 ggplot(aes(x=hatchery_escapement,y=qlogis(PHOS)))+geom_point()+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+geom_smooth(method="lm")
 
@@ -1259,7 +1282,7 @@ pdat<-pdat |> mutate(pred=plogis(pred))
 
 
 
-pdat |> ggplot(aes(y=pred,x=NOS,color=factor(hatchery_escapement)))+geom_line(lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])
+pdat |> mutate(hatchery_escapement=as.factor(hatchery_escapement))|> ggplot(aes(y=pred,x=NOS,color=hatchery_escapement))+geom_line(lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])+ylab("Predicted pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat,aes(x=NOS,y=PHOS,color=year_fac))
 #note different scales
 
 internal_data$pHOS_mod_coefs<-
@@ -1317,12 +1340,13 @@ internal_data$smolt_err<-smolt_err
 Proportion of handled unmarked fish that are released in non-treaty fisheries. 
 ```{r}
 # Unmarked release rates
-URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()
+URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()+xlim(2008,2023)+ylab("Unmarked release rate")
 
-URR |> filter(Year>=2013) |> summarize(URR=mean(URR))
-internal_data$URR<-URR |> filter(Year>=2013) |> summarize(URR=mean(URR)) |> pull(URR)
+recent_URR<-URR |> filter(Year>=2013) |> summarize(URR=mean(URR))
 
+internal_data$URR<-URR |> filter(Year>=2013) |> summarize(URR=mean(URR)) |> pull(URR) 
 
+URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()+xlim(2008,2023)+ylab("Unmarked release rate")+geom_segment(aes(x=2013,y=internal_data$URR,xend=2023,yend=internal_data$URR),color="firebrick4",lty=2,lwd=1.5)
 
 #spawners in first 6 years
 
@@ -1344,6 +1368,9 @@ usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
 }  
   
 ```
+
+
+#End - 
 
 
 ## 

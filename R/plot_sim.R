@@ -120,7 +120,7 @@ plot_NOS_quants<-function(NOS_quants){
 
 plot_PNI_quants<-function(PNI_quants){
   PNI_quants|>
-    ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Annual Proportionate Natural Influence")
+    ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Annual Proportionate Natural Influence")+ylim(0,1)
 
 }
 
@@ -129,7 +129,7 @@ plot_PNI_quants<-function(PNI_quants){
 plot_all_fun<-function(sim_list){
 
   # sim<-pop_sim()
-  # sim2<-pop_sim(NO_broodstock_target =c(Methow = 50, Okanogan = 50, Wenatchee = 50))
+  # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
   # sim_list<-list(Current=sim,weird=sim2)
   # library(tidyverse)
   harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)}))
@@ -150,3 +150,76 @@ plot_all_fun<-function(sim_list){
 }
 
 # p1<-plot_all_fun(sim_list)
+
+
+plot_HCR<-function(treaty_tiers=c(16000,36250,50000,Inf),
+                   treaty_rates=c(.05,.1,NA,NA),
+                   treaty_scalar=c(NA,NA,1,.75),
+                   treaty_offset=c(NA,NA,29000,16500),
+                   treaty_share = c(NA,NA,.5,.5),
+                   NT_tiers=c(5000,16000,29000,32000,36250,50001,Inf),
+                   NT_rates=c(100,200,.05,.06,.07,NA,NA),
+                   NT_scalar=c(rep(NA,5),1,.75),
+                   NT_offset=c(rep(NA,5),29000,16500),
+                   NT_share=c(rep(NA,5),.5,.5)
+                   ){
+
+  RMRS<-seq(5000,75000,length.out=100)
+  PFMC<-exp(internal_data$PFMC_ave_prop*log(RMRS))
+  Treaty<-numeric(100)
+  for(i in 1:100){Treaty[i]<-allowed_Treaty(RMRS[i],PFMC[i],
+                                            treaty_tiers,
+                                            treaty_rates,
+                                            treaty_scalar,
+                                            treaty_offset,
+                                            treaty_share)}
+  NT_in_river<-numeric(100)
+  for(i in 1:100){NT_in_river[i]<-allowed_NT(RMRS[i],PFMC[i],
+                                             NT_tiers,
+                                             NT_rates,
+                                             NT_scalar,
+                                             NT_offset,
+                                             NT_share)}
+
+
+  plot(RMRS,Treaty,type="l",lwd=2,ylab="Harvest rate (in river)",ylim=c(0,max(c(Treaty,NT_in_river)*1.15)))
+  points(RMRS,NT_in_river,type="l",col="firebrick4",lwd=2)
+legend("topleft",c("Treaty","Non-treaty"),lty=1,col=c("black","firebrick4"))
+}
+
+
+
+#plot_HCR()
+
+
+plot_esc_trajectory<-function(sim,yrs=7:31){
+  escapement_sim<-sim$NOS+sim$NOB
+
+  escapement_sim_quants<-escapement_sim[,yrs,] |> apply(1:2,quantile,c(.025,.25,.5,.75,.975)) |> array2DF() |> `colnames<-`(c("quant","population_name","year","NO_Return")) |> dplyr::mutate(name="Escapement",year=as.numeric(year))|> tidyr::pivot_wider(names_from = quant,values_from = NO_Return) |> dplyr::rename(NO_Return=`50%`)
+
+
+  #plot
+  internal_data$esc_dat %>% dplyr::filter(!is.na(`SG No. Age 4`),year<=2022) |> dplyr::select(year,population_name ,Spawn=NOS,Broodstock=NOBroodStockRemoved) %>%
+    tidyr::drop_na() |> tidyr::pivot_longer(c(Spawn,Broodstock),values_to = "NO_Return") %>% ggplot(aes(x=year,y=NO_Return,fill=name))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+ylab("Nat. Origin Escapement")+geom_ribbon(data=escapement_sim_quants,aes(x=year,ymin=`2.5%`,ymax=`97.5%`),fill="grey",)+geom_line(data=escapement_sim_quants,aes(x=year,y=NO_Return),lwd=2)+geom_line(data=(escapement_sim[,yrs,15] |> array2DF()|> `colnames<-`(c("population_name","year","NO_Return"))|> dplyr::mutate(name="Escapement",year=as.numeric(year))),aes(x=year,y=NO_Return) )
+
+}
+
+
+plot_harvest_trajectory<-function(sim,yrs=7:31){
+  terminal_harv<-apply(sim$terminal_NT[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Non-treaty",year=2023:2047) |>
+    dplyr::bind_rows(
+      apply(sim$terminal_treaty[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Treaty",year=2023:2047)
+    ) |> dplyr::rename(In_river_harvest=`50%`)
+
+  internal_data$pfmc_morts_2 |> dplyr::mutate(Sector=ifelse(Sector=="NT","Non-treaty",Sector)) |> dplyr::filter(Year<=2022) |> ggplot(aes(x=Year,y=In_river_harvest))+geom_col()+facet_wrap(~Sector)+ylab("In-river harvest")+
+    geom_ribbon(data=terminal_harv,aes(x=year,ymin=`2.5%`,ymax=`97.5%`),fill="grey")+
+    geom_line(data=terminal_harv,aes(x=year,y=In_river_harvest),lwd=2)+
+    geom_line(data=tibble::tibble(In_river_harvest=c(apply(sim$terminal_NT[,yrs,],2:3,sum)[,15],
+                                             apply(sim$terminal_treaty[,yrs,],2:3,sum)[,15]),
+                          year=rep(2023:2047,time=2),
+                          Sector=rep(c("Non-treaty","Treaty"),each=25)),aes(x=year,y=In_river_harvest))
+  }
+
+
+# plot_esc_trajectory(sim)
+# plot_harvest_trajectory(sim)
