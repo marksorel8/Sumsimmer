@@ -1,45 +1,49 @@
-HCR_feedback_UI <- fluidPage(
+HCR_feedback_UI <- function(id,title= "Harvest control rule"){
+
+  fluidPage(
 
   # Application title
-  titlePanel("Summer Chinook simulator"),
+  titlePanel(title),
 
   withMathJax(),  # Enable MathJax
 
   # Show plot
-  mainPanel(  h3("Harvest control rule #1"),
-              "The current harvest control rule specifies fixed rates in some lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
+  mainPanel(  "The current harvest control rule specifies fixed rates in some lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
               $$(scalar * run size - offset) * share$$",
 
 
               p(em("tiers"), "= the run size below which the rates in the row are applied"),
-              p(em("rate"), "= if a value is entered in the rate column, that is the harvest rate for the tier"),
+              p(em("rate"), "= if a value is entered in the rate column, that is the harvest rate for the tier. If the value is greater than 1, it is assumed to be a total allowable catch rather than a rate."),
               p(em("scalar"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multiplied by the run size."),
               p(em("offset"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size."),
               p(em("share"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset."),
-              DTOutput("my_datatable"),
+              DTOutput(NS(id,"my_datatable")),
               "Hit this button to plot the harvest control rule, or to refresh the plot after changing the harvest control rule. The plots assume that PFMC AEQ ocean mortality, which is subtracted from the in-river allowable harvest, is at average rates.",
               br(),
 
-              actionButton("go",label = "Plot Data"),
+              actionButton(NS(id,"go"),label = "Plot Data"),
 
-              plotOutput("my_plot"),
+              plotOutput(NS(id,"my_plot")),
               "Hit this button to start population simulation and plot escapement and harvest. This will take a few seconds.",
               br(),
-              actionButton("dosim1",label = "sim it up"),
+              actionButton(NS(id,"dosim1"),label = "sim it up"),
               br(),
 
               p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability in the predictions. "),
 
 
-              plotOutput("sim1_harv"),
+              plotOutput(NS(id,"sim1_harv")),
               br(),
               p(em("Escapement plot."),"The blue and red bars represent historical spawning escapement and natural origin broodstock collections. The grey shaded area and black lines represent simulated future spawning escapement plus broodstock collection.") ,
-              plotOutput("sim1_esc"),
+              plotOutput(NS(id,"sim1_esc")),
   )
 )
+}
 
 
-HCR_feedback_server <- function(input, output) {
+HCR_feedback_server <- function(id){
+
+  moduleServer(id, function(input, output, session) {
 
   #initialize a blank dataframe
   v <- reactiveValues(data = {
@@ -167,4 +171,7 @@ HCR_feedback_server <- function(input, output) {
     #   geom_smooth(method = "lm")
   })
 
+  return(sim1)
+
+})
 }
