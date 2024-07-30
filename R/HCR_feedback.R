@@ -21,12 +21,14 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               "Hit this button to plot the harvest control rule, or to refresh the plot after changing the harvest control rule. The plots assume that PFMC AEQ ocean mortality, which is subtracted from the in-river allowable harvest, is at average rates.",
               br(),
 
-              actionButton(NS(id,"go"),label = "Plot Data"),
+              actionButton(NS(id,"go"),label = "Plot harvest control rule"),
+              checkboxInput(NS(id,"total_NT"), "Include PFMC", value = FALSE),
+              "check box to include the PFMC ocean mortality that is included in non-treaty share. This has no effect on simulations.",
 
               plotOutput(NS(id,"my_plot")),
               "Hit this button to start population simulation and plot escapement and harvest. This will take a few seconds.",
               br(),
-              actionButton(NS(id,"dosim1"),label = "sim it up"),
+              actionButton(NS(id,"dosim1"),label = "Run simulation"),
               br(),
 
               p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability in the predictions. "),
@@ -34,7 +36,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
 
               plotOutput(NS(id,"sim1_harv")),
               br(),
-              p(em("Escapement plot."),"The blue and red bars represent historical spawning escapement and natural origin broodstock collections. The grey shaded area and black lines represent simulated future spawning escapement plus broodstock collection.") ,
+              p(em("Escapement plot."),"The purple and greem bars represent historical spawning escapement and natural origin broodstock collections. The grey shaded area and black lines represent simulated future spawning escapement plus broodstock collection.") ,
               plotOutput(NS(id,"sim1_esc")),
   )
 )
@@ -61,7 +63,7 @@ HCR_feedback_server <- function(id){
 
   #output the datatable based on the dataframe (and make it editable)
   output$my_datatable <- renderDT({
-    DT::datatable(v$data, editable = TRUE,filter="none",
+    DT::datatable(v$data, editable = TRUE, filter="none",
                   options = list(dom = 't',
                                  ordering=F,
                                  scrollX=FALSE,
@@ -105,6 +107,37 @@ HCR_feedback_server <- function(id){
     }
   })
 
+  # Create a reactive value to store the simulation outputs
+  hcr_out <- reactiveVal()
+
+  # Observe the button click event to call the function and store its output
+  observeEvent(input$go, {
+    req(input$go)
+    hcr_data <-  with(isolate(v$data),
+                     seq_HCR(
+                       treaty_tiers=treaty_tiers,
+                       treaty_rates=treaty_rates,
+                       treaty_scalar=treaty_scalar,
+                       treaty_offset=treaty_offset,
+                       treaty_share=treaty_share,
+                       NT_tiers=NT_tiers,
+                       NT_rates=NT_rates,
+                       NT_scalar=NT_scalar,
+                       NT_offset=NT_offset,
+                       NT_share=NT_share
+                     )
+    )
+
+    if(inherits(hcr_data, "error")){
+      showNotification(hcr_data$message, type = "error")
+    }else{
+      hcr_out(hcr_data)
+    }
+
+
+  })
+
+
   #render plot
   output$my_plot <- renderPlot({
     req(input$go) #require the input button to be non-0 (ie: don't load the plot when the app first loads)
@@ -119,7 +152,8 @@ HCR_feedback_server <- function(id){
            NT_rates,
            NT_scalar,
            NT_offset,
-           NT_share
+           NT_share,
+           input$total_NT
 
          )
     )
@@ -147,7 +181,14 @@ HCR_feedback_server <- function(id){
                        NT_share=NT_share
                      )
     )
-    sim1(newData)
+
+    if(inherits(newData, "error")){
+      showNotification(newData$message, type = "error")
+    }else{
+      sim1(newData)
+    }
+
+
   })
 
 

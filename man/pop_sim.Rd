@@ -20,6 +20,18 @@ pop_sim(
   hatchery_mark_rate = internal_data$hatch_MR_mu,
   HO_broodstock_need = 2000,
   NO_broodstock_target = c(Methow = 122, Okanogan = 650, Wenatchee = 310),
+  release_mort_rate = 0.15,
+  NT_Unmarked_release_rate = internal_data$URR,
+  treaty_tiers = c(16000, 36250, 50000, Inf, rep(NA, 3)),
+  treaty_rates = c(0.05, 0.1, NA, NA, rep(NA, 3)),
+  treaty_scalar = c(NA, NA, 1, 0.75, rep(NA, 3)),
+  treaty_offset = c(NA, NA, 29000, 16500, rep(NA, 3)),
+  treaty_share = c(NA, NA, 0.5, 0.5, rep(NA, 3)),
+  NT_tiers = c(5000, 16000, 29000, 32000, 36250, 50001, Inf),
+  NT_rates = c(100, 200, 0.05, 0.06, 0.07, NA, NA),
+  NT_scalar = c(rep(NA, 5), 1, 0.75),
+  NT_offset = c(rep(NA, 5), 29000, 16500),
+  NT_share = c(rep(NA, 5), 0.5, 0.5),
   ...
 )
 }
@@ -27,6 +39,8 @@ pop_sim(
 \item{n_years}{integer number of return years to simulate forward}
 
 \item{start_year}{first brood year of simulation}
+
+\item{n_iter}{number of population projections do to. Max possible is 500, the default}
 
 \item{init_S}{4 x 6 matrix with the spawner (or smolt) abundance of each population in the first six years}
 
@@ -45,6 +59,26 @@ pop_sim(
 \item{in_river_err}{2 x year matrix of return year errors in in-river harvest for treaty and non-treaty}
 
 \item{smolts}{vector of brood year annual smolt releases}
+
+\item{hatchery_mark_rate}{real between 0 and 1. proprotion of hatchery origin fish that are adipose clipped}
+
+\item{HO_broodstock_need}{integer, number of broodstock needed to produce smolt release targets}
+
+\item{NO_broodstock_target}{named vector of three integers. number of natural origin broodstock needed to produce smolt releases for conservation programs. Values in vector must have names "Methow","Okanogan", and "Wenatchee"}
+
+\item{release_mort_rate}{real between 0 and 1. post release mortality in sport fishery}
+
+\item{NT_Unmarked_release_rate}{real between 0 and 1. proporiton of unmarked fish handled in non-treaty fishery that are released}
+
+\item{treaty_tiers}{the run sizes below which the rates in the tier are applied}
+
+\item{treaty_rates}{the harvest rate for the tier, if applicable. otherwise NA}
+
+\item{treaty_scalar}{if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multiplied by the run size}
+
+\item{treaty_offset}{if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size}
+
+\item{treaty_share}{if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset}
 
 \item{...}{}
 }

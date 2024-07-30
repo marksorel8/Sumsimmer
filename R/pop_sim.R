@@ -66,6 +66,25 @@ pop_sim<-function(n_years=25,
                   ...
                   ){
 
+
+tryCatch({
+  check_HCR(treaty_tiers,
+            treaty_rates,
+            treaty_scalar,
+            treaty_offset,
+            treaty_share,
+            "Treaty")
+
+
+
+  check_HCR(NT_tiers,
+            NT_rates,
+            NT_scalar,
+            NT_offset,
+            NT_share,
+            "Non-treaty")
+
+
   tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
 
   NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
@@ -181,7 +200,9 @@ for(i in 1:n_iter){
     terminal_treaty = terminal_treaty,
     PFMC=PFMC
   )
-
+}, error=function(e){
+  return(e)
+})
 
 
 }
