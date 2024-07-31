@@ -6,7 +6,9 @@ sim_PFMC<-function(RMRS,
                    pfmc_err,
                    PFMC_ave_prop=internal_data$PFMC_ave_prop
 ){
- plogis(PFMC_ave_prop+pfmc_err)
+  pfmc_ER<-plogis(PFMC_ave_prop+pfmc_err)
+
+ (RMRS*pfmc_ER)/(1-pfmc_ER)
   # exp(PFMC_ave_prop*log(RMRS)+pfmc_err)
 }
 
