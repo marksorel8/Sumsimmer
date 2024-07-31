@@ -981,51 +981,91 @@ pfmc_morts |> ggplot(aes(x=Year,y=`PFMC NT Harvest Total`))+geom_point()+geom_li
 pfmc_morts$`PFMC NT Harvest Total` |> forecast::Acf()
 
 pfmc_mort_dat<-
-pfmc_morts |> left_join(pfmc_HRs |> select(Year,`PFMC NT Ocean Impacts`)) |> filter(Year>=2010) |> select(Year,`River Mouth Run Size`,`PFMC NT Harvest Total`,`PFMC NT Ocean Impacts`) |> rename(RMRS=`River Mouth Run Size`,PFMCNT=`PFMC NT Harvest Total`)
+pfmc_morts |> left_join(pfmc_HRs |> select(Year,`PFMC NT Ocean Impacts`)) |> filter(Year>=2010) |> select(Year,`River Mouth Run Size`,`PFMC NT Harvest Total`,`PFMC NT Ocean Impacts`) |> rename(RMRS=`River Mouth Run Size`,PFMCNT=`PFMC NT Harvest Total` ) |> 
+  mutate(run_size=RMRS+PFMCNT)
 
 pfmc_mort_dat |> ggplot(aes(x=RMRS,y=log(PFMCNT)))+geom_point()+geom_smooth(method="lm",formula=("y~log(x)-1"))
 
-pfm_mort_mod<-lm(log(PFMCNT)~log(RMRS)-1,data=pfmc_mort_dat)
+pfm_mort_mod<-lm(log(PFMCNT)~(RMRS)-1,data=pfmc_mort_dat)
 summary(pfm_mort_mod)
 AIC(pfm_mort_mod)
 
+pfmc_mort_dat |> ggplot(aes(x=run_size,y=(`PFMC NT Ocean Impacts`)))+geom_point()+geom_smooth(method="lm")
 
-pred_harv<-exp(stats::predict(pfm_mort_mod,newdata=data.frame(RMRS=seq(1000,150000,by=10000))))
+
+pfm_ER_mod<-lm(qlogis(`PFMC NT Ocean Impacts`)~1,data=pfmc_mort_dat)
+AIC(pfm_ER_mod)
+summary(pfm_ER_mod)
+
+plogis
+
+
+
+
+pred_harv<-(stats::predict(pfm_ER_mod,newdata=data.frame(RMRS=seq(1000,150000,by=10000))))
+
+pred_harv_lcl<-plogis(pred_harv+(1.96*sigma(pfm_ER_mod)))
+pred_harv_lcl<-((pred_harv_lcl)*seq(1000,150000,by=10000))/(1-(pred_harv_lcl))
+
+pred_harv_ucl<-plogis(pred_harv-(1.96*sigma(pfm_ER_mod)))
+pred_harv_ucl<-((pred_harv_ucl)*seq(1000,150000,by=10000))/(1-(pred_harv_ucl))
+
+pred_harv_l50<-plogis(pred_harv+(.67*sigma(pfm_ER_mod)))
+pred_harv_l50<-((pred_harv_l50)*seq(1000,150000,by=10000))/(1-(pred_harv_l50))
+
+pred_harv_u50<-plogis(pred_harv-(.67*sigma(pfm_ER_mod)))
+pred_harv_u50<-((pred_harv_u50)*seq(1000,150000,by=10000))/(1-(pred_harv_u50))
+
 
 
 plot(pfmc_mort_dat$RMRS,pfmc_mort_dat$`PFMC NT Ocean Impacts`,pch=19,ylab="PFMC NT AEQ HR",xlab="Rivermouth run size")
-points(seq(1000,150000,by=10000),pred_harv/(pred_harv+seq(1000,150000,by=10000)),type="l")
+points(seq(1000,150000,by=10000),pred_harv,type="l")
+points(seq(1000,150000,by=10000),pred_harv,type="l")
+
+#/(pred_harv+seq(1000,150000,by=10000)),type="l")
 
 # averave prop of RMRS
-PFMC_ave_prop<-coef(pfm_mort_mod)
+PFMC_ave_prop<-coef(pfm_ER_mod)
 
 # calculate the standard deviation of the log accuracy ratio
-sd_lar_pfmc<-sigma(pfm_mort_mod)
+sd_lar_pfmc<-sigma(pfm_ER_mod)
   
   mean(abs(log((predict(pfm_mort_mod))/pfmc_mort_dat$PFMCNT)))
 #
 mean(log(exp(predict(pfm_mort_mod))/pfmc_mort_dat$PFMCNT))
 
-plot(seq(1000,150000,by=10000),(pred_harv),type="l",ylab="PFMC NT AEQ morts",xlab="Rivermouth run size",ylim=c(0,20000))
+plot(seq(1000,150000,by=10000),(plogis(pred_harv)*seq(1000,150000,by=10000))/(1-plogis(pred_harv)),type="l",ylab="PFMC NT AEQ morts",xlab="Rivermouth run size",ylim=c(0,20000))
 
 
 
 polygon(c(seq(1000,150000,by=10000),rev(seq(1000,150000,by=10000))),
-        c(exp(log(pred_harv)+(2*sd_lar_pfmc)),rev(exp(log(pred_harv)-(2*sd_lar_pfmc)))),col="lightgrey",border="lightgrey")
-
+         c(pred_harv_lcl,rev(pred_harv_ucl)),col="lightgrey",border="lightgrey")
 
 polygon(c(seq(1000,150000,by=10000),rev(seq(1000,150000,by=10000))),
-        c(exp(log(pred_harv)+(1*sd_lar_pfmc)),rev(exp(log(pred_harv)-(1*sd_lar_pfmc)))),col="grey",border="grey")
+        c(pred_harv_l50,rev(pred_harv_u50)),col="grey",border="grey")
 
-points(seq(1000,150000,by=10000),(pred_harv),type="l")
+points(seq(1000,150000,by=10000),plogis(pred_harv)*seq(1000,150000,by=10000),type="l")
+points(pfmc_mort_dat$RMRS,pfmc_mort_dat$PFMCNT,pch=19)
+
+
+
+
+points(seq(1000,150000,by=10000),(plogis(pred_harv_lcl)*seq(1000,150000,by=10000))/(1-plogis(pred_harv_lcl)),type="l",lty=3)
+points(seq(1000,150000,by=10000),(plogis(pred_harv_ucl)*seq(1000,150000,by=10000))/(1-plogis(pred_harv_ucl)),type="l",lty=3)
+
+
+
+
+
+
 points(pfmc_mort_dat$RMRS,pfmc_mort_dat$PFMCNT,pch=19)
 
 
 
 
 
-points(seq(1000,150000,by=10000),exp(log(pred_harv)+(1*sd_lar_pfmc)),type="l",lty=2)
-points(seq(1000,150000,by=10000),exp(log(pred_harv)+(-1*sd_lar_pfmc)),type="l",lty=2)
+points(seq(1000,150000,by=10000),plogis(plogis(pred_harv)+1*sigma(pfm_ER_mod)),type="l",lty=2)
+points(seq(1000,150000,by=10000),plogis(pred_harv+(-1*sd_lar_pfmc)),type="l",lty=2)
 points(seq(1000,150000,by=10000),exp(log(pred_harv)+(1.96*sd_lar_pfmc)),type="l",lty=3)
 points(seq(1000,150000,by=10000),exp(log(pred_harv)+(-1.96*sd_lar_pfmc)),type="l",lty=3)
 n_year<-50

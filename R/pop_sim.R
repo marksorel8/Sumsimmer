@@ -139,7 +139,7 @@ for(i in 1:n_iter){
       terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
       terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
 
-      escapement<-returns[,y,i]-terminal_NT[,y,i]-terminal_treaty[,y,i]
+      escapement<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
       NOB[,y,i]<-NOB_fun(escapement[-1],NOB_err=NOB_err[,y,i],
                        met_target=NO_broodstock_target["Methow"],
                        oka_target=NO_broodstock_target["Okanogan"],

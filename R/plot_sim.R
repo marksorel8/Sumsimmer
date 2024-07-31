@@ -235,7 +235,28 @@ with(HR_seqs,{
 })
 }
 
+plot_HCR_compare<-function(seq_list){
+  tbl <- as_tibble(do.call(rbind, lapply(seq_list, list2DF)))
+    tbl |>
+      mutate(name = rep(names(seq_list),each=length(seq_list[[1]][[1]])))%>%
+    select(name, everything())%>%
+    mutate(total_in_river=Treaty+NT,
+           total_w_PFMC=Treaty+NT_w_PFMC,
+           PFMC_HR=PFMC/RMRS) %>%
+    pivot_longer(cols=c(Treaty,
+                 NT,
+                 NT_w_PFMC,
+                 total_in_river,
+                 total_w_PFMC,
+                 PFMC_HR),
+                 names_to = "sector",
+                 values_to="Harvest rate"
+                 ) |>
 
+    ggplot(aes(x=RMRS,y=`Harvest rate`,color=name))+geom_line()+facet_wrap(~sector)+scale_color_brewer(palette="Dark2")+xlab("River Mouth Run Size")
+
+
+}
 
 #plot_HCR()
 

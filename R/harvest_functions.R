@@ -6,8 +6,8 @@ sim_PFMC<-function(RMRS,
                    pfmc_err,
                    PFMC_ave_prop=internal_data$PFMC_ave_prop
 ){
-
-  exp(PFMC_ave_prop*log(RMRS)+pfmc_err)
+ plogis(PFMC_ave_prop+pfmc_err)
+  # exp(PFMC_ave_prop*log(RMRS)+pfmc_err)
 }
 
 
@@ -28,11 +28,11 @@ sim_in_river<-function(allowed_Treaty_ER,
 
   tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
 
-  allowed_Treaty_HR<-(allowed_Treaty_ER*tot_run_size)/(RMRS) #convert ER to HR
+  allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER to HR
 
   allowed_NT_HR<-
     #subtract PFMC, make sure positive and convert from exploitation rate to harvest rate (i.e. denominator from RMRM+ PFMC to just RMRS)
-    (max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.0001)*tot_run_size)/(RMRS)
+    min(.99,(max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.0001)*tot_run_size)/(RMRS))
 
 
 
@@ -45,9 +45,9 @@ sim_in_river<-function(allowed_Treaty_ER,
   NT<-plogis(coefs[4]+ifelse(qlogis(allowed_NT_HR)>coefs[3],qlogis(allowed_NT_HR)-coefs[3],0)+in_river_err[2])
 
   #reduce if culative harvest greater than 99% because just not realists
-  while((Treaty+NT)>.99){
-    Treaty<-Treaty*.9
-    NT<-NT*.9
+  if((Treaty+NT)>.99){
+    Treaty<-Treaty/((Treaty+NT)*1.1)
+    NT<-NT/((Treaty+NT)*1.1)
   }
 
   #   NT<- coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>coefs[5],(NT_allowed_in_river-coefs[5])*coefs[4],0)+(in_river_err[1])
@@ -61,18 +61,17 @@ sim_in_river<-function(allowed_Treaty_ER,
 
   # working out marked and unmarked stuff for non_treaty
   NT_handle<-NT/(1-URR*(1-release_mort_rate)*(1-mark_rate))
-
-  #reduce if culative harvest greater than 90% because just not realists
-
+  NT_handle<-min(NT_handle,.95)
+  #reduce handle rate if cumulative handle greater than 99% because just not realists
+  if((Treaty+NT_handle)>.99){
+    Treaty<-Treaty/((Treaty+NT_handle)*1.1)
+    NT_handle<-NT_handle/((Treaty+NT_handle)*1.1)
+  }
 
   MHR=NT_handle #marked harvest rate
   UHR=NT_handle*(1-URR*(1-release_mort_rate)) #unmarked harvest rate
 
-  #reduce marked harvest rate if cumulative harvest greater than 90% because just not realists
-  while((Treaty+MHR)>.99){
-    MHR<-MHR*.9
-    Treaty<-Treaty*.9
-  }
+
 
   c(Treaty=Treaty,
     NT_marked=MHR,

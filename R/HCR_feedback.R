@@ -134,30 +134,19 @@ HCR_feedback_server <- function(id){
       hcr_out(hcr_data)
     }
 
-
   })
-
 
   #render plot
   output$my_plot <- renderPlot({
-    req(input$go) #require the input button to be non-0 (ie: don't load the plot when the app first loads)
-    with(isolate(v$data),
-         plot_HCR(
-           treaty_tiers,
-           treaty_rates,
-           treaty_scalar,
-           treaty_offset,
-           treaty_share,
-           NT_tiers,
-           NT_rates,
-           NT_scalar,
-           NT_offset,
-           NT_share,
-           input$total_NT
+    req(hcr_out())
+    plot_HCR(hcr_out(),
+             input$total_NT
 
-         )
     )
+
   })
+
+
 
 
   # Create a reactive value to store the simulation outputs
@@ -212,7 +201,8 @@ HCR_feedback_server <- function(id){
     #   geom_smooth(method = "lm")
   })
 
-  return(sim1)
+  return(list(sim=sim1,
+              hcr_out = hcr_out))
 
 })
 }

@@ -13,9 +13,11 @@ ui <- fluidPage(
                       br(),
                       actionButton("renderComparisonPlot", "Render Comparison Plot"),
                       br(),
+                      plotOutput("compare_HCRs"),
+                      br(),
                       "The three panels show box and whisker plots of, from left to right, annual harvest, natural-origin spawner abundance, and Proportionate Natural Influence. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated for values across years for individual simulations, and then averaged across simulations.  For example, the lower end of the bars in the harvest panel represent the average across simulations of the 2 years (out of 25) with the lowest harvest, averaged across simulations. I summarized the results in this way to show what harvest and conservaiton metrics would look line in small run size years, average years, and large run size years.",
                       br(),
-                      plotOutput("compare_HCRS"))
+                      plotOutput("compare_perf_metrics"))
 
   )
 )
@@ -28,22 +30,38 @@ server <- function(input, output, session) {
   sim3<-HCR_feedback_server("page3")
   #Combine data from all pages and render a combined plot
   observeEvent(input$renderComparisonPlot, {
-          sim_list<-list(HCR_1=sim1(),
-                     HCR_2=sim2(),
-                     HCR_3=sim3()
+
+
+
+          sim_list<-list(HCR_1=sim1$sim(),
+                     HCR_2=sim2$sim(),
+                     HCR_3=sim3$sim()
       )
 
     sim_list <- Filter(Negate(is.null), sim_list)
+
+    hcr_list<-list(HCR_1=sim1$hcr_out(),
+                   HCR_2=sim2$hcr_out(),
+                   HCR_3=sim3$hcr_out()
+    )
+
+    hcr_list <- Filter(Negate(is.null), hcr_list)
 
     # Check if any of the simulations have been created
     if (length(sim_list)==0) {
       showNotification("No simulations have been created yet. Please run simulations on any of the pages first.", type = "error")
     } else {
-    output$compare_HCRS<-renderPlot({
+    output$compare_perf_metrics<-renderPlot({
 
       p1<-plot_all_fun(sim_list)
 
       p1
+    })
+    output$compare_HCRs<-renderPlot({
+
+      p2<-plot_HCR_compare(hcr_list)
+
+      p2
     })
     }
   })
