@@ -46,7 +46,9 @@ pop_sim<-function(n_years=25,
                   pHOS_err=internal_data$pHOS_err[,,],
                   NOB_err=internal_data$NOB_err[,,], #already exponentiation
                   pfmc_err=internal_data$pfmc_err[,],
-                  in_river_err=internal_data$in_river_err[,,],
+                  in_river_harvest_model_option=1,
+                  in_river_harvest_model_coefs=internal_data$internal_data$in_river_coefs_option1,
+                  in_river_err=internal_data$in_river_err_option1[,,],
                   smolts=hatchery_smolt_fun(smolts_err =internal_data$smolt_err),
                   hatchery_mark_rate = internal_data$hatch_MR_mu,
                   HO_broodstock_need = 2000,
@@ -126,7 +128,9 @@ for(i in 1:n_iter){
 
 
       Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
-      in_river_h_rate<-sim_in_river(allowed_Treaty_ER=Treaty_allowed_ER,
+      in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
+                                    coefs=in_river_harvest_model_coefs,
+                                    allowed_Treaty_ER=Treaty_allowed_ER,
                                     allowed_NT_ER=NT_allowed_ER,
                                     pfmc_AEQ= PFMC[y,i],
                                     RMRS=RMRS,

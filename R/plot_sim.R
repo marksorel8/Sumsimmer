@@ -132,11 +132,16 @@ plot_all_fun<-function(sim_list){
   # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
   # sim_list<-list(Current=sim,weird=sim2)
   # library(tidyverse)
-  harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)}))
+  harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)})) |>
+        mutate(HCR=fct_relevel(HCR,names(sim_list)))
 
-  NOS_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$NOS,rnames="River",HCR_name=x))) |> mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")))
+  NOS_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$NOS,rnames="River",HCR_name=x))) |>
+    mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")),
+           HCR=fct_relevel(HCR,names(sim_list)))
 
-  PNI_quants<-do.call(rbind,lapply(names(sim_list),function(x) PNI_quants_fun(sim_list[[x]],rnames="River",HCR_name=x)))|> mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")))
+  PNI_quants<-do.call(rbind,lapply(names(sim_list),function(x) PNI_quants_fun(sim_list[[x]],rnames="River",HCR_name=x)))|>
+    mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")),
+           HCR=fct_relevel(HCR,names(sim_list)))
 
 
   harv_plot<-plot_harvest_quants(harvest_quants)
@@ -182,8 +187,8 @@ seq_HCR<-function(treaty_tiers = c(16000,36250,50000,Inf),
               "Non-treaty")
 
 
-  RMRS<-seq(2500,75000,length.out=n)
-  PFMC<-exp(internal_data$PFMC_ave_prop*log(RMRS))
+  RMRS<-seq(2500,150000,length.out=n)
+  PFMC<-sim_PFMC(RMRS,pfmc_err=0)
   Treaty<-numeric(n)
   for(i in 1:n){allowed<-allowed_ER(RMRS[i]+PFMC[i],
                                         treaty_tiers,
@@ -226,7 +231,7 @@ plot_HCR<-function(HR_seqs,
                    Total_NT=FALSE){
 with(HR_seqs,{
   if(Total_NT){
-    plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(0,max(c(Treaty,NT)*1.15)))
+    plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(0,max(c(Treaty,NT_w_PFMC)*1.15)))
   }else{
     plot(RMRS,NT,type="l",lwd=2,ylab="Harvest rate (excludes PFMC for non-treaty)",ylim=c(0,max(c(Treaty,NT)*1.15)))
   }
@@ -236,10 +241,10 @@ with(HR_seqs,{
 }
 
 plot_HCR_compare<-function(seq_list){
-  tbl <- as_tibble(do.call(rbind, lapply(seq_list, list2DF)))
+  tbl <- as_tibble(do.call(rbind, lapply(seq_list, as.data.frame)))
     tbl |>
-      mutate(name = rep(names(seq_list),each=length(seq_list[[1]][[1]])))%>%
-    select(name, everything())%>%
+      mutate(`Harvest rule` = rep(names(seq_list),each=length(seq_list[[1]][[1]])))%>%
+    select(`Harvest rule`, everything())%>%
     mutate(total_in_river=Treaty+NT,
            total_w_PFMC=Treaty+NT_w_PFMC,
            PFMC_HR=PFMC/RMRS) %>%
@@ -252,8 +257,15 @@ plot_HCR_compare<-function(seq_list){
                  names_to = "sector",
                  values_to="Harvest rate"
                  ) |>
+      mutate(sector=case_when(sector=="Treaty"~"1) Treaty",
+                              sector=="NT"~"2) Non-treaty in-river",
+                              sector=="NT_w_PFMC"~"3) Non-treaty w/ PFMC",
+                              sector=="total_in_river"~"5) Total in-river",
+                              sector=="total_w_PFMC"~"6) Total w/ PFMC",
+                              sector=="PFMC_HR"~"4) just PFMC"),
+             `Harvest rule`=fct_relevel(`Harvest rule`,names(seq_list))) |>
 
-    ggplot(aes(x=RMRS,y=`Harvest rate`,color=name))+geom_line()+facet_wrap(~sector)+scale_color_brewer(palette="Dark2")+xlab("River Mouth Run Size")
+    ggplot(aes(x=RMRS,y=`Harvest rate`,color=`Harvest rule`))+geom_line(lwd=2,alpha=.8)+facet_wrap(~sector)+scale_color_brewer(palette="Dark2")+xlab("River Mouth Run Size")
 
 
 }

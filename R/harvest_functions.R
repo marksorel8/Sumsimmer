@@ -14,29 +14,39 @@ sim_PFMC<-function(RMRS,
 
 
 
-sim_in_river<-function(allowed_Treaty_ER,
+sim_in_river<-function(model_option=1,
+                       allowed_Treaty_ER,
                        allowed_NT_ER,
                        in_river_err,
                        pfmc_AEQ,
                        RMRS,
-                       coefs=internal_data$in_river_coefs,
+                       coefs,
                        URR , #release rate of unmarked fish handled in non-treaty fisheries
                        release_mort_rate = 0.15, #post release mortality rate
                        mark_rate # proportion of RMRS that is marked
 ){
+ tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
+
+if(model_option==1){
+
+  total_allowed_Treaty<-tot_run_size*allowed_Treaty_ER
+
+  total_allowed_NT<-tot_run_size*allowed_NT_ER
 
 
+  Treaty<-exp((log(total_allowed_Treaty)*coefs[1])+in_river_err[1])/(RMRS)
+  Treaty<-min(.99,Treaty)
 
+  NT<-((exp((log(total_allowed_NT)*coefs[2])+in_river_err[2])-pfmc_AEQ)/RMRS)
+  NT<-max(.001,NT)
+  NT<-min(.99,NT)
 
-  tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
-
-  allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER to HR
+  }else{
+allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER to HR
 
   allowed_NT_HR<-
     #subtract PFMC, make sure positive and convert from exploitation rate to harvest rate (i.e. denominator from RMRM+ PFMC to just RMRS)
     min(.99,(max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.0001)*tot_run_size)/(RMRS))
-
-
 
 
   #Segmented model of expected actual total harvest mortality as a funciton of allowed).
@@ -45,6 +55,8 @@ sim_in_river<-function(allowed_Treaty_ER,
 
   #Non-treaty
   NT<-plogis(coefs[4]+ifelse(qlogis(allowed_NT_HR)>coefs[3],qlogis(allowed_NT_HR)-coefs[3],0)+in_river_err[2])
+  }
+
 
   #reduce if culative harvest greater than 99% because just not realists
   if((Treaty+NT)>.99){

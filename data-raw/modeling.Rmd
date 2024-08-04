@@ -1097,13 +1097,13 @@ internal_data$pfmc_morts_2<-pfmc_morts_2
 
 #allowed vs actual HR
 ##total
-pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_smooth(method="lm",formula=("y~x"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
+pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_smooth(method="lm",formula=("y~x-1"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
 
 
 ##in river
-pfmc_morts_2|> 
-  ggplot(aes(x=Allowed_in_river,y=In_river_harvest))+geom_point()+#geom_smooth(method="lm",formula=("y~(x)"),se=FALSE)+
-  geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)+ylim(0,38000)+ylab("In-rive harvest")+xlab("Allowed in river")
+pfmc_morts_2[-c(15,16,24),]|> 
+  ggplot(aes(x=Allowed_in_river,y=(In_river_harvest)))+geom_point()+geom_smooth(method="lm",formula=("y~(x)-1"),se=FALSE)+
+  facet_wrap(~Sector)+ylab("In-rive harvest")+xlab("Allowed in river")+geom_abline(intercept=0,slope=1,lwd=1.5)
 
 
 pfmc_morts_2|>
@@ -1117,23 +1117,66 @@ pfmc_morts_2 |>
   ggplot(aes(x=Allowed_in_river,y=log(HoA_HR)))+geom_point()+geom_smooth(method="lm",formula=("y~log(x)"),se=TRUE)+facet_wrap(~Sector)
 
 
-in_riv_mod<-lm((In_river_harvest)~Sector*Allowed_in_river,data=pfmc_morts_2)
+in_riv_mod<-lm(log(Total_harvest)~Sector:log(total_allowed)-1,data=pfmc_morts_2[-c(15,16,24,22,23,25),])
+
+in_riv_mod<-glmmTMB::glmmTMB(log(Total_harvest)~Sector:log(total_allowed)-1+diag(0+Sector|Year),data=pfmc_morts_2[-c(15,16,24,22,23,25),],dispformula = ~0)
+
+
 summary(in_riv_mod)
 AIC(in_riv_mod)
+plot(in_riv_mod)
 
 
+in_riv_pred<-data.frame(total_allowed=rep(seq(1,100000,1000),times=2), Sector=rep(c("NT","Treaty"),each=100),Year=1)
 
+pred<-predict(in_riv_mod,newdata=in_riv_pred,allow.new.levels=TRUE)
 
-in_riv_pred<-data.frame(Allowed_in_river=rep(seq(0,100000,5000),times=2), Sector=rep(c("NT","Treaty"),each=21))
-in_riv_pred$pred=(predict(in_riv_mod,newdata=in_riv_pred))
+in_riv_pred$pred=exp(pred)
+in_riv_pred$lcl=exp(pred-1.96*ifelse(in_riv_pred$Sector=="NT",exp(in_riv_mod$fit$par[3]),exp(in_riv_mod$fit$par[4])))
+in_riv_pred$ucl=exp(pred+1.96*ifelse(in_riv_pred$Sector=="NT",exp(in_riv_mod$fit$par[3]),exp(in_riv_mod$fit$par[4])))
+
 
 in_riv_pred |> 
-   ggplot(aes(x=Allowed_in_river,y=pred,color=Sector))+geom_line(lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=Allowed_in_river,y=In_river_harvest))+geom_abline(intercept=0,slope=1)+ylim(0,100000)
+   ggplot(aes(x=total_allowed,y=pred,color=Sector))+geom_ribbon(aes(x=total_allowed,ymax = ucl,ymin=lcl),fill="grey")+geom_line(lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=total_allowed,y=Total_harvest))+geom_abline(intercept=0,slope=1)+ylim(-10000,50000)+xlim(0,50000)+facet_wrap(~Sector)+xlab("Total *allowed* harvest")+ylab("Estimated total harvest")
 
 
-lin_mod<-lm(qlogis(in_river_HR)~qlogis(in_river_allowed_HR ), data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))
+### save to internal data for model option 1`
+
+in_river_harvest_model_coefs
+
+
+set.seed(1112)
+in_river_err_option1<-array(NA,dim=c(2,n_year,n_sim))
+in_river_err_option1[1,,]<-rnorm(n_year*n_sim,0,exp(in_riv_mod$fit$par[4]))#treaty
+in_river_err_option1[2,,]<-rnorm(n_year*n_sim,0,exp(in_riv_mod$fit$par[3]))#non treat
+
+
+internal_data$in_river_coefs_option1<-in_riv_mod$fit$par[2:1] #treaty, NT
+internal_data$in_river_err_option1<-in_river_err_option1
+#___________________________________________________
+#___________________________________________________
+#___________________________________________________
+
+
+
+  lin_mod<-lm(qlogis(in_river_HR)~qlogis(in_river_allowed_HR ), data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))
 AIC(lin_mod)
 summary(lin_mod)
+
+
+in_riv_pred<-data.frame(#Allowed_in_river=rep(seq(0,100000,5000),times=1),
+                        in_river_allowed_HR=rep(seq(0,.5,.01),times=2),
+ Sector=as.factor(rep(c("NT","Treaty"),each=51)))
+in_riv_pred$pred=plogis(predict(lin_mod,newdata=in_riv_pred))
+in_riv_pred$lcl=plogis(predict(lin_mod,newdata=in_riv_pred)-1.96*sigma(lin_mod))
+in_riv_pred$ucl=plogis(predict(lin_mod,newdata=in_riv_pred)+1.96*sigma(lin_mod))
+
+
+in_riv_pred |> 
+   ggplot(aes(x=in_river_allowed_HR,y=pred,color=Sector))+geom_ribbon(aes(x=in_river_allowed_HR,ymax = ucl,ymin=lcl),fill="grey")+geom_line(lwd=1.2)+geom_point(data=pfmc_morts_2,aes(x=in_river_allowed_HR,y=in_river_HR))+geom_abline(intercept=0,slope=1)+ylim(-10000,100000)+xlim(0,50000)+facet_wrap(~Sector)
+
+
+
 
 library(segmented)
 segmented_model <-segmented::segreg(qlogis(in_river_HR)~seg(qlogis(in_river_allowed_HR),psi=list(xx=-.3)),data=pfmc_morts_2 |> mutate(Sector=as.factor(Sector)))

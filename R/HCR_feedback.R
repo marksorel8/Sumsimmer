@@ -18,17 +18,17 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               p(em("offset"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size."),
               p(em("share"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset."),
               DTOutput(NS(id,"my_datatable")),
-              "Hit this button to plot the harvest control rule, or to refresh the plot after changing the harvest control rule. The plots assume that PFMC AEQ ocean mortality, which is subtracted from the in-river allowable harvest, is at average rates.",
+              "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates.",
               br(),
 
-              actionButton(NS(id,"go"),label = "Plot harvest control rule"),
+              actionButton(NS(id,"go"),label = "Update harvest control rule plot"),
               checkboxInput(NS(id,"total_NT"), "Include PFMC", value = FALSE),
               "check box to include the PFMC ocean mortality that is included in non-treaty share. This has no effect on simulations.",
 
               plotOutput(NS(id,"my_plot")),
               "Hit this button to start population simulation and plot escapement and harvest. This will take a few seconds.",
               br(),
-              actionButton(NS(id,"dosim1"),label = "Run simulation"),
+              actionButton(NS(id,"dosim1"),label = "Update simulation"),
               br(),
 
               p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability in the predictions. "),
@@ -43,22 +43,32 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
 }
 
 
-HCR_feedback_server <- function(id){
+HCR_feedback_server <- function(id,
+                                treaty_tiers=c(16000,36250,50000,Inf,rep(NA,3)),
+                                treaty_rates=c(.05,.1,NA,NA,rep(NA,3)),
+                                treaty_scalar=c(NA,NA,1,.75,rep(NA,3)),
+                                treaty_offset=c(NA,NA,29000,16500,rep(NA,3)),
+                                treaty_share = c(NA,NA,.5,.5,rep(NA,3)),
+                                NT_tiers=c(5000,16000,29000,32000,36250,50001,Inf),
+                                NT_rates=c(100,200,.05,.06,.07,NA,NA),
+                                NT_scalar=c(rep(NA,5),1,.75),
+                                NT_offset=c(rep(NA,5),29000,16500),
+                                NT_share=c(rep(NA,5),.5,.5)){
 
   moduleServer(id, function(input, output, session) {
 
   #initialize a blank dataframe
   v <- reactiveValues(data = {
-    data.frame(treaty_tiers=c(16000,36250,50000,Inf,rep(NA,3)),
-               treaty_rates=c(.05,.1,NA,NA,rep(NA,3)),
-               treaty_scalar=c(NA,NA,1,.75,rep(NA,3)),
-               treaty_offset=c(NA,NA,29000,16500,rep(NA,3)),
-               treaty_share = c(NA,NA,.5,.5,rep(NA,3)),
-               NT_tiers=c(5000,16000,29000,32000,36250,50001,Inf),
-               NT_rates=c(100,200,.05,.06,.07,NA,NA),
-               NT_scalar=c(rep(NA,5),1,.75),
-               NT_offset=c(rep(NA,5),29000,16500),
-               NT_share=c(rep(NA,5),.5,.5))
+    data.frame(treaty_tiers = treaty_tiers,
+               treaty_rates = treaty_rates,
+               treaty_scalar = treaty_scalar,
+               treaty_offset = treaty_offset,
+               treaty_share = treaty_share,
+               NT_tiers = NT_tiers,
+               NT_rates = NT_rates,
+               NT_scalar = NT_scalar,
+               NT_offset = NT_offset,
+               NT_share = NT_share)
   })
 
   #output the datatable based on the dataframe (and make it editable)
@@ -107,32 +117,45 @@ HCR_feedback_server <- function(id){
     }
   })
 
+
+
+hcr_data_fun<-function(do_notifs=FALSE){
+  hcr_data<-with(isolate(v$data),
+                 seq_HCR(
+                   treaty_tiers=treaty_tiers,
+                   treaty_rates=treaty_rates,
+                   treaty_scalar=treaty_scalar,
+                   treaty_offset=treaty_offset,
+                   treaty_share=treaty_share,
+                   NT_tiers=NT_tiers,
+                   NT_rates=NT_rates,
+                   NT_scalar=NT_scalar,
+                   NT_offset=NT_offset,
+                   NT_share=NT_share
+                 )
+  )
+
+  if(inherits(hcr_data, "error")){
+    if(do_notifs)showNotification(hcr_data$message, type = "error")
+    NULL
+  }else{
+    hcr_data
+  }
+}
+
+
+
+
   # Create a reactive value to store the simulation outputs
-  hcr_out <- reactiveVal()
+  hcr_out <- reactiveVal({
+    hcr_data_fun()
+  }
+  )
 
   # Observe the button click event to call the function and store its output
   observeEvent(input$go, {
     req(input$go)
-    hcr_data <-  with(isolate(v$data),
-                     seq_HCR(
-                       treaty_tiers=treaty_tiers,
-                       treaty_rates=treaty_rates,
-                       treaty_scalar=treaty_scalar,
-                       treaty_offset=treaty_offset,
-                       treaty_share=treaty_share,
-                       NT_tiers=NT_tiers,
-                       NT_rates=NT_rates,
-                       NT_scalar=NT_scalar,
-                       NT_offset=NT_offset,
-                       NT_share=NT_share
-                     )
-    )
-
-    if(inherits(hcr_data, "error")){
-      showNotification(hcr_data$message, type = "error")
-    }else{
-      hcr_out(hcr_data)
-    }
+    hcr_out(hcr_data_fun(do_notifs=TRUE))
 
   })
 
@@ -149,13 +172,8 @@ HCR_feedback_server <- function(id){
 
 
 
-  # Create a reactive value to store the simulation outputs
-  sim1 <- reactiveVal()
 
-
-  # Observe the button click event to call the function and store its output
-  observeEvent(input$dosim1, {
-    req(input$dosim1)
+  sim_data<-function(do_notifs=FALSE){
     newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
@@ -172,10 +190,27 @@ HCR_feedback_server <- function(id){
     )
 
     if(inherits(newData, "error")){
-      showNotification(newData$message, type = "error")
+     if(do_notifs) showNotification(newData$message, type = "error")
+      NULL
     }else{
-      sim1(newData)
+      (newData)
     }
+
+  }
+
+
+  # Create a reactive value to store the simulation outputs
+  sim1 <- reactiveVal(
+    sim_data()
+  )
+
+
+  # Observe the button click event to call the function and store its output
+  observeEvent(input$dosim1, {
+    req(input$dosim1)
+
+      sim1( sim_data(do_notifs=TRUE))
+
 
 
   })
@@ -202,7 +237,7 @@ HCR_feedback_server <- function(id){
   })
 
   return(list(sim=sim1,
-              hcr_out = hcr_out))
+              hcr = hcr_out))
 
 })
 }
