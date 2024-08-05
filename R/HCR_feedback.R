@@ -30,6 +30,10 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               br(),
               actionButton(NS(id,"dosim1"),label = "Update simulation"),
               br(),
+              "check box to use the broken stick model of allowed vs. realized harvest.",
+              checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
+
+
 
               p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability in the predictions. "),
 
@@ -171,9 +175,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-
-
-  sim_data<-function(do_notifs=FALSE){
+  sim_data<-function(do_notifs=FALSE,harv_mod=1){
     newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
@@ -185,7 +187,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
                        NT_rates=NT_rates,
                        NT_scalar=NT_scalar,
                        NT_offset=NT_offset,
-                       NT_share=NT_share
+                       NT_share=NT_share,
+                       in_river_harvest_model_option = harv_mod
                      )
     )
 
@@ -209,7 +212,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
   observeEvent(input$dosim1, {
     req(input$dosim1)
 
-      sim1( sim_data(do_notifs=TRUE))
+      sim1( sim_data(do_notifs=TRUE,harv_mod=ifelse(input$option2,2,1)))
 
 
 

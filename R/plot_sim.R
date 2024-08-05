@@ -303,4 +303,4 @@ plot_harvest_trajectory<-function(sim,yrs=7:31){
 
 
 # plot_esc_trajectory(sim)
-# plot_harvest_trajectory(sim)
+# plot_harvest_trajectory(sim2)

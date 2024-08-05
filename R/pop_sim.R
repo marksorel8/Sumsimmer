@@ -11,7 +11,7 @@
 #' @param pHOS_err population x return year matrix of pHOS errors
 #' @param NOB_err population x return year matrix of natural origin broodstock collection errors. Exponentiated!
 #' @param pfmc_err vector of return year annual deviations from PFMC AEQ ocean mort abundance
-#' @param in_river_err 2 x year matrix of return year errors in in-river harvest for treaty and non-treaty
+#' @param in_river_harvest_model_option which model of realized vs allowed harvest to use
 #' @param smolts vector of brood year annual smolt releases
 #' @param n_iter  number of population projections do to. Max possible is 500, the default
 #' @param hatchery_mark_rate    real between 0 and 1. proprotion of hatchery origin fish that are adipose clipped
@@ -47,8 +47,6 @@ pop_sim<-function(n_years=25,
                   NOB_err=internal_data$NOB_err[,,], #already exponentiation
                   pfmc_err=internal_data$pfmc_err[,],
                   in_river_harvest_model_option=1,
-                  in_river_harvest_model_coefs=internal_data$internal_data$in_river_coefs_option1,
-                  in_river_err=internal_data$in_river_err_option1[,,],
                   smolts=hatchery_smolt_fun(smolts_err =internal_data$smolt_err),
                   hatchery_mark_rate = internal_data$hatch_MR_mu,
                   HO_broodstock_need = 2000,
@@ -66,147 +64,162 @@ pop_sim<-function(n_years=25,
                   NT_offset=c(rep(NA,5),29000,16500),
                   NT_share=c(rep(NA,5),.5,.5),
                   ...
-                  ){
+){
 
 
-tryCatch({
-  check_HCR(treaty_tiers,
-            treaty_rates,
-            treaty_scalar,
-            treaty_offset,
-            treaty_share,
-            "Treaty")
-
-
-
-  check_HCR(NT_tiers,
-            NT_rates,
-            NT_scalar,
-            NT_offset,
-            NT_share,
-            "Non-treaty")
-
-
-  tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
-
-  NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
-
-  PFMC<-matrix(NA,n_years+6,n_iter)
-
-  S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
-
-
-  S[,1:6,] <- t(init_S)
-  S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter]
-  HOB[1,,]<-HO_broodstock_need
-
-for(i in 1:n_iter){
-  for (y in 1 : (n_years+6)){
-
-
-    if(y>6){
-
-      RMRS<- sum(returns[,y,i])
-      PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i])
+  tryCatch({
+    check_HCR(treaty_tiers,
+              treaty_rates,
+              treaty_scalar,
+              treaty_offset,
+              treaty_share,
+              "Treaty")
 
 
 
-      NT_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
-                                NT_tiers,
-                                NT_rates,
-                                NT_scalar,
-                                NT_offset,
-                                NT_share)
+    check_HCR(NT_tiers,
+              NT_rates,
+              NT_scalar,
+              NT_offset,
+              NT_share,
+              "Non-treaty")
 
 
-      Treaty_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
-                                    treaty_tiers,
-                                    treaty_rates,
-                                    treaty_scalar,
-                                    treaty_offset,
-                                    treaty_share)
-
-
-      Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
-      in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
-                                    coefs=in_river_harvest_model_coefs,
-                                    allowed_Treaty_ER=Treaty_allowed_ER,
-                                    allowed_NT_ER=NT_allowed_ER,
-                                    pfmc_AEQ= PFMC[y,i],
-                                    RMRS=RMRS,
-                                    in_river_err=in_river_err[,y,i],
-                                    mark_rate=Mark_rate,
-                                    release_mort_rate=release_mort_rate,
-                                    URR=NT_Unmarked_release_rate)
-
-      terminal_NT[1,y,i] <- returns[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
-      terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
-      terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
-
-      escapement<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
-      NOB[,y,i]<-NOB_fun(escapement[-1],NOB_err=NOB_err[,y,i],
-                       met_target=NO_broodstock_target["Methow"],
-                       oka_target=NO_broodstock_target["Okanogan"],
-                       wen_target=NO_broodstock_target["Wenatchee"])
-      HOB[2:4,y,i]<-pmax(NO_broodstock_target-NOB[,y,i],0)
-      NOS[,y,i]<-escapement[-1]-NOB[,y,i]
-      # hatchey broodstock needs for segregated and integrated programs
-      tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
-      # predicted pHOS
-      pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1],pHOS_err=pHOS_err[,y,i])
-      #predicted Hatchery origin spawners
-      HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
-      #total number of hatchery origin fish needed for broodstock and predicted HOS
-      tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
-
-      # if there is there sufficient hatchery escapement to meet broodstock needs
-       if(escapement[1]<tot_hatch_need){
-   # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
-        # every group is reduced proporitonally
-      prop_tot<-escapement[1]/tot_hatch_need
-      HOS<-HOS*prop_tot
-      HOB[,y,i]<-HOB[,y,i]*prop_tot
-      prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
-      S[1,y,i]<-max(S[1,y,i]*prop_tot2,S[1,y,i])
-
-       }
-       S[2:4,y,i]<-NOS[,y,i]+HOS
-
+    #stuff to do with option for inriver harvest error model
+    if(in_river_harvest_model_option==1){
+      in_river_harvest_model_coefs<- internal_data$in_river_coefs_option1
+    }else{
+      in_river_harvest_model_coefs<- internal_data$in_river_coefs
     }
 
-
-    recruits[,y,i]<-Ricker_fun(S[,y,i],SR_err[,y,i])
-
-    #apportion to ages
-    age_recruits<- recruits[,y,i]*t(age_prop_array[,,y,i]) # populations (rows) by ages (columns)
-
-
-    # returns
-    returns_age_y<-(t(age_recruits) * MREER_matrix[-1,y,i]) # ages (row) by populations (column).
-
-    # remember that returns wont be complete until 7th year (start_year+6)
-    for ( age in 4:6){ #adults only
-      returns[,y+age,i]<-returns[,y+age,i]+returns_age_y[age-2,]
+    if(in_river_harvest_model_option==1){
+      in_river_err<-  internal_data$in_river_err_option1[,,]
+    }else{
+      in_river_err<- internal_data$in_river_err[,,]
     }
 
 
 
-}
-}
-   list(
-    NOS = NOS,
-    S = S,
-    NOB = NOB,
-    HOB = HOB,
-    returns = returns,
-    recruits = recruits,
-    terminal_NT = terminal_NT,
-    terminal_treaty = terminal_treaty,
-    PFMC=PFMC
-  )
-}, error=function(e){
-  return(e)
-})
+    tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
+
+    NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
+
+    PFMC<-matrix(NA,n_years+6,n_iter)
+
+    S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
+
+
+    S[,1:6,] <- t(init_S)
+    S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter]
+    HOB[1,,]<-HO_broodstock_need
+
+    for(i in 1:n_iter){
+      for (y in 1 : (n_years+6)){
+
+
+        if(y>6){
+
+          RMRS<- sum(returns[,y,i])
+          PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i])
+
+
+
+          NT_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
+                                    NT_tiers,
+                                    NT_rates,
+                                    NT_scalar,
+                                    NT_offset,
+                                    NT_share)
+
+
+          Treaty_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
+                                        treaty_tiers,
+                                        treaty_rates,
+                                        treaty_scalar,
+                                        treaty_offset,
+                                        treaty_share)
+
+
+          Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
+          in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
+                                        coefs=in_river_harvest_model_coefs,
+                                        allowed_Treaty_ER=Treaty_allowed_ER,
+                                        allowed_NT_ER=NT_allowed_ER,
+                                        pfmc_AEQ= PFMC[y,i],
+                                        RMRS=RMRS,
+                                        in_river_err=in_river_err[,y,i],
+                                        mark_rate=Mark_rate,
+                                        release_mort_rate=release_mort_rate,
+                                        URR=NT_Unmarked_release_rate)
+
+          terminal_NT[1,y,i] <- returns[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
+          terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
+          terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
+
+          escapement<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
+          NOB[,y,i]<-NOB_fun(escapement[-1],NOB_err=NOB_err[,y,i],
+                             met_target=NO_broodstock_target["Methow"],
+                             oka_target=NO_broodstock_target["Okanogan"],
+                             wen_target=NO_broodstock_target["Wenatchee"])
+          HOB[2:4,y,i]<-pmax(NO_broodstock_target-NOB[,y,i],0)
+          NOS[,y,i]<-escapement[-1]-NOB[,y,i]
+          # hatchey broodstock needs for segregated and integrated programs
+          tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
+          # predicted pHOS
+          pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1],pHOS_err=pHOS_err[,y,i])
+          #predicted Hatchery origin spawners
+          HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
+          #total number of hatchery origin fish needed for broodstock and predicted HOS
+          tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
+
+          # if there is there sufficient hatchery escapement to meet broodstock needs
+          if(escapement[1]<tot_hatch_need){
+            # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
+            # every group is reduced proporitonally
+            prop_tot<-escapement[1]/tot_hatch_need
+            HOS<-HOS*prop_tot
+            HOB[,y,i]<-HOB[,y,i]*prop_tot
+            prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
+            S[1,y,i]<-max(S[1,y,i]*prop_tot2,S[1,y,i])
+
+          }
+          S[2:4,y,i]<-NOS[,y,i]+HOS
+
+        }
+
+
+        recruits[,y,i]<-Ricker_fun(S[,y,i],SR_err[,y,i])
+
+        #apportion to ages
+        age_recruits<- recruits[,y,i]*t(age_prop_array[,,y,i]) # populations (rows) by ages (columns)
+
+
+        # returns
+        returns_age_y<-(t(age_recruits) * MREER_matrix[-1,y,i]) # ages (row) by populations (column).
+
+        # remember that returns wont be complete until 7th year (start_year+6)
+        for ( age in 4:6){ #adults only
+          returns[,y+age,i]<-returns[,y+age,i]+returns_age_y[age-2,]
+        }
+
+
+
+      }
+    }
+    list(
+      NOS = NOS,
+      S = S,
+      NOB = NOB,
+      HOB = HOB,
+      returns = returns,
+      recruits = recruits,
+      terminal_NT = terminal_NT,
+      terminal_treaty = terminal_treaty,
+      PFMC=PFMC
+    )
+  }, error=function(e){
+    return(e)
+  })
 
 
 }
