@@ -1,0 +1,28 @@
+---
+title: "Model description"
+output: html_document
+date: "2024-08-06"
+---
+
+
+# Overview
+
+This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River.
+
+Broadly, the simulation model is built around Ricker stock-recruit models for the three primary natural populations (Wenatchee, Methow, and Okanogan), and a single stock-recruit model for the production of all hatchery-origin fish in the summer Chinook management stock. The model has several other components for things like, return ages of fish, ocean harvest, terminal harvest, hatchery-origin spawning, and broodstock collection. 
+
+# Run reconstruction
+
+The stock-recruit models are meant to reflect the productivity of the populations in the absence of fishing mortality. Therefore, the first step was to reconstruct "recruits", or the number of adult fish that would have returned their spawning grounds in the absence of fishing. To do this, we started with the observed escapement (natural-origin spawners and broodstock removals) to the three natural-origin populations, and expanded those based on fishing mortality in the Columbia River and the Ocean.  
+
+
+### Data
+
+The data used in this run reconstruction are as follows:  
+
+- **Natural-origin spawners and natural-origin broodstock removals** from WDFW's SPI database, and Okanogan broodstock removals from the Colville Tribes (Andrea Pearl).  
+- **Wild carcass age composition ** from WDFW (Katy Shelby) for Wenatchee and Methow, and Colville Tribes (Andrea Pearl) for Okanogan.  
+- River mouth run size by age during the summer management period from TAC.  
+- Unmarked harvest rate within the Columbia River from information in TAC BA-tables and calculated by Mark Sorel.  
+- Ocean exploitation rates from the Chinook Technical Committee [exploitation rate analysis](https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=35&wpfd_file_id=15444&token=&preview=1). These include US and Canadian ocean fisheries from SE Alaska to Oregon.  
+
