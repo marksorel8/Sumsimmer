@@ -4,25 +4,370 @@ output: html_document
 date: "2024-08-06"
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(tidyverse)
+
+library(here)
+
+internal_data<-list()
+```
 
 # Overview
 
 This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River.
 
-Broadly, the simulation model is built around Ricker stock-recruit models for the three primary natural populations (Wenatchee, Methow, and Okanogan), and a single stock-recruit model for the production of all hatchery-origin fish in the summer Chinook management stock. The model has several other components for things like, return ages of fish, ocean harvest, terminal harvest, hatchery-origin spawning, and broodstock collection. 
+Broadly, the simulation model is built around Ricker stock-recruit models for the three primary natural populations (Wenatchee, Methow, and Okanogan), and a single stock-recruit model for the production of all hatchery-origin fish that return during the summer Chinook managment period. The model has several other components including, return ages of fish, ocean harvest, terminal harvest, hatchery-origin spawning, and hatchery broodstock collection. 
 
 # Run reconstruction
 
-The stock-recruit models are meant to reflect the productivity of the populations in the absence of fishing mortality. Therefore, the first step was to reconstruct "recruits", or the number of adult fish that would have returned their spawning grounds in the absence of fishing. To do this, we started with the observed escapement (natural-origin spawners and broodstock removals) to the three natural-origin populations, and expanded those based on fishing mortality in the Columbia River and the Ocean.  
-
+The stock-recruit models are meant to reflect the productivity of the populations in the absence of fishing mortality. Therefore, the first step was to reconstruct "recruits", or the number of adult fish that would have returned to their spawning grounds in the absence of fishing. To do this, we started with observed escapement to the three natural-origin populations, and expanded those based on fishing mortality in the Columbia River and the Ocean. The hatchery run reconstruction was a little different. I subtracted the natural-origin returns to the Columbia River mouth from the total TAC river mouth run size to get an estimate of hatchery returns to the Columbia river mouth during the summer management period. I then expanded those based on ocean fishing mortality to get hatchery recruits.  
 
 ### Data
 
 The data used in this run reconstruction are as follows:  
 
-- **Natural-origin spawners and natural-origin broodstock removals** from WDFW's SPI database, and Okanogan broodstock removals from the Colville Tribes (Andrea Pearl).  
-- **Wild carcass age composition ** from WDFW (Katy Shelby) for Wenatchee and Methow, and Colville Tribes (Andrea Pearl) for Okanogan.  
-- River mouth run size by age during the summer management period from TAC.  
-- Unmarked harvest rate within the Columbia River from information in TAC BA-tables and calculated by Mark Sorel.  
-- Ocean exploitation rates from the Chinook Technical Committee [exploitation rate analysis](https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=35&wpfd_file_id=15444&token=&preview=1). These include US and Canadian ocean fisheries from SE Alaska to Oregon.  
+- **Natural-origin spawners and natural-origin broodstock removals** from [WDFW's SPI database](https://data.wa.gov/dataset/WDFW-Salmonid-Population-Indicators-Database-SPI-M/x25s-cxg8/about_data), and Okanogan broodstock removals from the Colville Tribes (Andrea Pearl, pers. comm.).  
+- **Wild carcass age composition ** from WDFW (Katy Shelby, pers. comm.) for Wenatchee and Methow, and Colville Tribes (Andrea Pearl, pers. comm.) for Okanogan.  
+- **River mouth run size by age** during the summer management period from TAC.  
+- **Unmarked harvest rate** within the Columbia River from information in TAC BA tables and calculated by me (Mark Sorel, pers. comm.).  
+- **Ocean exploitation rates** from the Chinook Technical Committee (CTC) [exploitation rate analysis](https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=35&wpfd_file_id=15444&token=&preview=1). These include US and Canadian ocean fisheries from SE Alaska to Oregon.  
+```{r data, cache = TRUE}
+
+# escapement estimates, pHOS, Broodstock removals from SPI database
+wa.esc <- read_csv("https://data.wa.gov/resource/fgyz-n3uk.csv?$query=SELECT%20stock_number%2C%20population_name%2C%20sub_population_name%2C%20data_series_num%2C%20species%2C%20year%2C%20abundance_qty%2C%20data_type%2C%20production_type%2C%20calculation_type%2C%20escapement_methodology%2C%20escapement_methodology_desc%2C%20biologist_methodology_desc%2C%20comments%2C%20report_types%2C%20last_update%20WHERE%20%60population_name%60%20IN%20('Methow%20Summer%20Chinook'%2C%20'Okanogan%20Summer%20Chinook'%2C%20'Wenatchee%20Summer%20Chinook')")
+
+# data on natural-origin carcass ages and natural origin broodstock removal in Okanogan
+ok_dat<-readxl::read_xlsx(here::here("data-raw/data/Okanogan_Sum_Chk_data_1998-2023_MSorel.xlsx"))
+
+# data on natural-origin carcass ages in Methow and Wenatchee
+age_dat<-readxl::read_xlsx(here::here("data-raw/data/UC_SUCH_Escapement_Age_Exploitation_4Thomas.xlsx"),skip=1) |> filter(Basin!="Okanogan") |> bind_rows(ok_dat |> mutate(Basin="Okanogan"))
+
+# preterminal survival from fisheries based on CTC exploitation rate analysis
+# MREER<-read_csv("data/CTC_ERA_MREER.csv")
+PreTermSurv<-read_csv(here::here("data-raw/data/CTC_ERA_sum_chk_preTermSurv.csv"))
+
+# estimates of unmarked exploitation rate derived from TAC BA tables by me (mark)
+term_ER<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),sheet="term_UM_er")
+
+above_bon_HR<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),sheet="Sheet1",range="A1:m256") |>
+  filter(Fishery %in%c("Zone 6 Sport","Zone 6 Treaty Total","McN-PRD Sport","Wanapum","Above PRD Sport","Colville")) |>
+  group_by(Year) |>
+  summarize(above_bon_HR=sum(UM_HR_aboveBon))
+
+URR<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),sheet="Sheet1",range="A1:m256") |>
+  filter(Fishery !="Zone 6 Treaty Total") |>
+  group_by(Year) |>
+  summarize(URR=weighted.mean(URR,Handle))
+
+
+# conversion rates from Bonneville to Rock Island from DART
+conv_rate<-read_csv(here::here("data-raw/data/pitconrate_1716318730_518.csv"),n_max=11)
+
+# conv_rate |> select(Year=ObservationYear,meanConRate)  |> left_join(above_bon_HR ) |> mutate(total_mort=1-meanConRate) |> mutate(test=total_mort-above_bon_HR,test2=test/(1-above_bon_HR)) |> summarise(across(everything(),mean))
+
+# Mgmt stock
+tac_RR<-readxl::read_xlsx(here::here("data-raw/data/SummerChinook.xlsx"))
+
+# hatchery releases from RMIS database
+# devtools::install_github("Ben-Cox/rRMIS")
+library(rRMIS)
+releases<-get_release_data(first_by=1987, last_by=2023)
+
+
+## FRAM PFMC AEQ Fishery Year morts
+# pfmc_morts<-readxl::read_xlsx("data/New Summer Chinook Reconstruction  101023.xlsx",sheet="HarvestDataEntry",skip=2,n_max = 45) |> 
+#   filter(Year>=2008)
+
+pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalRunSize",skip=2,n_max = 45) |> 
+  filter(Year>=2008) |> rename(`PFMC NT Harvest Total`=`PFMC NT Ocean Impacts`)
+
+
+pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalHarvestRates",skip=2,n_max = 45) |> 
+  filter(Year>=2008)
+```
+
+
+```{r, MREER_interp, include=FALSE,cache=TRUE}
+#interpolate a few missing ocean exploitation mortality rates.
+PreTermSurv_mod<- PreTermSurv|> 
+  ungroup() |> mutate(logit_surv=qlogis(ifelse(PretermSurv==1,.99,PretermSurv)),
+                                            CY_fac=as.factor(CY),
+                                           const=as.factor("const"),
+                                           Age=factor(Age,ordered = is.ordered(Age)),
+                                           CY_scale=c(scale(CY)))|> filter(CY<=2023) ##|> filter(between(CY,1978,2021))
+
+
+PreTermSurv_mod |> ggplot(aes(x=CY,y=logit_surv))+geom_point()+geom_line()+facet_wrap(~Age)
+
+
+# prep Z-scored alr 0ge prop MARSS
+wide_surv<-PreTermSurv_mod |> select(CY ,Age,logit_surv) |> 
+  pivot_wider(values_from =logit_surv ,names_from = c(Age)) |> 
+  arrange(CY) |> 
+  filter(CY<=2022) |>
+  select(-CY) |> 
+  as.matrix() |>  
+  apply(2,scale) |> 
+  t() 
+
+
+rownames(wide_surv)
+#-----------------------------------------------
+### DFA
+ns<-nrow(wide_surv)
+n_fac<-5
+
+B <- matrix(list(0), n_fac, n_fac)
+# diag(B)<-paste0("b",1:n_fac)
+diag(B)<-c("b",list(1),1,1,1)
+# diag(B)[2:5]<-list(1)
+Q <- diag(1, n_fac)
+# Q<-"diagonal and unequal"
+R <- "diagonal and unequal"
+# R<-matrix(list(0), ns, ns)
+# diag(R)<-rep(c("m","o","w","h"),each=4)
+U <- "zero"
+x0 <- "zero"
+A <- "unequal"
+V0 <- diag(5, n_fac)
+Z <- matrix(list(0), ns, n_fac)
+Z[1:(ns * n_fac)] <- paste0(rep(paste0("z",1:n_fac),each=ns),rep(1:ns,times=n_fac))
+
+Z[upper.tri(Z)]<-0
+diag(Z)[2:5]<-.2
+Z[3:5,2]<-0
+Z[4:5,3]<-0
+Z[5,4]<-0
+
+
+
+D<-"diagonal and unequal"
+d<-t(apply(matrix(1:ncol(wide_surv),nrow(wide_surv),ncol(wide_surv),byrow = TRUE), 1,scale))
+ # Z[c(1,5,9,13),2]<-0
+# Z[,-1]<-list(0)
+
+# cnt=1
+# for ( i in 2:5){
+#   Z[(cnt):(cnt+3),i]<-paste0("Z",i,(cnt):(cnt+3))
+#   cnt=cnt+4
+# }
+
+# cnt=1
+# for(i in c(3,5,7,9)){
+# Z2<-matrix(list(0), 4, 2)
+# Z2[1:(4 * 2)] <- paste0(rep(paste0("z",seq(3,by=1,length.out=2)),each=4),rep(1:4,times=2))
+# Z2[upper.tri(Z2)]<-0
+# Z[seq(cnt,by=1,length.out=4),seq(i,by=1,length.out=2)]<-Z2
+# cnt=cnt+4
+# }
+
+
+
+
+
+mod.list.dfa_MREER = list(B = B, Z = Z, Q = Q, R = R, U = U, A = A, 
+                    x0 = x0,V0=V0,tinitx=1,d=d,D=D)
+
+
+
+
+library(MARSS)
+fit.dfa.surv <- MARSS(wide_surv, model = mod.list.dfa_MREER, control = list(maxit = 500),
+                 inits = list(A = matrix(0, ns, 1)))
+
+
+scales<-PreTermSurv_mod |>  #filter(between(CY,1986,2021)) |> 
+  group_by(Age) |> summarise(mu=mean(logit_surv,na.rm=T),sd=sd(logit_surv,na.rm=T))
+                             
+                             
+# scales$sd[scales$sd>1]<-1
+
+
+PreTermSurv_mod2<-t(fit.dfa.surv$ytT*scales$sd+scales$mu)|> `colnames<-`(rownames(wide_surv)) |> as_tibble() |>  mutate(cy=1973:2022) |> pivot_longer(-cy,names_to = "Age",values_to = "logit_surv") |> mutate(age=as.numeric(substr(Age,4,4)),by=cy-age) |> 
+  arrange(by,Age) |> 
+  group_by(by) |> mutate(n=n(),MREER=1-cumprod(plogis(logit_surv))) |> 
+  filter(n>=age-1) |> 
+  ungroup()
+
+
+  sim_surv_mod<-fit.dfa.surv
+
+  sim_surv_mod$marss$fixed$x0[,,1]<-sim_surv_mod$states[,dim(sim_surv_mod$states)[2]]
+  for( i in 1:5){
+     sim_surv_mod$marss$free$A[i,i,]<-mean(tail(sim_surv_mod$marss$free$A[i,i,],10))
+  }
+    # sim_surv_mod$par$Z[6:9,]<-0
+    
+    sim_surv_mod$marss$fixed$Z[,,]<-0
+  
+  sim_MREER<-MARSS::MARSSsimulate(sim_surv_mod,tSteps = 50,1)$sim.data
+
+  
+
+sim_MREER<-t((cbind(fit.dfa.surv$ytT,sim_MREER[,,1])*scales$sd+scales$mu))|> `colnames<-`(rownames(wide_surv)) |> as_tibble() |>  mutate(cy=seq(from=1973,by=1,length.out=100)) |> pivot_longer(-cy,names_to = "Age",values_to = "logit_surv") |> mutate(age=as.numeric(substr(Age,4,4)),by=cy-age) |> 
+  arrange(by,Age) |> 
+  group_by(by) |> mutate(n=n(),MREER=1-cumprod(plogis(logit_surv))) |> 
+  filter(n>=age-1) |> 
+  ungroup() 
+
+
+sim_MREER |> ggplot(aes(x=by,y=MREER))+geom_point()+facet_wrap(~Age)+geom_line()+geom_vline(aes(xintercept=2022))
+
+
+```
+
+### Calculations
+
+#### Natural-origin escapement
+
+We begin by calculating natural-origin *Escapement* as the sum of spawners and fish taken for broodstock. 
+
+$$ Escapement_y = Spawners_y + Broodstock_y$$
+where $y$ represents the year.
+
+
+```{r escapement, fig.cap="Figure 1. Annual natural-origin escapement by population."}
+
+#escapement
+esc_dat<-
+#SPI data
+    wa.esc %>% filter(population_name %in% c("Wenatchee Summer Chinook","Methow Summer Chinook","Okanogan Summer Chinook")) %>% 
+  
+  mutate(abundance_qty =as.numeric(abundance_qty ),
+                              data_type=case_when(population_name!="Okanogan Summer Chinook"~data_type,
+                                                  escapement_methodology=="Total Natural Spawners"~"TSAIJ",
+escapement_methodology%in%c("NOSAIJ","Natural-Origin Spawners")~"NOSAIJ",
+escapement_methodology%in%c("HOSAIJ","Hatchery-Origin Spawners")~"Spawner Fish",
+TRUE~escapement_methodology
+),
+                           year=as.numeric(year)) %>%  
+  pivot_wider(id_cols = c(year,population_name),values_from =abundance_qty,names_from = data_type) %>% 
+  mutate( #ts_test=NOSAIJ+`Spawner Fish`,
+        # phos_test=`Spawner Fish`/TSAIJ,
+         total_spawners=ifelse(is.na(TSAIJ),`Spawner Fish`+NOSAIJ,TSAIJ),
+         NOS=ifelse(is.na(NOSAIJ),total_spawners,NOSAIJ),
+         HOS=total_spawners-NOS,
+         PHOS=HOS/total_spawners
+         ) %>% arrange(population_name,year) %>% ungroup %>% mutate(population_name=stringi::stri_extract_first_words(population_name)) |>
+  #add auxiliary okanogan broodstock removal data from Andrea
+  left_join(ok_dat |> select(year=`Spawn Year`,NOBroodStockRemoved2=NO_broodstock_removed ) |> mutate(population_name="Okanogan")) |> 
+#prior to 2012, the estimate of brodstock collection for the Methow include both Methow and Okanogan (collecitona tWells Dam). Goin to apportion the removals based on natural_origin spawning escapement.
+
+mutate(pop_group=ifelse(population_name=="Wenatchee","Wenatchee","OkMet")) |> 
+  group_by(year,pop_group) |> 
+  mutate(NOBroodStockRemoved=case_when(population_name=="Wenatchee"~NOBroodStockRemoved,
+                                            population_name=="Methow"&year>=2012~NOBroodStockRemoved,
+                                            population_name=="Okanogan"&year>=2012~NOBroodStockRemoved2,
+                                            TRUE~(NOS/sum(NOS))*sum(NOBroodStockRemoved,na.rm=T)
+                                            ),
+         ) |> select(-c(NOBroodStockRemoved2)) |> 
+  ungroup() |> 
+  mutate(NOR = NOS + replace_na(NOBroodStockRemoved,0)) |> 
+  left_join(age_dat |> select(population_name=Basin,year=`Spawn Year`,`SG No. Age 2`:`SG No. Age 6`) |> filter(year>=1989)) 
+  
+  
+
+
+internal_data$esc_dat<-esc_dat
+
+esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> select(year,population_name ,Spawn=NOS,Broodstock=NOBroodStockRemoved) %>%
+  drop_na() |> pivot_longer(c(Spawn,Broodstock),values_to = "NO_Return") %>% ggplot(aes(x=year,y=NO_Return,fill=name))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "right")+ylab("Nat. Origin Escapement")
+
+
+long_dat<-esc_dat |> select(spawn_year=year,basin=population_name,NOR,`SG No. Age 2`: `SG No. Age 6`) |> drop_na() |> 
+  pivot_longer("SG No. Age 2" :"SG No. Age 6" ,names_to = "age",values_to = "n_carcs") |> mutate(age=as.numeric((substr(age,12,12))),brood_year=spawn_year-age) |> 
+  #add terminal HR
+  left_join(term_ER |> rename(spawn_year=Year)) |> 
+    #add ocean MREER
+  left_join(sim_MREER |> 
+              mutate(age=as.numeric(substr(Age,4,4))) |> 
+              select(brood_year=by,age,MREER)) |> 
+group_by(basin,spawn_year) |> 
+mutate(spawn_year_age_prop=proportions(n_carcs),
+       NO_returns=NOR*spawn_year_age_prop,
+       NO_river_mouth=(NO_returns/(1-term_UM_HR)),
+       NO_recruits=(NO_river_mouth/(1-MREER)))
+
+```
+
+
+We multiply the carcass age proportions by the escapement to calculate escapement by age.
+
+$$Escapement_{a,y}=Escapement_y*p^{escapement~age}_{a,y}$$
+
+```{r esc_age, fig.cap="Figure 2. Annual proportions of carcasses of different ages recovered on the spawning grounds.}
+
+
+long_dat |>  mutate(age=factor(age,levels=6:2)) |> 
+  ggplot(aes(x=spawn_year,y=spawn_year_age_prop ,fill=age)) +
+  geom_col() +
+  facet_wrap(~basin)+ylab("Escapement age props")
+
+```
+
+
+
+#### Natural-origin recruits
+
+We expand the escapement based on the terminal harvest rate and ocean exploitation rate to calculate an estimate of recruits. 
+
+$$ Recruits_{a,y} = Escapament_{a,y} / \left[(1- terminal~ HR_y)*(1- Ocean~ ER_{a,y})\right] $$
+
+##### Terminal harvest
+I used information on harvest of marked and unmarked fish from the TAC BA tables to calculate annual harvest rates on unmarked fish as best I could. We (TAC) should make efforts to include the mark status of kept and released fish in our files as best as possible moving forward. I assumed that the terminal harvest rate was the same for all age classes within a given year.
+
+
+```{r term_HR, fig.cap="Figure 3. Terminal harvest rate estimates for unmarked Chinook during the summer managment period, as well as the for the total stock (marked and unmarked). The unmarked harvest rate was used to expand escapement to an estimate of natural-origin recruits to the Columbia River mouth"}
+
+term_ER |> pivot_longer(c(term_UM_HR:Tot_HR),names_to="Mark", values_to = "HR") |>
+  mutate(Mark=case_when(
+    Mark=="term_M_HR"~"Marked",
+    Mark=="term_UM_HR"~"Unmarked",
+    TRUE~"Total"
+  )) |>
+  filter(Mark!="Marked") |> 
+  ggplot(aes(x=Year,y=HR,color=Mark))+geom_point()+geom_line()+ylab("Columbia River harvest rate")
+
+
+```
+
+##### Ocean exploitation
+
+For ocean exploitation rates, I used what the CTC calls Mature Run Exploitation Rates (MREERs), which is the the proportional reduction in terminal returns in given year due to fishing mortality in the current and past years. The CTC produces estimates of MREER for two Upper Columbia indicator stocks -- Wells Hatchery and Similkameen and Omak Pond -- and I used a weighted mean of the values for these stocks, where the weighting was by their escapement. I used age-specific MREER estimates when calculating estimates of recruits of each age in each year. 
+
+
+```{r MREER_plot, fig.cap="Figure 4. Annual Mature Run Exploitation Rate, which is the proportional reduction in returns to the Columbia River mouth in a given year due to ocean fisheries in the current and previous years. Age-specific estimates were used in the run reconstruction, but the total annual rate based on the TAC river-mouth age proportions is shown here for simplicity."}
+
+tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
+  mutate(age=as.numeric(substr(Age,4,4)),
+         year=BroodYear+age) |> group_by(year) |>
+  left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
+  summarize(n=n(),mreer=weighted.mean(MREER,riv_mouth)) |> drop_na() |>  
+  ggplot(aes(x=year,y=mreer))+
+  geom_point()+geom_line()+ylab("Ocean ER")+xlim(1998,2022)
+
+```
+
+#### Hatchery-origin recruits
+
+My approach to estimating hatchery-origin recruits was to 
+
+1) reconstruct the natural-origin return to the Columbia River mouth and subtract that from the TAC river mouth run size to get the hatchery-origin return to the Columbia river mouth,
+2) expand the return to the Columbia River mouth by the same age-specific ocean MREER described above to get hatchery-origin recruits. 
+
+To reconstruct natural-origin river-mouth run size, I examined conversion rates between Bonneville Dam and Rock Island Dam and found that they averaged [73% in 2009--2023](https://www.cbr.washington.edu/dart/wrapper?type=php&fname=pitconrate_1723055037_731.php). Average conversion rates to McNary, Priest Rapdis, and Wells Dam were all within 3% of this.In comparison, the average harvest rate of unmarked fish above Bonneville Dam in those years was `r above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR))`, so the survival was `r 1-(above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR)))`. Given that the harvest rate was greater than the total mortality rate between Bonneville and Rock Island Dam, and for simplicity, I decided to use one minus the total unmarked harvest rate (Figure 3) as the conversion rate between the river mouth and escapement. If this is an overestimate of the true conversion rate, I would be underestimating natural-origin river mouth returns and overestimating hatchery-origin returns.
+
+```{r}
+ returns<-tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
+  mutate(age=as.numeric(substr(Age,4,4)),
+         year=BroodYear+age) |> 
+  left_join(long_dat |> group_by(spawn_year,age) |> summarize(wild=sum(NO_river_mouth),n=n()) |> filter(n==3) |> rename(year=spawn_year)) |> mutate(hatchery=riv_mouth-wild) 
+
+returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("River mouth run size")+xlab("")
+```
 
