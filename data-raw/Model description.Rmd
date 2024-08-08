@@ -25,7 +25,7 @@ Broadly, the simulation model is built around Ricker stock-recruit models for th
 
 # Run reconstruction
 
-The stock-recruit models are meant to reflect the productivity of the populations in the absence of fishing mortality. Therefore, the first step was to reconstruct "recruits", or the number of adult fish that would have returned to their spawning grounds in the absence of fishing. To do this, we started with observed escapement to the three natural-origin populations, and expanded those based on fishing mortality in the Columbia River and the Ocean. The hatchery run reconstruction was a little different. I subtracted the natural-origin returns to the Columbia River mouth from the total TAC river mouth run size to get an estimate of hatchery returns to the Columbia river mouth during the summer management period. I then expanded those based on ocean fishing mortality to get hatchery recruits.  
+The stock-recruit models are meant to reflect the productivity of the populations in the absence of fishing mortality. Therefore, the first step was to reconstruct "recruits", or the number of adult fish that would have returned to their spawning grounds in the absence of fishing. To do this, we started with observed escapement to the three natural-origin populations, and expanded those based on fishing mortality in the Columbia River and the Ocean. The hatchery run reconstruction was a little different. I subtracted the natural-origin returns to the Columbia River mouth from the total TAC river mouth run size to get an estimate of hatchery returns to the Columbia river mouth during the summer management period. I then expanded those based on ocean fishing mortality to get hatchery recruits. Details on the run reconstruction are provided below.
 
 ### Data
 
@@ -92,7 +92,7 @@ pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconst
 ```
 
 
-```{r, MREER_interp, include=FALSE,cache=TRUE}
+```{r MREER_interp, include=FALSE,cache=TRUE}
 #interpolate a few missing ocean exploitation mortality rates.
 PreTermSurv_mod<- PreTermSurv|> 
   ungroup() |> mutate(logit_surv=qlogis(ifelse(PretermSurv==1,.99,PretermSurv)),
@@ -361,7 +361,7 @@ My approach to estimating hatchery-origin recruits was to
 2) expand the return to the Columbia River mouth by the same age-specific ocean MREER described above to get hatchery-origin recruits. 
 
 $$Hatchery~recruits_{a,y} = \frac{RMRS{a,y}-RMRS^{\text{natural}}_{a,y}}{1- Ocean~ ER_{a,y}}$$
-As an estimate of the natural-origin river-mouth run size, I used the estimate of natural-origin recruits to the Columbia River mouth (i.e., $escapment/(1- terminal~ HR)$) summed across the three natural populations. In other words, I assumed that harvest mortality was the only source of mortality contributing to the conversion rate between the river mouth and escapement. I made this decision for simplicity and the following reason.Conversion rates of PIT-tagged wild summer Chinook between Bonneville Dam and Rock Island Dam averaged [73% in 2009--2023](https://www.cbr.washington.edu/dart/wrapper?type=php&fname=pitconrate_1723055037_731.php). Average conversion rates to McNary, Priest Rapids, and Wells Dam were all within 3% of this. In comparison, the average harvest rate of unmarked fish above Bonneville Dam in those years was `r above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR)) |> round(2)`, so the survival was `r 1-(above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR))) |> round(2)`. Given that the harvest rate was greater than the total mortality rate between Bonneville and Rock Island Dam, and for simplicity, I decided to use one minus the total unmarked harvest rate (Figure 3) as the conversion rate between the river mouth and escapement. If this is an overestimate of the true conversion rate, I would be underestimating the natural-origin river mouth return and overestimating hatchery-origin returns.
+As an estimate of the natural-origin river-mouth run size, I used the estimate of natural-origin recruits to the Columbia River mouth (i.e., $escapment/(1- terminal~ HR)$) summed across the three natural populations. In other words, I assumed that harvest mortality was the only source of mortality contributing to the conversion rate between the river mouth and escapement. I made this decision both for simplicity and the following reason.Conversion rates of PIT-tagged wild summer Chinook between Bonneville Dam and Rock Island Dam averaged [73% in 2009--2023](https://www.cbr.washington.edu/dart/wrapper?type=php&fname=pitconrate_1723055037_731.php). Average conversion rates to McNary, Priest Rapids, and Wells Dam were all within 3% of this. In comparison, the average harvest rate of unmarked fish above Bonneville Dam in those years was `r above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR)) |> round(2)`, so the survival was `r 1-(above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR))) |> round(2)`. Given that the harvest rate was greater than the total mortality rate between Bonneville and Rock Island Dam, and for simplicity, I decided to use one minus the total unmarked harvest rate (Figure 3) as the conversion rate between the river mouth and escapement. If this is an overestimate of the true conversion rate, as it likely is, I would be underestimating the natural-origin river mouth return and overestimating hatchery-origin returns. I don't think this will have an outsized effect on the utility of this analysis to inform a simulation to compare the outcomes of alternative harvest management strategies. However, natural mortality within the Columbia River could be incorporated in this analysis in the future.
 
 ```{r rmrs_fig,fig.cap="Figure 5. Reconstructed river mouth run size by origin and year."}
  returns<-tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
@@ -372,7 +372,7 @@ As an estimate of the natural-origin river-mouth run size, I used the estimate o
 returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("River mouth run size")+xlab("")
 ```
 
-The result of the run reconstruction was an estimate of hatchery and natural-origin recruits by age and year.
+The result of the run reconstruction was an estimate of hatchery and natural-origin recruits by age and year. The primary data time series limiting the length of the time series of recosntructed recruits was that of the escapement age compositon. This could be imputed (e.g., within and integrated model) if needed in the future.
 
 ```{r recruit_age_plot, fig.cap="Figure 6. Recruits by age, brood year, and population. Note that the y-axes differ among panels."}
 
@@ -388,12 +388,14 @@ ggplot(all_recruit_dat |> mutate(age=factor(age,levels=6:2)), aes(x=brood_year,y
 
 To simulate the system we needed modules to simulate the following processes:
 
-- Number of recruits as a function of spawners/broodstock
+- Recruits as a function of spawners/broodstock
 - Maturation ages of recruits
 - Ocean exploitation rates
 - Terminal harvest
 - Broodstock collection
 - Hatchery-origin spawning
+
+ADD DIAGRAM
 
 ### Stock-recruit models
 
@@ -403,13 +405,13 @@ where $\alpha$ represents the maximum recruits per spawner as you approach zero 
 
 Hatchery-origin spawners were included in the total number of spawners in these relationships. I assumed that hatchery- and natural-origin spawners had similar reproductive success. 
 
-```{r tot_spawners, fig.cap="Numbers of natural- and hatchery-origin spawners by year and population."}
+```{r tot_spawners, fig.cap="Figure .Numbers of natural- and hatchery-origin spawners by year and population."}
 
 esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2022)|> select(year,basin=population_name,hatchery=HOS,wild=NOS) |> pivot_longer(c(hatchery,wild),names_to = "Origin",values_to = "Spawners")|> ggplot(aes(x=year,y=Spawners,fill=Origin))+geom_col()+facet_grid(~basin)
 ```
 
 
-I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling-equivalent" releases to use in the model. 
+I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker model defined abvoe). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling-equivalent" releases to use in the model. 
 
 ```{r releases, fig.cap="Upper Columbia River hatchery smolt releases by lifestage and brood year.",cache=TRUE}
 
@@ -452,9 +454,7 @@ $$
 \varepsilon_y=\phi \varepsilon_{y-1}+\sigma x_i, \quad x_y \sim N(0, \Sigma)
 \end{gathered}
 $$
-where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=1-\sqrt{\phi^2}$.
-
-Thus, when we simulated future recruitment from this model, we accounted for how things are correlated from year to year and among populations within year.
+where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=1-\sqrt{\phi^2}$. The annual increments were assumed to follow a multivariate normal distribution with an unstructured covariance matrix. Thus, when simulating future recruitment from this model, we accounted for how things are correlated from year to year and among populations within year.
 
 ```{r hatch_recruits_per_release,include =FALSE,cache=TRUE}
   #lambert w function
@@ -618,7 +618,7 @@ corrplot::corrplot(rick_cor |> `colnames<-`(c("Hatchery","Methow","Okanogan","We
 ```
 
 
-```{r plot_SR}
+```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past-years' observations."}
 ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
            left_join(
@@ -675,7 +675,7 @@ ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey"
 
 ```
 
-### maturation ages
+### Maturation ages
 
 We account for correlation from year to year and among populations in recruit maturation age proportions.
 
@@ -686,7 +686,7 @@ where $\mu_{i,a}$ is a population and age specific average, $\zeta_{i,a}$ is a p
 
 The latent variable was allowed to be autocorrelated,
 $$\eta_t \sim \mathcal{N}(\lambda \eta_{t-1},~ \varsigma)$$
-like the autocorrelated residual term in the spawner-recruit model, to represent the effects of common environmental factors on age proportions. By allowing each age and population to load onto that factor with a unique parameter $ \zeta_{i,a}$, the age proportions could have negative covariance, as can result, for example, when the average age decreases, such that the older age proportions increase at the same time that the younger age proportions decrease. 
+like the autocorrelated residual term in the spawner-recruit model, to represent the effects of common environmental factors on age proportions. By allowing each age and population to load onto that factor with a unique parameter $\zeta_{i,a}$, the age proportions could have negative covariance, such would occur if the older age proportions increase at the same time that the younger age proportions decrease. 
 
 Finally, the idiosyncratic residual errors were assumed to be normally distributed with population and age specific variance,
 
@@ -721,7 +721,7 @@ mat_age_dat |>  group_by(basin,brood_year) |>
 ```
 
 
-```{r age_sim_fig,fig.cap="Figure. One random simulated time series of recruit age proportions for brood years 2017-2066.The years through 2016 are the observed age proportions.}
+```{r age_sim_mod,include=FALSE,cache=TRUE}
 #-------------------------------------------
 # modeling additive log ratios of age
 
@@ -825,7 +825,9 @@ scales$sd[scales$sd>.75]<-.75
 
   sim_mod$marss$fixed$x0[,,1]<-sim_mod$states[,dim(sim_mod$states)[2]]
   
-  
+```
+
+```{r age_sim_fig,fig.cap="Figure. One random simulated time series of recruit age proportions for brood years 2017-2066.The years through 2016 are the observed age proportions."}
 
   test<-MARSS::MARSSsimulate(sim_mod,tSteps = 50,1)$sim.data
 
@@ -886,4 +888,214 @@ sim1 |> filter(brood_year>2016) |> bind_rows(mat_age_dat |> mutate(age=as.factor
 
 ```
 
+## Ocean exploitation
+
+Similarly to age proportions, we modeled annual and age-specific ocean fisheries mortality allowing for correlation among successive years as well as among ages within years. 
+
+
+We assumed that the ocean exploitation would be similar to the most recent 10 years, and will not return to the consistently higher explotation rates observed prior to the 1990s. 
+
+
+```{r mreer_sim, fig.cap="Figure. Mature run exploitation rates (MREER) by age and brood year. The years to the left the vertical black line are observation and the years to the right are one random simulation of future ocean fishing exploitation." }
+
+#see the 3rd code chunk entitled "MREER_interp" for details of modeling and simulation
+
+sim_MREER |> ggplot(aes(x=by,y=MREER))+geom_point()+facet_wrap(~Age)+geom_line()+geom_vline(aes(xintercept=2022))
+```
+
+
+
+
+
+## Terminal harvest
+
+In the 2019-2028 USvOR Management Agreement, total allowable catch is determined based on the River Mouth Run Size and, for the non-Treaty share, the Adult Equivalent (AEQ) mortalities from PFMC fisheries during the calendar year. 
+
+#### PFMC AEQ
+
+We model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error.
+
+```{r PFMC, fig.cap="PFMC AEQ mortalities vs. river mouth run size. The line adn shaded area represent the mean and 95% prediction intervals. The points represent observations -- from TAC run-reconstruction files -- from 2010-2021."}
+pfmc_mort_dat<-
+pfmc_morts |> left_join(pfmc_HRs |> select(Year,`PFMC NT Ocean Impacts`)) |> filter(Year>=2010) |> select(Year,`River Mouth Run Size`,`PFMC NT Harvest Total`,`PFMC NT Ocean Impacts`) |> rename(RMRS=`River Mouth Run Size`,PFMCNT=`PFMC NT Harvest Total` ) |> 
+  mutate(run_size=RMRS+PFMCNT)
+
+#lognormal error model
+
+pfmc_mod_fun<-function(par){
+  -sum(dnorm(log(par[1]*pfmc_mort_dat$RMRS),log(pfmc_mort_dat$PFMCNT),exp(par[2]),log=TRUE))
+}
+
+pfmc_mod_fit<-optim(c(c(.06),0),pfmc_mod_fun)
+
+RMRS<-seq(1,150000,by=10000)
+tibble(RMRS=RMRS,fit=pfmc_mod_fit$par[1]*RMRS) |> mutate(
+  lwr=fit*exp(-1.96*exp(pfmc_mod_fit$par[2])),
+  upr=fit*exp(1.96*exp(pfmc_mod_fit$par[2]))
+) |> ggplot(aes(x=RMRS))+geom_ribbon(aes(ymin = (lwr),ymax=(upr)),fill="grey")+geom_line(aes(y=(fit)))+geom_point(data=pfmc_mort_dat,aes(y=PFMCNT))+theme_classic()+ylab("PFMC AEQ")+xlab("River mouth run size")
+
+```
+
+#### In-river harvest
+
+I implemented two different options for simulating in-river harvest  as a function of what is allowed. 
+
+1. The default model assumes that total harvest has a linear relationship with allowed harvest in log space. Both the allowed and the realized include the PFMC AEQ mortalities. The 2019 fishery was removed when fitting this model due its outsized effect on the residual error standard deviation. 
+
+2. Since 2008, both sectors have been more likely to exceed their allowable take when it is small. The most dramatic example of this was the 2019 non-Treaty in-river fishery. Not fully understanding whether this will be a persistent pattern that goes into the future, I developed an alternative model where the average realized harvest rate is constant below a certain threshold of allowed harvest. This model would reflect a world where harvest is not responsive to what is allowed below a certain threshold.
+
+```{r in_river_harv, fig.cap="Figure . Relationships between alllowed and realized harvest. Blue lines are the 1:1, red lines are the mean relationship, grey shaded areas span 95% prediction intervals, and points are estimates from 2008-2022. The top row represents the default model used for simulation, where there is a log-log relationship between allowed and realized total harvest (including PFMC AEQ ocean morts). The second row is an alternative model where there is a segmented relationship between the allowed and realized in-river harvest rate (excluding PFMC)."}
+pfmc_morts_2<-pfmc_morts |> dplyr::select(`Allowed Treaty or NT Harvest`,`PFMC NT Harvest Total`,`Total In-river NT`,`Total Treaty`,`Total NT`,RMRS=`River Mouth Run Size`,Year) |> pivot_longer(c(`Total Treaty`,`Total In-river NT`),values_to = "In_river_harvest",names_to = "Sector") |>
+  mutate(Allowed_in_river=ifelse(Sector=="Total In-river NT",`Allowed Treaty or NT Harvest`-`PFMC NT Harvest Total`,`Allowed Treaty or NT Harvest`),
+         Total_harvest=ifelse(Sector=="Total Treaty",In_river_harvest,`Total NT`))|> filter(In_river_harvest>0) |> 
+  mutate(Sector=ifelse(Sector=="Total Treaty","Treaty","NT"))|>
+  mutate(HoA=In_river_harvest/Allowed_in_river,
+         in_river_HR=In_river_harvest/(RMRS),
+         in_river_allowed_HR=Allowed_in_river/(RMRS),
+         HoA_HR=in_river_HR/in_river_allowed_HR) |> 
+  rename(total_allowed=`Allowed Treaty or NT Harvest`)
+
+
+in_riv_mod<-glmmTMB::glmmTMB(log(Total_harvest)~Sector:log(total_allowed)-1+diag(0+Sector|Year),data=pfmc_morts_2 |> filter(Year!=2019),dispformula = ~0)
+
+
+# summary(in_riv_mod)
+# AIC(in_riv_mod)
+# plot(in_riv_mod)
+
+
+in_riv_pred<-data.frame(total_allowed=rep(seq(1,70000,1000),times=2), Sector=rep(c("NT","Treaty"),each=70),Year=1)
+
+pred<-predict(in_riv_mod,newdata=in_riv_pred,allow.new.levels=TRUE)
+
+in_riv_pred$pred=exp(pred)
+in_riv_pred$lcl=exp(pred-1.96*ifelse(in_riv_pred$Sector=="NT",exp(in_riv_mod$fit$par[3]),exp(in_riv_mod$fit$par[4])))
+in_riv_pred$ucl=exp(pred+1.96*ifelse(in_riv_pred$Sector=="NT",exp(in_riv_mod$fit$par[3]),exp(in_riv_mod$fit$par[4])))
+
+
+mod1_plot<-in_riv_pred |> 
+   ggplot(aes(x=total_allowed))+geom_ribbon(aes(x=total_allowed,ymax = ucl,ymin=lcl),fill="grey")+geom_line(aes(y=pred),lwd=1.25,color="firebrick4")+geom_point(data=pfmc_morts_2,aes(y=Total_harvest))+geom_abline(intercept=0,slope=1,lwd=.8,col="blue")+facet_wrap(~Sector)+xlab("Total allowed harvest")+ylab("Total harvest")+theme_classic()
+
+
+
+
+#segmented model with a slope of zero before the break and slope of 1 after the break
+mod_fun<-function(x,psi,int){
+  int+ifelse(x>psi,x-psi,0)
+}
+
+mod_fun_2<-function(par,dat,y){
+  -sum(dnorm(mod_fun(dat,par[1],par[2]),y,exp(par[3]),log = TRUE))
+}
+
+
+seg_fit_NT<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR[pfmc_morts_2$Sector=="NT"]),y=qlogis(pfmc_morts_2$in_river_HR[pfmc_morts_2$Sector=="NT"]))
+
+seg_fit_T<-optim(c(-2,-2,-1),mod_fun_2,dat=qlogis(pfmc_morts_2$in_river_allowed_HR[pfmc_morts_2$Sector=="Treaty"]),y=qlogis(pfmc_morts_2$in_river_HR[pfmc_morts_2$Sector=="Treaty"]))
+
+
+
+
+in_riv_pred2<-data.frame(#Allowed_in_river=rep(seq(0,100000,5000),times=1),
+                        in_river_allowed_HR=rep(seq(0,.4,.01),times=2),
+ Sector=as.factor(rep(c("NT","Treaty"),each=41)))
+
+
+
+# in_riv_pred$pred=plogis(predict(segmented_model,newdata=in_riv_pred))
+in_riv_pred2$pred=plogis(c(mod_fun(x=qlogis(seq(0,.4,.01)),seg_fit_NT$par[1],seg_fit_NT$par[2]),mod_fun(x=qlogis(seq(0,.4,.01)),seg_fit_T$par[1],seg_fit_T$par[2])))
+
+
+in_riv_pred2$ucl<-plogis(qlogis(in_riv_pred2$pred)+2*exp(ifelse(in_riv_pred2$Sector=="Treaty",seg_fit_T$par[3],seg_fit_NT$par[3])))
+in_riv_pred2$lcl<-plogis(qlogis(in_riv_pred2$pred)-2*exp(ifelse(in_riv_pred2$Sector=="Treaty",seg_fit_T$par[3],seg_fit_NT$par[3])))
+
+
+mod_2_plot<-in_riv_pred2 |> 
+   ggplot(aes(x=in_river_allowed_HR))+geom_ribbon(aes(ymin=lcl,ymax=ucl),fill="grey")+geom_line(aes(y=pred),lwd=1.25,color="firebrick4")+geom_point(data=pfmc_morts_2,aes(y=in_river_HR),cex=1.75)+geom_abline(intercept=0,slope=1,lwd=.8,col="blue")+facet_wrap(~Sector)+ylab("In-rive HR")+xlab("Allowed in-river HR")+theme_classic()
+
+gridExtra::grid.arrange(mod1_plot,mod_2_plot)
+
+```
+
+
+#### broodstock collection
+
+We assume that the Methow and Wenatchee integrated programs will collect their target natural-origin broodstock, with 10% error, unless that constitues >30% of the total natural-origin escapement to that tributary. In that case, 30% of the natural-origin escapement is collected, with 10% error. The escapement goals for the Wenatchee is 310 total adults and for the Methow is 122. 
+
+The Okanogan program has more frequently collected less than their natural-origin broodstock target of 656 adults, so I implemented a positive relationship between natural-origin escapement and natural-origin broodstock collection up to the target.
+
+
+
+```{r broodstock_removal}
+
+
+esc_dat %>% filter(year>=2012)|> dplyr::select(year,population_name ,Broodstock=NOBroodStockRemoved,NOR) %>%
+  drop_na()  %>% ggplot(aes(x=(NOR),y=(Broodstock)))+geom_point()+facet_wrap(~population_name,scales="free_x")+geom_smooth(method = "lm",formula="(y)~log(x)")+xlab("Natural-origin escapement")+ylab("Natural-origin broodstock")
+
+
+Ok_bs_mod<-(lm(log(NOBroodStockRemoved)~log(NOR)-1,
+data=(esc_dat %>% filter(year>=2012,population_name=="Okanogan"))))
+
+# summary(Ok_bs_mod)
+# 
+# set.seed(1314)
+# NOB_err<-array(exp(rnorm(n_year*n_sim*3,0,.1)),dim=c(3,n_year,n_sim))
+# 
+# internal_data$NOB_err<-NOB_err
+# internal_data$Ok_BS_coef<-coef(Ok_bs_mod)
+
+```
+
+
+#### hatchery-origin spawners
+
+pHOS was modeled as a decreasing function of log transformed natural-origin spawner abundance and hatchery escapement, with normal errors in logit-space. Each basin has it's own unique intercept and effect of natural-origin spawners. 
+
+
+```{r pHOS, fig.cap="Figure. proportion of hatchery origin spawners (pHOS) vs natural-origin spawner abundance. THe lines represent the mean relationship at different levels of hatchery escapement, and the points represent observations from 2010-2022."}
+
+
+phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mutate(logit_phos=qlogis(PHOS)) |> left_join((returns |> group_by(year) |> summarize(hatch_return=sum(hatchery))) |> 
+  drop_na())|> 
+  group_by(population_name) |> 
+  mutate(year_fac=as.factor(year),
+         NOS_scale=scale(NOS),
+         year_scale=scale(year),
+         hatch_return_scale=scale(hatch_return)) |> 
+  left_join(term_ER,by=c("year"="Year")) |> 
+  ungroup() |> 
+  mutate(hatchery_escapement=hatch_return*(1-term_M_HR ))
+
+
+
+pHOS_mod<-glmmTMB::glmmTMB(logit_phos~population_name+log(NOS):population_name+log(hatchery_escapement)-1+diag(population_name+0|year_fac),data=phos_dat|> filter(!is.na(hatchery_escapement)),dispformula = ~0)
+
+pdat<-
+phos_dat |> 
+  group_by(population_name) %>%
+  summarise(min_value = min(NOS)*.5, max_value = max(NOS)*2) %>%
+  rowwise() %>%
+  mutate(value_sequence = list(seq(min_value, max_value,by=250))) %>%
+  unnest(value_sequence) %>%
+  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(5000,150000,by=20000),year_fac=as.factor(3000))
+
+pred<-predict(pHOS_mod,newdata = pdat)
+pdat<-pdat |> mutate(pred=plogis(pred)) 
+
+
+pdat |> mutate(hatchery_escapement=as.factor(hatchery_escapement))|> ggplot(aes(x=NOS))+geom_line(aes(y=pred,color=hatchery_escapement),lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])+ylab("pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat,aes(x=NOS,y=PHOS))
+#note different scales
+
+# internal_data$pHOS_mod_coefs<-
+# pHOS_mod$fit$par
+# 
+# set.seed(1516)
+# pHOS_err<-
+# sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
+# 
+# pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
+# 
+# internal_data$pHOS_err<-pHOS_err
+# deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+```
 
