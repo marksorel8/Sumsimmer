@@ -300,7 +300,7 @@ We multiply the carcass age proportions by the escapement to calculate escapemen
 
 $$Escapement_{a,y}=Escapement_y*p^{escapement~age}_{a,y}$$
 
-```{r esc_age, fig.cap="Figure 2. Annual proportions of carcasses of different ages recovered on the spawning grounds.}
+```{r esc_age, fig.cap="Figure 2. Annual proportions of carcasses of different ages recovered on the spawning grounds."}
 
 
 long_dat |>  mutate(age=factor(age,levels=6:2)) |> 
@@ -316,7 +316,7 @@ long_dat |>  mutate(age=factor(age,levels=6:2)) |>
 
 We expand the escapement based on the terminal harvest rate and ocean exploitation rate to calculate an estimate of recruits. 
 
-$$ Recruits_{a,y} = Escapament_{a,y} / \left[(1- terminal~ HR_y)*(1- Ocean~ ER_{a,y})\right] $$
+$$ Recruits_{a,y} = \frac{Escapament_{a,y} } {(1- terminal~ HR_y)*(1- Ocean~ ER_{a,y})} $$
 
 ##### Terminal harvest
 I used information on harvest of marked and unmarked fish from the TAC BA tables to calculate annual harvest rates on unmarked fish as best I could. We (TAC) should make efforts to include the mark status of kept and released fish in our files as best as possible moving forward. I assumed that the terminal harvest rate was the same for all age classes within a given year.
@@ -360,9 +360,10 @@ My approach to estimating hatchery-origin recruits was to
 1) reconstruct the natural-origin return to the Columbia River mouth and subtract that from the TAC river mouth run size to get the hatchery-origin return to the Columbia river mouth,
 2) expand the return to the Columbia River mouth by the same age-specific ocean MREER described above to get hatchery-origin recruits. 
 
-To reconstruct natural-origin river-mouth run size, I examined conversion rates between Bonneville Dam and Rock Island Dam and found that they averaged [73% in 2009--2023](https://www.cbr.washington.edu/dart/wrapper?type=php&fname=pitconrate_1723055037_731.php). Average conversion rates to McNary, Priest Rapdis, and Wells Dam were all within 3% of this.In comparison, the average harvest rate of unmarked fish above Bonneville Dam in those years was `r above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR))`, so the survival was `r 1-(above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR)))`. Given that the harvest rate was greater than the total mortality rate between Bonneville and Rock Island Dam, and for simplicity, I decided to use one minus the total unmarked harvest rate (Figure 3) as the conversion rate between the river mouth and escapement. If this is an overestimate of the true conversion rate, I would be underestimating natural-origin river mouth returns and overestimating hatchery-origin returns.
+$$Hatchery~recruits_{a,y} = \frac{RMRS{a,y}-RMRS^{\text{natural}}_{a,y}}{1- Ocean~ ER_{a,y}}$$
+As an estimate of the natural-origin river-mouth run size, I used the estimate of natural-origin recruits to the Columbia River mouth (i.e., $escapment/(1- terminal~ HR)$) summed across the three natural populations. In other words, I assumed that harvest mortality was the only source of mortality contributing to the conversion rate between the river mouth and escapement. I made this decision for simplicity and the following reason.Conversion rates of PIT-tagged wild summer Chinook between Bonneville Dam and Rock Island Dam averaged [73% in 2009--2023](https://www.cbr.washington.edu/dart/wrapper?type=php&fname=pitconrate_1723055037_731.php). Average conversion rates to McNary, Priest Rapids, and Wells Dam were all within 3% of this. In comparison, the average harvest rate of unmarked fish above Bonneville Dam in those years was `r above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR)) |> round(2)`, so the survival was `r 1-(above_bon_HR |> filter(between(Year,2009,2023)) |> summarize(mean(above_bon_HR))) |> round(2)`. Given that the harvest rate was greater than the total mortality rate between Bonneville and Rock Island Dam, and for simplicity, I decided to use one minus the total unmarked harvest rate (Figure 3) as the conversion rate between the river mouth and escapement. If this is an overestimate of the true conversion rate, I would be underestimating the natural-origin river mouth return and overestimating hatchery-origin returns.
 
-```{r}
+```{r rmrs_fig,fig.cap="Figure 5. Reconstructed river mouth run size by origin and year."}
  returns<-tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
   mutate(age=as.numeric(substr(Age,4,4)),
          year=BroodYear+age) |> 
@@ -370,4 +371,519 @@ To reconstruct natural-origin river-mouth run size, I examined conversion rates 
 
 returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("River mouth run size")+xlab("")
 ```
+
+The result of the run reconstruction was an estimate of hatchery and natural-origin recruits by age and year.
+
+```{r recruit_age_plot, fig.cap="Figure 6. Recruits by age, brood year, and population. Note that the y-axes differ among panels."}
+
+all_recruit_dat<-
+returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatchery) |> left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
+  mutate(Recruits=hatchery/(1-MREER)) |> mutate(age=as.numeric(substr(Age,4,4)),basin="Hatchery") |> select(age,Recruits,basin,brood_year) |> bind_rows(long_dat |> ungroup() |>  select(age,Recruits=NO_recruits,basin,brood_year)) |> drop_na() |> filter(age>2) |>  group_by(brood_year,basin) |> mutate(n_ages=n()) |> ungroup() |>  filter(n_ages==4)
+
+
+ggplot(all_recruit_dat |> mutate(age=factor(age,levels=6:2)), aes(x=brood_year,y=Recruits,fill=age))+geom_col()+facet_wrap(~basin,scales="free_y")+ylab("Recruits")+xlab("Brood year")
+```
+
+# Simulation model
+
+To simulate the system we needed modules to simulate the following processes:
+
+- Number of recruits as a function of spawners/broodstock
+- Maturation ages of recruits
+- Ocean exploitation rates
+- Terminal harvest
+- Broodstock collection
+- Hatchery-origin spawning
+
+### Stock-recruit models
+
+I fit Ricker spawner-recruit relationships for each natural population.
+$$recruits_y=\alpha*spawners_y*\text{exp}(-\beta*spawners_y)*\text{exp}(\varepsilon_y)$$
+where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\beta$ determines the strength of density dependence (i.e., the rate at which productivity declines with increasing spawners). I assumed that all populations had the same $alpha$ but allowed $\beta$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
+
+Hatchery-origin spawners were included in the total number of spawners in these relationships. I assumed that hatchery- and natural-origin spawners had similar reproductive success. 
+
+```{r tot_spawners, fig.cap="Numbers of natural- and hatchery-origin spawners by year and population."}
+
+esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2022)|> select(year,basin=population_name,hatchery=HOS,wild=NOS) |> pivot_longer(c(hatchery,wild),names_to = "Origin",values_to = "Spawners")|> ggplot(aes(x=year,y=Spawners,fill=Origin))+geom_col()+facet_grid(~basin)
+```
+
+
+I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling-equivalent" releases to use in the model. 
+
+```{r releases, fig.cap="Upper Columbia River hatchery smolt releases by lifestage and brood year.",cache=TRUE}
+
+rel2<-releases %>%   
+  filter(species==1 & run==2,rearing_type =="H",rmis_domain!="AK") |>  filter(psc_region%in%c("CECR","CRGN","UPCR","WAGN"),release_site!="QUILLAYUTE+TULALIP C",brood_year>=1987) |>
+  rRMIS::releases_for_tr() |> 
+  rowwise() %>% 
+  mutate(mean_rel_date=mean(c(last_release_date,first_release_date)),
+                   age=mean_rel_date-as.Date(paste0(brood_year,"-10-01")),lifestage=ifelse(age<=400,"sub","yrlng")) %>% 
+  filter(brood_year<=2021) |>
+  pivot_longer(Ad_CWT:Unclipped_NoCWT,names_to = "mark",values_to = "count") |> 
+  mutate(count2=ifelse(lifestage=="sub",count*.5,count),
+         mark=ifelse(grepl("Ad",mark),"Ad","UM")) |> 
+  group_by(brood_year,lifestage) |> 
+  summarise(releases=sum(count),releases2=sum(count2),
+            ad_releases=sum(count[mark=="Ad"]),
+            ad_releases2=sum(count2[mark=="Ad"]),
+            MR=ad_releases/releases
+            )
+
+rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=releases,fill=lifestage))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+# rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=releases2))+geom_col()+ylab("Smolt releases (yearlings + 0.5 * subyearlings)")+xlab("Brood year")
+
+
+# rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=MR,fill=lifestage))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+
+# rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> ggplot(aes(x=brood_year,y=MR))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+
+```
+
+The error terms for the three natural-origin populations and the hatchery origin population were assumed to follow a 1st order autoregressive process with multivariate-normal increments.
+
+$$
+\begin{gathered}
+\varepsilon_0 \sim N(0, \Sigma) \\
+\varepsilon_1 =\phi \varepsilon_0+\sigma x_1, \quad x_1 \sim N(0, \Sigma) \\
+\varepsilon_y=\phi \varepsilon_{y-1}+\sigma x_i, \quad x_y \sim N(0, \Sigma)
+\end{gathered}
+$$
+where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=1-\sqrt{\phi^2}$.
+
+Thus, when we simulated future recruitment from this model, we accounted for how things are correlated from year to year and among populations within year.
+
+```{r hatch_recruits_per_release,include =FALSE,cache=TRUE}
+  #lambert w function
+W <- function(x) {
+   logx <- log(x)
+   y <- pmax(logx, 0)
+   while (any(abs(logx - log(y) - y) > 1e-9, na.rm = TRUE)) {
+       y <- y - (y - exp(logx - y)) / (1 + y)
+   }
+   y
+ }
+  
+
+hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatchery) |> left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
+  mutate(hatch_recruits=hatchery/(1-MREER)) 
+#combine hatchery and wild recruits per spawner/smolt 
+
+SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS) |> right_join(
+long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |> filter(n==5,brood_year<=2016)
+) #|> 
+  # mutate(rps=NO_recruits/total_spawners,
+  #        year_fac=as.factor(brood_year),
+  #        const=as.factor(1)) |> 
+  # ungroup() 
+
+# View(SR_dat)
+# SR_dat |> ggplot(aes(x=total_spawners,y=NO_recruits,color=basin))+geom_point()
+# SR_dat |> ggplot(aes(x=total_spawners,y=NO_recruits,color=PHOS))+geom_point()+facet_wrap(~basin)
+
+
+
+all_SR<-  
+  SR_dat |> select(basin,brood_year,S=total_spawners,R=NO_recruits,PHOS) |> 
+  bind_rows(hatch_recruits |> 
+  group_by(brood_year) |> 
+  summarize(n=n(),hatch_recruits=sum(hatch_recruits)) |> drop_na() |> 
+  left_join(rel2 |> 
+              group_by(brood_year) |> 
+              summarise(releases2=sum(releases2))) |> 
+      mutate(basin="Hatchery") |> 
+      mutate(releases2=releases2/1000,
+             PHOS=1) |> 
+      select(basin,brood_year,S=releases2,R=hatch_recruits,PHOS)
+  )
+
+test_mod_dat<-all_SR |> group_by(basin) |> 
+  mutate(rps=R/S,lrps=log(rps),
+         mu_rps=mean(lrps),
+         sd_rps=sd(lrps),
+         mu_s=mean(S),
+         sd_s=sd(S),
+         s_scale=c(scale(S)),
+         lrps_scale=c(scale(lrps))) |> 
+  ungroup() |>
+  mutate(year_fac=as.factor(brood_year),
+         const=as.factor(1),
+         s_scale=ifelse(basin=="Hatchery",0,s_scale),
+         wild=ifelse(basin=="Hatchery",0,1),
+         S=ifelse(basin=="Hatchery",0,S))
+
+
+## begin TMB ricker model
+library(RTMB)
+mod_mat<-model.matrix(lrps~basin-1+S:basin,data=test_mod_dat)
+
+n_yrs<-diff(range(test_mod_dat$brood_year))+1
+n_pops<-4
+
+##parameters
+params<-list(
+  alpha=c(3,1),
+  beta=rep(.00001,3),
+  log_sigma=rep(-1,4),
+  cors=rep(.2,6),
+  err=matrix(0,n_yrs+1,4),
+  # log_R=0
+  logit_rho=rep(0,4)
+)
+
+##data
+dat<-list(
+  lrps=test_mod_dat$lrps,
+  X=mod_mat,
+  err_ind=(as.numeric(test_mod_dat$year_fac))+(as.numeric(factor(test_mod_dat$basin))-1)*n_yrs
+)
+
+##objective function
+f<-function(parms){
+RTMB::getAll(dat, parms, warn=FALSE)
+
+par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
+
+pred<-X%*%par_vec #linear predictor
+
+
+rho<-plogis(logit_rho)
+adj<-sqrt(1-rho^2) # scalar from marginal to innovation error standard deviations
+sigma<-exp(log_sigma) #transformed marginal standard deviations
+
+err2<-matrix(nrow=nrow(err)-1,ncol=ncol(err))
+err2[1,]<-rho*err[1,]+adj*err[2,]
+for(i in 2:nrow(err2)){
+  err2[i,]<-rho*err2[i-1,]+adj*err[i+1,]
+}
+REPORT(err2)
+
+
+pred2<-pred+(err2)[err_ind]
+## Initialize joint negative log likelihood
+ nll <- 0
+ nll <- nll -sum(dnorm(lrps,pred2,.00001,log=TRUE))
+us<-unstructured(4)
+
+ nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
+ 
+ nll <- nll -sum(dnorm(logit_rho,-2,1.5,log=TRUE))
+
+ nll
+}
+
+f(params) #test objective function 
+
+#cosntruct model object
+obj <- MakeADFun(f, params, random=c("err"))
+
+#optimize
+fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
+
+fit_rep<-obj$report(par=obj$env$last.par.best)
+#fitted paramter values
+par_list<-obj$env$parList(par=obj$env$last.par.best)
+
+alpha<-exp(par_list$alpha)
+beta<- -par_list$beta
+marg_sd<-exp(par_list$log_sigma)
+rho<-plogis(par_list$logit_rho)
+us<-unstructured(4)
+rick_cor<-us$corr(par_list$cors)
+Smsy <- (1 - W(exp(1-exp(par_list$alpha)[-1]))) / -par_list$beta
+Smsy
+fit$AIC
+
+```
+
+
+
+
+```{r  stock_recruit_tab}
+
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(rep(alpha[1],3),alpha[2]),2),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(NA,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Mean parameter estimates, for stock recruit model parameters for each population. Smsy is the number of spawners at maximum sustainable yield. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts.")
+
+```
+
+
+
+```{r  stock_recruit_corr,fig.cap="Figure . Correlation of annual recruitment errors across populations."}
+
+corrplot::corrplot(rick_cor |> `colnames<-`(c("Hatchery","Methow","Okanogan","Wenatchee")) |> 
+                      `rownames<-`(c("Hatchery","Methow","Okanogan","Wenatchee")) ,type="lower",diag=FALSE)
+
+```
+
+
+```{r plot_SR}
+ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>%
+  mutate(year_fac=factor(3000)) |> 
+           left_join(
+             tibble(basin=c("Hatchery","Methow","Okanogan","Wenatchee"),
+                    marg_sd=marg_sd)
+           )
+           
+
+
+ricker_pred <-ricker_pred |> mutate(pred=(
+model.matrix(const~basin-1+S:basin,data=ricker_pred)%*%c(log(alpha[1]),rep(log(alpha[2]),3),0,-beta) ),
+recruits=exp(pred)*S,
+lcl=exp(pred-1.96*marg_sd)*S,
+ucl=exp(pred+1.96*marg_sd)*S)
+
+
+
+##plot spawners vs recruits (more years will be available if estimate age comp through IPM)
+ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR ,aes(y=R))+
+  ylab("Recruits") +
+  xlab("Spawners or 1,000 hatchery smolts released")
+
+
+
+# 
+#    #function to simulate recruitment deviations
+#    SR_err_fun_TMB<-function(t1=fit_rep$err2 |> tail(1) |> c(),# AR1 random effect in final year
+#                         n_years=50,
+#                         n_sims=500){
+# 
+#    # random deviates
+#      err<-array(t(mvtnorm::rmvnorm(n=n_years*n_sims,sigma=rick_cor)),dim=c(4,n_years,n_sims))
+#      innovation_sd<-marg_sd*sqrt(1-rho^2)
+#      ##  process error
+#      proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
+#        proc_err[,1,]<-t1*rho + marg_sd*err[,1,]
+#   for (i in 2:n_years){
+#       proc_err[,i,]<-proc_err[,i-1,]*rho + innovation_sd*err[,i,]
+#   }
+# 
+#   proc_err
+#   }
+# 
+#     set.seed(1234)
+# SR_err<-SR_err_fun_TMB(t1 = fit_rep$err2 |> tail(1) |> c(),n_years = 50, n_sims = 500)
+# 
+# 
+# 
+# internal_data$alphas<-c(alpha[1],rep(alpha[2],3))
+# internal_data$betas<-beta
+# internal_data$SR_err<-SR_err
+# internal_data$Smsy<-Smsy
+
+
+```
+
+### maturation ages
+
+We account for correlation from year to year and among populations in recruit maturation age proportions.
+
+We model the proportion of recruits from population $i$, brood year $t$ that would have returned at age $a$ in the absence of fisheries on the additive log scale $\gamma_{i,t,a}$ as,
+
+$$\gamma_{i,t,a} = \mu_{i,a} + \zeta_{i,a}\eta_t+\xi_{i,t,a}$$
+where $\mu_{i,a}$ is a population and age specific average, $\zeta_{i,a}$ is a population and age specific loading factor onto latent variable $\eta_t$, and $\xi_{i,t,a}$ is an idiosyncratic residual error term. 
+
+The latent variable was allowed to be autocorrelated,
+$$\eta_t \sim \mathcal{N}(\lambda \eta_{t-1},~ \varsigma)$$
+like the autocorrelated residual term in the spawner-recruit model, to represent the effects of common environmental factors on age proportions. By allowing each age and population to load onto that factor with a unique parameter $ \zeta_{i,a}$, the age proportions could have negative covariance, as can result, for example, when the average age decreases, such that the older age proportions increase at the same time that the younger age proportions decrease. 
+
+Finally, the idiosyncratic residual errors were assumed to be normally distributed with population and age specific variance,
+
+$$\xi_{i,a,t} \sim \mathcal{N}(0,~ \theta_{i,a})$$
+Maturation ages have been younger than average over that last 15 years, but I modeled it as if the maturation ages will fluctuate around the long-term average in the future.
+
+```{r age, fig.cap="Figure. Proportion of recruit ages by brood year, and average maturation age by broodyear."}
+mat_age_dat<-long_dat |> ungroup() |> 
+  select(basin,brood_year,age,recruits=NO_recruits) |> 
+  bind_rows(hatch_recruits |> 
+              mutate(basin="Hatchery",age=as.numeric(substr(Age,4,4))) |> 
+              select(basin,brood_year,age,recruits=hatch_recruits) |> 
+              drop_na()) |> 
+  #combine ages 2 and 3
+  mutate(jack=ifelse(age<=3,"jack",age)) |> 
+  group_by(basin,brood_year,jack) |> 
+  mutate(recruits=sum(recruits)) |> 
+  filter(age>=3) |> ungroup() |> select(-jack) |> 
+  group_by(basin,brood_year) |> 
+  mutate(by_props=proportions(recruits),n=n()) |> 
+  filter(n==4)
+
+mat_age_dat |>  mutate(age=factor(age,levels=6:3)) |> 
+  ggplot(aes(x=brood_year,y=by_props,fill=age)) +
+  geom_col() +
+  facet_wrap(~basin)+ylab("Recruit age props")
+
+
+mat_age_dat |>  group_by(basin,brood_year) |> 
+  mutate(mean_age=sum(age*by_props)) |> ggplot(aes(x=brood_year,y=mean_age))+geom_point()+geom_line()+facet_wrap(~basin)+geom_smooth()
+  
+```
+
+
+```{r age_sim_fig,fig.cap="Figure. One random simulated time series of recruit age proportions for brood years 2017-2066.The years through 2016 are the observed age proportions.}
+#-------------------------------------------
+# modeling additive log ratios of age
+
+mat_age_dat_mod <-
+mat_age_dat |> 
+  mutate(log_prop=ifelse(by_props==0,log(.001),log(by_props)),
+         age_fac=as.factor(age),
+         by_fac=as.factor(brood_year),
+         by_scale=c(scale(brood_year)),
+         const=as.factor("const"),
+         missing=is.na(by_props)
+         ) |> 
+  group_by(age,basin) |> 
+  mutate(scale_log_prop=c(scale(log_prop))) |> 
+  ungroup()
+  
+  
+#   mat_age_dat_mod |> 
+#   ggplot(aes(x=brood_year,y=scale_log_prop))+geom_point()+geom_line()+facet_grid(age~basin)
+#   
+#   
+# ##model of age proportion of recruitment. 
+# mod<-glmmTMB::glmmTMB(scale_log_prop~0+rr(age_fac+0|by_fac,d=2)+rr(age_fac+0|by_fac:basin,d=2)+diag(basin:age_fac+0|by_fac),data=mat_age_dat_mod,dispformula = ~0)
+# summary(mod)
+# 
+
+
+
+
+# prep Z-scored alr age prop MARSS
+wide_age<-mat_age_dat_mod |> select(brood_year,scale_log_prop,basin,age) |> ungroup() |> 
+  filter(brood_year<=2016) |> 
+  arrange(basin,age) |> 
+  pivot_wider(values_from =scale_log_prop ,names_from = c(basin,age)) |> 
+  arrange(brood_year) |> 
+  select(-brood_year) |> 
+  as.matrix() |> 
+  t()
+
+rownames(wide_age)
+#-----------------------------------------------
+### DFA
+ns<-nrow(wide_age)
+n_fac<-1
+
+B <- matrix(list(0), n_fac, n_fac)
+diag(B)<-paste0("b",1:n_fac)
+
+# diag(B)[2:5]<-list(0)
+Q <- diag(1, n_fac)
+# Q<-"diagonal and unequal"
+R <- "diagonal and unequal"
+# R<-matrix(list(0), ns, ns)
+# diag(R)<-rep(c("m","o","w","h"),each=4)
+U <- "zero"
+x0 <- matrix(list(0),1,1)
+A <- "unequal"
+V0 <- diag(5, n_fac)
+Z <- matrix(list(0), ns, n_fac)
+Z[1:(ns * n_fac)] <- paste0(rep(paste0("z",1:n_fac),each=ns),rep(1:16,times=n_fac))
+
+Z[upper.tri(Z)]<-0
+ # Z[c(1,5,9,13),2]<-0
+# Z[,-1]<-list(0)
+
+# cnt=1
+# for ( i in 2:5){
+#   Z[(cnt):(cnt+3),i]<-paste0("Z",i,(cnt):(cnt+3))
+#   cnt=cnt+4
+# }
+
+# cnt=1
+# for(i in c(3,5,7,9)){
+# Z2<-matrix(list(0), 4, 2)
+# Z2[1:(4 * 2)] <- paste0(rep(paste0("z",seq(3,by=1,length.out=2)),each=4),rep(1:4,times=2))
+# Z2[upper.tri(Z2)]<-0
+# Z[seq(cnt,by=1,length.out=4),seq(i,by=1,length.out=2)]<-Z2
+# cnt=cnt+4
+# }
+
+
+
+
+
+mod.list.dfa = list(B = B, Z = Z, Q = Q, R = R, U = U, A = A, 
+                    x0 = x0,V0=V0,tinitx=1)
+
+
+
+
+library(MARSS)
+fit.dfa <- MARSS(wide_age, model = mod.list.dfa, control = list(maxit = 500),
+                 inits = list(A = matrix(0, ns, 1)))
+
+
+scales<-mat_age_dat_mod |> group_by(basin,age) |> summarise(mu=mean(log_prop),sd=sd(log_prop))
+scales$sd[scales$sd>.75]<-.75
+
+
+  sim_mod<-fit.dfa
+
+  sim_mod$marss$fixed$x0[,,1]<-sim_mod$states[,dim(sim_mod$states)[2]]
+  
+  
+
+  test<-MARSS::MARSSsimulate(sim_mod,tSteps = 50,1)$sim.data
+
+sim1<-(cbind(fit.dfa$ytT,test[,,1])*scales$sd+scales$mu) |> t() |> `colnames<-`(rownames(wide_age)) |> 
+  as_tibble() |>
+  rowid_to_column("year") |> 
+  pivot_longer(-year,names_sep="_",names_to=c("basin","age"),values_to="alr") |> 
+  group_by(year,basin) |> 
+  mutate(by_props=exp(alr)/sum(exp(alr))) |> 
+  mutate(age=factor(age,6:3))|> mutate(brood_year=year+(min(mat_age_dat_mod$brood_year))-1)
+
+
+
+sim1 |> filter(brood_year>2016) |> bind_rows(mat_age_dat |> mutate(age=as.factor(age)) |> filter(brood_year<=2016)) |> 
+  ggplot(aes(x=brood_year,y=by_props,fill=age)) +
+  geom_col() +
+  facet_wrap(~basin)+ylab("Recruit age props")+geom_vline(aes(xintercept=2016))
+
+
+# 
+# # sim1 |> ggplot(aes(x=year,y=prop,fill=age))+geom_col()+facet_wrap(~basin)
+# nSim<-500
+#   set.seed(5678)
+#   sim_alr<-MARSS::MARSSsimulate(sim_mod,tSteps = 50,nSim)$sim.data
+#   sim_alr2<-array(sim_alr*scales$sd+scales$mu,dim=c(4,4,50,nSim))
+#   sim_alr2<-exp(sim_alr2)
+#   sim_sum<-apply(sim_alr2,2:4,sum)
+#   sim_sum2<-array(rep(sim_sum,each=4),dim=c(4,4,50,nSim))
+#   age_props<-sim_alr2/sim_sum2
+# 
+#   
+#   age_props2<-apply(age_props,2:4,cumsum)
+#   
+#   i<-2;j<-8
+#   plot(age_props2[1,i,,j],type="o",ylim=c(0,1))
+#   points(age_props2[2,i,,j],type="o",col="red")
+#   points(age_props2[3,i,,j],type="o",col="blue")
+#     points(age_props2[4,i,,j],type="o",col="green")
+#   
+#   apply(age_props,1:2,quantile,.975)
+# apply(age_props,1:2,sd)
+# 
+# 
+# internal_data$age_props<-age_props
+# 
+
+
+```
+
+```{r mat_age_corr}
+# age_Z<-matrix(0,nrow=16,ncol=17)
+# age_Z[,1]<-c(sim_mod$par$Z)
+# for(i in 2:17)age_Z[i-1,i]<-sim_mod$par$R[i-1]
+# age_cor<-cov2cor(age_Z%*%t(age_Z))
+# colnames(age_cor)<-rownames(wide_age)
+# rownames(age_cor)<-rownames(wide_age)
+# corrplot::corrplot(age_cor,type ="lower",diag=FALSE)
+
+```
+
 
