@@ -391,7 +391,7 @@ To simulate the system we needed modules to simulate the following processes:
 - Recruits as a function of spawners/broodstock
 - Maturation ages of recruits
 - Ocean exploitation rates
-- Terminal harvest
+- Terminal harvest rates as a function of harvest control rule
 - Broodstock collection
 - Hatchery-origin spawning
 
@@ -675,6 +675,7 @@ ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey"
 
 ```
 
+
 ### Maturation ages
 
 We account for correlation from year to year and among populations in recruit maturation age proportions.
@@ -892,7 +893,6 @@ sim1 |> filter(brood_year>2016) |> bind_rows(mat_age_dat |> mutate(age=as.factor
 
 Similarly to age proportions, we modeled annual and age-specific ocean fisheries mortality allowing for correlation among successive years as well as among ages within years. 
 
-
 We assumed that the ocean exploitation would be similar to the most recent 10 years, and will not return to the consistently higher explotation rates observed prior to the 1990s. 
 
 
@@ -902,9 +902,6 @@ We assumed that the ocean exploitation would be similar to the most recent 10 ye
 
 sim_MREER |> ggplot(aes(x=by,y=MREER))+geom_point()+facet_wrap(~Age)+geom_line()+geom_vline(aes(xintercept=2022))
 ```
-
-
-
 
 
 ## Terminal harvest
@@ -1018,7 +1015,50 @@ gridExtra::grid.arrange(mod1_plot,mod_2_plot)
 ```
 
 
-#### broodstock collection
+#### Unmarked release rate
+
+The above models can be used to simulate harvest rates (including incidental mortality) on the run at large, but harvest rates differ for wild and hatchery components due to mark selective fisheries. Three additional parameters are needed to convert harvest rates on the aggregate to harvest on the hatchery and wild components, assuming that marked and unmarked fish are handled at a constant rate.  
+
+1) $p^\text{UM release}$ -- The proportion of unmarked fish handled in the fishery, which are released.
+2) $p^\text{Mark hatchery}$ --The mark rate of the hatchery return.
+3) $p^\text{Mort}$ -- The mortality rate of fish after being released.
+4) $p^\text{Mark total}$ --The mark rate of the total run. This can be calculated from the mark rate of the hatchery return and the return to the river mouth of hatchery and wild stocks.
+
+$$Handle~rate = \frac{Harvest~rate^\text{Total}}{1-\left[p^\text{UM release}(1-p^\text{Mark total})(1-p^\text{Mort})\right]}$$
+
+Note that the denominator in this equation is the probability that a handled fish is not unmarked, released, and survived. 
+
+The harvest rate of the unmarked fish, which applies to the natural-origin fish, is then,
+
+$$Harvest~rate^\text{Unmarked} = Handle~rate\left[1- \left(p^\text{UM release}(1-p^\text{Mort}) \right)\right]$$
+
+Note that the second term is the probability that an unmarked fish is not released and survives. 
+
+The harvest rate of hatchery fish is then the weighted average of the handle rate (which is also the harvest rate of marked fish assuming no release of marked fish) and the unmarked harvest rate, where the weights are determined by the mark rate of the hatchery stock.
+
+$$Harvest~rate^\text{Hatchery}=p^\text{Mark hatchery}*Handle~rate+(1-p^\text{Mark hatchery})*Harvest~rate^\text{Unmarked}$$
+
+The assumption of equal capture probability of marked and unmarked fish would break down as mark-selective fisheries change the ratio of marked and unmarked fish at large. More complex math to deal with this could be implemented in the future.
+
+
+
+I assumed that the proportion of handled unmarked fish that will be released ($p^\text{UM release}$) in non-Treaty fisheries will be the average 2020--2023 rate (`r round(URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR),2)`)
+
+```{r}
+# Unmarked release rates
+URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()+xlim(2008,2023)+ylab("Unmarked release rate")
+
+recent_URR<-URR |> filter(Year>=2013) |> summarize(URR=mean(URR))
+
+internal_data$URR<-URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR) 
+
+URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()+xlim(2008,2023)+ylab("Unmarked release rate")+geom_segment(aes(x=2013,y=internal_data$URR,xend=2023,yend=internal_data$URR),color="firebrick4",lty=2,lwd=1.5)
+```
+
+
+
+
+## Broodstock collection
 
 We assume that the Methow and Wenatchee integrated programs will collect their target natural-origin broodstock, with 10% error, unless that constitues >30% of the total natural-origin escapement to that tributary. In that case, 30% of the natural-origin escapement is collected, with 10% error. The escapement goals for the Wenatchee is 310 total adults and for the Methow is 122. 
 
@@ -1047,7 +1087,7 @@ data=(esc_dat %>% filter(year>=2012,population_name=="Okanogan"))))
 ```
 
 
-#### hatchery-origin spawners
+## Hatchery-origin spawners
 
 pHOS was modeled as a decreasing function of log transformed natural-origin spawner abundance and hatchery escapement, with normal errors in logit-space. Each basin has it's own unique intercept and effect of natural-origin spawners. 
 
@@ -1077,13 +1117,14 @@ phos_dat |>
   rowwise() %>%
   mutate(value_sequence = list(seq(min_value, max_value,by=250))) %>%
   unnest(value_sequence) %>%
-  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(5000,150000,by=20000),year_fac=as.factor(3000))
+  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(10000,80000,by=2000),year_fac=as.factor(3000))
 
 pred<-predict(pHOS_mod,newdata = pdat)
-pdat<-pdat |> mutate(pred=plogis(pred)) 
+pdat<-pdat |> mutate(pred=plogis(pred),
+                     group=as.factor(hatchery_escapement)) 
 
 
-pdat |> mutate(hatchery_escapement=as.factor(hatchery_escapement))|> ggplot(aes(x=NOS))+geom_line(aes(y=pred,color=hatchery_escapement),lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])+ylab("pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat,aes(x=NOS,y=PHOS))
+pdat|> ggplot(aes(x=NOS,y=pred,color=hatchery_escapement))+geom_line(aes(group=group),lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_gradient(low = "lightblue", high = "darkblue",limits=c(10000,80000))+ylab("pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat |> filter(!is.na(hatchery_escapement)),aes(x=NOS,y=PHOS,fill=hatchery_escapement),size=3,shape=21,color="black")+scale_fill_gradient(low = "lightblue", high = "darkblue",limits=c(10000,80000)) 
 #note different scales
 
 # internal_data$pHOS_mod_coefs<-
@@ -1097,5 +1138,67 @@ pdat |> mutate(hatchery_escapement=as.factor(hatchery_escapement))|> ggplot(aes(
 # 
 # internal_data$pHOS_err<-pHOS_err
 # deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+```
+
+
+#### smolt releases
+
+We assumed that the geometric mean number of yearling smolt equivalents released since year 2000 (`r round(exp(mean(rel3 |> filter(brood_year >=2000) |> pull(log_rel)))*1000,0)`, $CV = $ `r round(sd(rel3 |> filter(brood_year >=2000) |> pull(log_rel)),2)`) would be released annually, with lognormal error) as long as the hatchery-origin escapement was sufficient to provide 2000 fish for broodstock, plus any broodstock that was needed to back fill for natural-origin broodstock targets in conservation programs. The number of smolts released would decrease proportionally to any shortfall in hatchery escapement for broodstock.
+
+```{r}
+
+rel2 |> filter(brood_year >=1995) |> ggplot(aes(x=brood_year,y=releases2))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
+
+
+rel3<-rel2 |> filter(brood_year >=1995) |> group_by(brood_year) |> summarize(releases=sum(releases2)/1000,log_rel=log(releases)) 
+
+plot(log_rel~brood_year,rel3,type="o")
+
+rel3 |> filter(brood_year >=2000) |> pull(log_rel) |> hist()
+
+rel3 |> filter(brood_year >=2000) |> pull(log_rel) |> forecast::Acf()
+
+rel_mod<-lm(log_rel~1,(rel3 |> filter(brood_year >=2000) |> pull(log_rel)))
+
+summary(rel_mod)
+AIC(rel_mod)
+
+smolts_mu<-rel_mod$coefficients
+smolts_sd<-sigma(rel_mod)
+
+
+hist(exp(rnorm(1000,smolts_mu,smolts_sd)))
+rel3 |> filter(brood_year >=2000) |> pull(releases) |> hist()
+
+set.seed(1819)
+smolt_err<-matrix(rnorm(n_year*n_sim,0,smolts_sd),n_year,n_sim)
+
+internal_data$smolts_mu<-smolts_mu
+internal_data$smolt_err<-smolt_err
+```
+
+
+
+```{r}
+
+#spawners in first 6 years
+
+init_S<-esc_dat |> filter(between(year,2017,2022)) |> 
+  dplyr::select(year,basin=population_name,total_spawners) |> 
+  arrange(basin) |> pivot_wider(names_from = basin,values_from=total_spawners) |> 
+  left_join(rel3 |> dplyr::select(year=brood_year,Hatchery=releases)) |> 
+  dplyr::select(Hatchery,Methow,Okanogan,Wenatchee) 
+##whoa! 2022 total spawners in methow in 2022. Doesn't appear to be a data entry mistake!
+set.seed(2021)
+init_S$Hatchery[6]<-exp(rnorm(1,smolts_mu,smolts_sd))
+
+
+internal_data$init_S<-init_S
+
+write_internal<-TRUE
+if(write_internal){
+usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
+}  
+  
 ```
 
