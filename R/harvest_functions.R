@@ -77,8 +77,8 @@ allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER 
   NT_handle<-NT/(1-URR*(1-release_mort_rate)*(1-mark_rate))
   NT_handle<-min(NT_handle,.95)
   #reduce handle rate if cumulative handle greater than 99% because just not realists
-  if((Treaty+NT_handle)>.99){
-    Treaty<-Treaty/((Treaty+NT_handle)*1.1)
+  while((Treaty+NT_handle)>.99){
+    # Treaty<-Treaty/((Treaty+NT_handle)*1.1)
     NT_handle<-NT_handle/((Treaty+NT_handle)*1.1)
   }
 
