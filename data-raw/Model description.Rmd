@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 library(tidyverse)
 
 library(here)
-
+devtools::load_all(".")
 internal_data<-list()
 ```
 
@@ -405,7 +405,7 @@ To simulate the system we needed modules to simulate the following processes:
 ### Stock-recruit models
 
 I fit Ricker spawner-recruit relationships for each natural population.
-$$recruits_y=\alpha*spawners_y*\text{exp}(-\beta*spawners_y)*\text{exp}(\varepsilon_y)$$
+$$recruits_y=\alpha*spawners_y*\text{exp}(-\beta*spawners_y+\varepsilon_y)$$
 where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\beta$ determines the strength of density dependence (i.e., the rate at which productivity declines with increasing spawners). I assumed that all populations had the same $\alpha$ but allowed $\beta$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
 Hatchery-origin spawners were included in the total number of spawners in these relationships. I assumed that hatchery- and natural-origin spawners had similar reproductive success. 
@@ -1151,7 +1151,7 @@ pdat|> ggplot(aes(x=NOS,y=pred,color=hatchery_escapement))+geom_line(aes(group=g
 Combining these modules, and initualizing the model with spawners and smolt released for brood year 2017--2022, produces a closed-loop simulation model (see diagram figure). This can be used to simmulate the outcomes of different harvest control rules on harvest, escapement, pHOS, and pNOB.
 
 ```{r internal_data}
-sim_for_model<-TRUE
+sim_for_model<-FALSE
 
 if(sim_for_model){
   #==========================================================================================
@@ -1330,10 +1330,155 @@ if(sim_for_model){
     usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
   }
 }
+
+# else{
+#   internal_data<-read_file(here::here("R","sysdata.rda"))
+# }
+
+
 ```
 
 
 
-# Results
+# Historical vs. simulation comparison plots
+
+As a check on whether the simulation model passes the red face test, I compared the 25 year simulations using the harvest control control rule, to observations from 2008-2022, when the current harvest control rules has been in effect. I wouldn't expect the simulations to match the past observations perfectly, because the past 15 years won't necessarily reflect the average state of the system. In other words, the productivity over the last 15 years (e.g, due to ocean conditions) could have been above or below average, whereas the simulations should reflect the average.
+
+Note that when considering the outcomes of alternative harvest control rules for the next agreement, we want to compare performance metrics based on simulations. These simulations all assume the same environmental and biological conditions. Comparing to past observations would not be appropriate because those occured under a different set of environmental conditions.
+
+```{r do_sim,cache=TRUE}
+sim<-pop_sim()
+```
+
+### Harvest
+```{r ave_harv_obs,fig.cap=" Quantiles of annual harvest (2.5%, 25%, 50%, 75%, and 97.5%) for both the 2008-2022 period and simulations of the 2023-2047 period. Note that the quantiles are across years, not simulations. So the lower 2.5% would represent one of the lowest-harvest years expected."}
+
+yrs<-7:31
+
+  pfmc_morts<-
+    internal_data$pfmc_morts_2 |> select(Year,Sector,In_river_harvest) |> pivot_wider(values_from = In_river_harvest,names_from = Sector) |> left_join(internal_data$pfmc_morts_2 |> select(Year,Sector,Total_harvest) |> filter(Sector=="NT") |> select(Year,NT_total_harvest=Total_harvest)) |>  filter(between(Year,2008,2022)) |>
+    `colnames<-`(c("Year","Total Treaty", "Total In-river NT","Total NT"))
+
+
+  harvest_quants<-data.frame(rbind(
+    apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean), # sum across populations, quantile across years, geometrtic mean across simulations
+    apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean),
+    apply(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean)
+  ))
+  colnames(harvest_quants)<-c("min","LQI","med","UQI","max")
+  harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
+  
+   harvest_plot_dat<-  harvest_quants |> mutate(Type="Simulated 2023-2047")|> bind_rows(
+    rbind(
+      quantile(head(pfmc_morts$`Total In-river NT`,-1),c(.025,.25,.5,.75,.975)),
+      quantile(head(pfmc_morts$`Total NT`,-1),c(.025,.25,.5,.75,.975)),
+      quantile(head(pfmc_morts$`Total Treaty`,-1,c(.025,.25,.5,.75,.975)))
+    ) |> `colnames<-`(c("min","LQI","med","UQI","max")) |> as_tibble()|> mutate(Sector=c("NT_in_river","NT_plus_PFMC","Treaty"),Type="Observed 2008-2022")
+  )
+
+
+  harvest_plot_dat |> ggplot(aes(x = Sector, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=Type))+geom_boxplot(stat="identity")+ylab("Harvest")+theme_minimal()+scale_fill_brewer(palette="Dark2")+xlab("")
+  
+  
+  
+```
+
+
+```{r, fig.cap="Figure. Estimates of 2008-2022 in-river harvest (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
+plot_harvest_trajectory(sim)
+```
+
+
+### Harvest sharing ratio
+```{r ratio_obs, fig.cap="Figure. uantiles of the ratio of Treaty and non-Treaty harvest (inclusive of ocean PFMC AEQ) for both the 2008-2022 period and simulations of the 2023-2047 period."}
+  ## average ratio of treaty to non-treaty
+  ### quantiles of across-year mean
+  Sector_ratio<-data.frame(rbind(
+    # quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum)/apply(sim$terminal_NT[,yrs,],2:3,sum),2,mean)),
+    quantile(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum)/(apply(sim$terminal_NT[,yrs,],2:3,sum)+ sim$PFMC[yrs,]),2,mean))
+  ))
+  colnames(Sector_ratio)<-c("min","LQI","med","UQI","max")
+  Sector_ratio$ratio<-c("Treaty:NT total")
+
+  Sector_ratio_plot_dat<- Sector_ratio |> mutate(Type="Simulated\n2023-2047") |>
+    bind_rows(
+
+  rbind(
+    # quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total In-river NT`,-1)),
+    quantile(head(pfmc_morts$`Total Treaty`,-1)/head(pfmc_morts$`Total NT`,-1))
+  )  |> `colnames<-`(c("min","LQI","med","UQI","max")) |> as_tibble()|> mutate(ratio=c("Treaty:NT total"),Type="Observed\n2008-2022")
+    )
+
+
+
+  Sector_ratio_plot_dat |> ggplot(aes(x = Type, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`))+geom_boxplot(stat="identity")+ylab("Ratio of treaty : non-treaty harvest\n(includes PFMC AEQ)")+geom_hline(yintercept =1,lty=2)+theme_minimal()+xlab("")
+  ## harvest variability (year to year)
+```
+
+### River mouth run size
+```{r RMRS, fig.cap="Figure. Quantiles of river mouth run size for both the 2008-2022 period and simulations of the 2023-2047 period."}
+
+
+  #River mouth run size
+  sim$returns[,yrs,] |> apply(2:3,sum) |> apply(2,quantile,c(.025,.25,.5,.75,.975)) |> apply(1,mean) |> bind_rows(
+
+  internal_data$pfmc_morts_2 |> filter(between(Year,2008,2022)) |> filter(Sector=="Treaty") |>
+  summarise(as_tibble_row(quantile(RMRS,c(.025,.25,.5,.75,.975))))
+) |> 
+    `colnames<-`(c("min","LQI","med","UQI","max"))|> 
+  mutate(Type=c("Simulated","Observed")) |> 
+  ggplot(aes(x = Type, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`))+geom_boxplot(stat="identity")+ylab("River mouth run size")+theme_minimal()+scale_fill_brewer(palette="Dark2")+xlab("")
+```
+
+
+### Natural-origin escapement
+
+Note that non-treaty fisheries have become much more mark selective through time, which is reflected in simulations of the future.
+
+
+```{r escapement_plot, fig.cap="Figure. Quantiles of natural-origin escapement (spawners and broodstock) for both the 2008-2022 period and simulations of the 2023-2047 period."}
+
+## escapement
+  esc_plot_dat<-ave_quants(sim$NOS+sim$NOB,rnames="River") |> mutate(Type="Simulated") |> filter(River!="Total") |> bind_rows(
+  
+ internal_data$esc_dat %>% filter(!is.na(`SG No. Age 4`),between(year,2008,2022)) |> select(year,population_name ,Spawn=NOS,Broodstock=NOBroodStockRemoved) %>%
+  drop_na() |> mutate(escapement=Spawn+Broodstock) |> group_by(population_name) |> summarise(as_tibble_row(quantile(escapement,c(.025,.25,.5,.75,.975)))) |> 
+    `colnames<-`(c("River","min","LQI","med","UQI","max")) |> 
+   mutate(Type="Observed")
+  )
+   
+  esc_plot_dat |> ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=Type))+geom_boxplot(stat="identity")+ylab("Annual Escapement")+theme_minimal()+scale_fill_brewer(palette="Dark2")+xlab("")
+  
+```
+
+
+
+```{r fig.cap="Figure. Estimates of 2008-2022 natural-origin escapement (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
+plot_esc_trajectory(sim)
+
+```
+
+
+### Proportion of hatchery-origin spawners (pHOS)  
+
+```{r phos_fig, fig.cap="Figure. Quantiles of pHOS for both the 2008-2022 period and simulations of the 2023-2047 period."}
+
+## Average pHOS
+  sim_pHOS<-1-(sim$NOS[,yrs,]/sim$S[-1,yrs,])
+ 
+
+
+ apply(sim_pHOS,c(1,3),quantile,c(.025,.25,.5,.75,.975)) |> apply(1:2,mean) |> 
+   t() |> as.data.frame() |> rownames_to_column("River") |> mutate(Type="Simulated") |> 
+bind_rows(
+internal_data$esc_dat %>% filter(between(year,2008,2022)) |> 
+  group_by(population_name) |> summarise(as_tibble_row(quantile(PHOS,c(.025,.25,.5,.75,.975)))) |> rename("River"="population_name") |> mutate(Type="Observed")
+  )|> 
+   `colnames<-`(c("River","min","LQI","med","UQI","max","Type"))|> 
+  ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=Type))+geom_boxplot(stat="identity")+ylab("pHOS")+theme_minimal()+scale_fill_brewer(palette="Dark2") + ylim(0,1)+xlab("")
+  
+  
+  
+```
 
 
