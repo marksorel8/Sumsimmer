@@ -6,10 +6,10 @@ sim_PFMC<-function(RMRS,
                    pfmc_err,
                    PFMC_ave_prop=internal_data$PFMC_ave_prop
 ){
-  pfmc_ER<-plogis(PFMC_ave_prop+pfmc_err)
+  # PFMC_ave_PFMC_ave_propprop2<-ifelse(RMRS<=29000,PFMC_ave_prop,PFMC_ave_prop)
 
- (RMRS*pfmc_ER)/(1-pfmc_ER)
-  # exp(PFMC_ave_prop*log(RMRS)+pfmc_err)
+  PFMC_ave_prop*RMRS*exp(pfmc_err)
+
 }
 
 
@@ -23,8 +23,10 @@ sim_in_river<-function(model_option=1,
                        coefs,
                        URR , #release rate of unmarked fish handled in non-treaty fisheries
                        release_mort_rate = 0.15, #post release mortality rate
+                       MS_fisheries_matrices,
                        mark_rate # proportion of RMRS that is marked
 ){
+
  tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
 
 if(model_option==1){
@@ -38,15 +40,15 @@ if(model_option==1){
   Treaty<-min(.99,Treaty)
 
   NT<-((exp((log(total_allowed_NT)*coefs[2])+in_river_err[2])-pfmc_AEQ)/RMRS)
-  NT<-max(.001,NT)
+  NT<-max(0,NT)
   NT<-min(.99,NT)
 
   }else{
-allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER to HR
+allowed_Treaty_HR<-min(.999,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER to HR
 
   allowed_NT_HR<-
     #subtract PFMC, make sure positive and convert from exploitation rate to harvest rate (i.e. denominator from RMRM+ PFMC to just RMRS)
-    min(.99,(max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.0001)*tot_run_size)/(RMRS))
+    min(.999,(max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.001)*tot_run_size)/(RMRS))
 
 
   #Segmented model of expected actual total harvest mortality as a funciton of allowed).
@@ -58,34 +60,31 @@ allowed_Treaty_HR<-min(.99,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER 
   }
 
 
-  #reduce if culative harvest greater than 99% because just not realists
-  if((Treaty+NT)>.99){
-    Treaty<-Treaty/((Treaty+NT)*1.1)
-    NT<-NT/((Treaty+NT)*1.1)
+  #reduce if cumative harvest greater than 99% because just not realistic
+  while((Treaty+NT)>.99){
+    Treaty<-Treaty/((Treaty+NT)*1.05)
+    NT<-NT/((Treaty+NT)*1.05)
   }
 
-  #   NT<- coefs[1]+NT_allowed_in_river*coefs[3]+ifelse(NT_allowed_in_river>coefs[5],(NT_allowed_in_river-coefs[5])*coefs[4],0)+(in_river_err[1])
-  # NT<-max(NT,0)  #going with truncated normal errors because I would foresee management error in terms of numbers of fish being relatively constant across allowed harvest rates.
-  # NT<-min(NT,RMRS*.45)
-  #
-  # #Treaty
-  # Treaty<- coefs[1]+coefs[2]+allowed_Treaty*coefs[3]+ifelse(allowed_Treaty>coefs[5],(allowed_Treaty-coefs[5])*coefs[4],0)+(in_river_err[2])
-  # Treaty<-max(Treaty,0)
-  # Treaty<-min(Treaty,RMRS*.45)
+#
+#   # working out marked and unmarked stuff for non_treaty
+#   NT_handle<-NT/(1-URR*(1-release_mort_rate)*(1-mark_rate))
+#   NT_handle<-min(NT_handle,.95)
+#   #reduce handle rate if cumulative handle greater than 99% because just not realists
+#   while((Treaty+NT_handle)>.99){
+#     # Treaty<-Treaty/((Treaty+NT_handle)*1.1)
+#     NT_handle<-NT_handle/((Treaty+NT_handle)*1.1)
+#   }
+#
+#   MHR=NT_handle #marked harvest rate
+#   UHR=NT_handle*(1-URR*(1-release_mort_rate)) #unmarked harvest rate
 
-  # working out marked and unmarked stuff for non_treaty
-  NT_handle<-NT/(1-URR*(1-release_mort_rate)*(1-mark_rate))
-  NT_handle<-min(NT_handle,.95)
-  #reduce handle rate if cumulative handle greater than 99% because just not realists
-  while((Treaty+NT_handle)>.99){
-    # Treaty<-Treaty/((Treaty+NT_handle)*1.1)
-    NT_handle<-NT_handle/((Treaty+NT_handle)*1.1)
-  }
-
-  MHR=NT_handle #marked harvest rate
-  UHR=NT_handle*(1-URR*(1-release_mort_rate)) #unmarked harvest rate
-
-
+ if(NT<0.0005){
+   MHR<-UHR<-NT
+ }else{
+   MHR=MS_fisheries_matrices[["marked_HR"]][round(mark_rate/.01),round(NT/.001)]
+   UHR=MS_fisheries_matrices[["um_HR"]][round(mark_rate/.01),round(NT/.001)]
+ }
 
   c(Treaty=Treaty,
     NT_marked=MHR,
@@ -110,6 +109,38 @@ allowed_ER<-function(Run_size,
          ,
          ((scalar[tier_num]*Run_size - offset[tier_num])*share[tier_num])/Run_size
   )
+
+}
+
+
+
+make_marked_um_hrs_fun<-function(
+    URR , #release rate of unmarked fish handled in non-treaty fisheries
+    release_mort_rate = 0.15 #post release mortality rate
+){
+
+  phi<-(URR*release_mort_rate)+(1-URR) #unmarked retention plus release mortalities
+  N<-1000
+  marked_out<-unmarked_out<-matrix(NA,100,N)
+
+  for(i in 1:100){
+    MR<-MR2<-i/100
+    marked_morts<-0
+    unmarked_morts<-0
+    for(j in 1:N){
+      handle<-1/(MR2+(1-MR2)*phi) #number of fish handled for a single mortality
+      marked_morts<-marked_morts  + handle*MR2
+      unmarked_morts<-unmarked_morts +handle*((1-MR2)*phi)
+      marked_out[i,j]<-min(c(1,marked_morts/(N*MR)))
+      unmarked_out[i,j]<-min(c(1,unmarked_morts/(N*(1-MR))))
+      MR2<-((N*MR)-marked_morts) / (N-j)
+    }
+  }
+  unmarked_out[100,]<-0
+  return(list(
+    um_HR=unmarked_out,
+    marked_HR=marked_out
+  ))
 
 }
 

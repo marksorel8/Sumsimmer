@@ -30,7 +30,10 @@ pHOS_fun <- function (NOS, #natural origin spawners
                       pHOS_err
 ){
 
-  plogis(pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(HOE)+pHOS_mod_coefs[5:7]*log(NOS)+pHOS_err)
+  hoe2<-ifelse(HOE<=0,1,HOE)
+  nos2<-ifelse(NOS<=0,1,NOS)
+
+  plogis(pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(hoe2)+pHOS_mod_coefs[5:7]*log(nos2)+pHOS_err)
 
 }
 

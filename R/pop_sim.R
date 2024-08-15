@@ -98,9 +98,11 @@ pop_sim<-function(n_years=25,
       in_river_err<- internal_data$in_river_err[,,]
     }
 
-
-
+# mark selective fisheries matrices
+    MS_matrices<-make_marked_um_hrs_fun(release_mort_rate=release_mort_rate,URR=NT_Unmarked_release_rate)
+# total broodstock collection target
     tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
+
 
     NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
 
@@ -149,8 +151,14 @@ pop_sim<-function(n_years=25,
                                         RMRS=RMRS,
                                         in_river_err=in_river_err[,y,i],
                                         mark_rate=Mark_rate,
-                                        release_mort_rate=release_mort_rate,
-                                        URR=NT_Unmarked_release_rate)
+                                        MS_fisheries_matrices=MS_matrices,
+                                        URR=NT_Unmarked_release_rate
+
+                                        )
+
+
+
+
 
           terminal_NT[1,y,i] <- returns[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
           terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]

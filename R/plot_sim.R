@@ -17,7 +17,7 @@ ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
 
 }
 
-quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31){
+quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
   data.frame(cbind(
     apply(apply(x[,yrs,],c(1,3),fun),1,quantile),
     Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun))))|>
@@ -28,7 +28,7 @@ quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31){
 }
 
 
-harvest_quants_fun<-function(dat,HCR_name="Current",fun=geo_mean,qtiles=c(.025,.25,.5,.75,.975),yrs=7:31,...){
+harvest_quants_fun<-function(dat,HCR_name="Current",fun=mean,qtiles=c(.025,.25,.5,.75,.975),yrs=7:31,...){
 data.frame(rbind(
     apply(apply(apply(dat$terminal_NT[,yrs,],2:3,sum),2,quantile,qtiles,...),1,fun), # sum across populations, quantile across years, geometrtic mean across simulations
     apply(apply(apply(dat$terminal_NT[,yrs,],2:3,sum) + dat$PFMC[yrs,],2,quantile,qtiles,...),1,fun),
@@ -212,7 +212,7 @@ seq_HCR<-function(treaty_tiers = c(16000,36250,50000,Inf),
 
   NT_w_PFMC[i]<-(allowed*(RMRS[i]+PFMC[i]))/(RMRS[i])
 
-  NT[i]<-(max(allowed-(PFMC[i]/(RMRS[i]+PFMC[i])),.0001)*(RMRS[i]+PFMC[i]))/(RMRS[i])
+  NT[i]<-(max(allowed-(PFMC[i]/(RMRS[i]+PFMC[i])),0)*(RMRS[i]+PFMC[i]))/(RMRS[i])
   }
 
   list(Treaty = Treaty,
