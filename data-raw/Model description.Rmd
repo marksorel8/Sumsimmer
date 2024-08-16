@@ -904,9 +904,7 @@ In the 2019--2028 USvOR Management Agreement, total allowable catch is determine
 
 #### PFMC AEQ
 
-We model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error.
-
-```{r PFMC, fig.cap="PFMC AEQ mortalities vs. river mouth run size. The line and shaded area represent the mean and 95% prediction intervals. The points represent observations (from TAC run-reconstruction files) from 2010--2021."}
+```{r PFMC}
 
 pfmc_mort_dat<-
   pfmc_morts |> left_join(pfmc_HRs |> select(Year,`PFMC NT Ocean Impacts`)) |> filter(Year>=2010) |> select(Year,`River Mouth Run Size`,`PFMC NT Harvest Total`,`PFMC NT Ocean Impacts`) |> rename(RMRS=`River Mouth Run Size`,PFMCNT=`PFMC NT Harvest Total` ) |> 
@@ -921,6 +919,12 @@ pfmc_mod_fun<-function(par){
 pfmc_mod_fit<-optim(c(c(.06),0),pfmc_mod_fun)
 
 RMRS<-seq(1,150000,by=10000)
+```
+
+We model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error. On average from 2010-2021, the PFMC AEQ mortalities were `r round(pfmc_mod_fit$par[1]*100,1)`% of the RMRS, with `r round(exp(pfmc_mod_fit$par[2])*100)`% average inter-annual variability.
+
+
+```{r , fig.cap="Figure. PFMC AEQ mortalities vs. river mouth run size. The line and shaded area represent the mean and 95% prediction intervals. The points represent observations (from TAC run-reconstruction files) from 2010--2021."}
 tibble(RMRS=RMRS,fit=pfmc_mod_fit$par[1]*RMRS) |> mutate(
   lwr=fit*exp(-1.96*exp(pfmc_mod_fit$par[2])),
   upr=fit*exp(1.96*exp(pfmc_mod_fit$par[2]))
@@ -1016,33 +1020,32 @@ gridExtra::grid.arrange(mod1_plot,mod_2_plot)
 
 #### Mark-selective fisheries
 
-The above models can be used to simulate harvest rates (including incidental mortality) on the run at large. That is the metric used in the current harvest control rule. But, harvest rates differ for wild and hatchery components due to mark selective fisheries. Three additional parameters are needed to convert harvest rates on the aggregate to harvest on the hatchery and wild components, assuming that marked and unmarked fish are handled at the same rate.  
+The above models can be used to simulate harvest rates (including incidental mortality) on the run at large. That is the metric used in the current harvest control rule. But, harvest rates differ for wild and hatchery components due to mark selective fisheries. Three additional parameters are needed to convert harvest rates on the aggregate to harvest on the hatchery and wild components.  
 
 - $p^\text{UM release}$ -- The proportion of unmarked fish handled in the fishery, which are released.
 - $p^\text{Mark hatchery}$ --The mark rate of the hatchery return.
 - $p^\text{Mort}$ -- The mortality rate of fish after being released. This is assumed to equal 0.15, which is the TAC approved rate for sport fisheries.
 
+The joint probability that an unmarked fish that is handled in the fishery dies (is retained or is released and dies), $\phi$, is then $\phi=(1-p^\text{UM release})+(p^\text{UM release}*p^\text{Mort})$.
 
-The handle rate, or the proportion of the return captured in a fishery, can be calculated as,
+We also need the mark rate of the total run $p^\text{Mark total}$, which is calculated as the hatchery mark rate times the hatchery run size, divided by the total river mouth run size including natural-origin fish: 
 
-$$Handle~rate = \frac{Harvest~rate^\text{Total}}{1-\left[p^\text{UM release}(1-p^\text{Mark total})(1-p^\text{Mort})\right]}$$
-where $p^\text{Mark total}$ is the mark rate of the total run, which is calculated as the hatchery mark rate times the hatchery run size, devided by the total river mouth run size including natural-origin fish. Note that the denominator in the above equation is the proportion of handled fish that do not survive. 
-
-The harvest rate of the unmarked fish, which is the fishing mortality rate of the natural-origin populations, is then,
-
-$$Harvest~rate^\text{Unmarked} = Handle~rate\left[1- \left(p^\text{UM release}(1-p^\text{Mort}) \right)\right]$$
-
-Note that the second term is the probability that an unmarked fish is not released and subsequently survives. 
-
-The harvest rate of hatchery fish is then the weighted average of the handle rate (which is also the harvest rate of marked fish assuming no release of marked fish) and the unmarked harvest rate, where the weights are determined by the mark rate of the hatchery stock.
-
-$$Harvest~rate^\text{Hatchery}=p^\text{Mark hatchery}*Handle~rate+(1-p^\text{Mark hatchery})*Harvest~rate^\text{Unmarked}$$
-
-The assumption of equal capture probability of marked and unmarked fish would break down as mark-selective fisheries change the ratio of marked and unmarked fish at large. More complex math to deal with this could be implemented in the future.
+$$p^\text{Mark total}=\frac{p^\text{Mark hatchery}N^\text{hatchery}}{\text{River mouth run size}}$$.
 
 
+The expected number of fish handled that results in $n^\text{dead}$ dead fish is then $n^\text{Handle}=n^\text{dead}/\left(p^\text{Mark total}+(1-p^\text{Mark total})\phi\right)$. Assuming that all handled marked fish are retained, the expected number of dead marked fish is $n^\text{Dead marked}=n^\text{Handle}p^\text{Mark total}$, and the expected number of dead unmarked fish is $n^\text{dead unmarked}=n^\text{Handle}(1-p^\text{Mark total})\phi$.
 
-I assumed that the proportion of handled unmarked fish that will be released ($p^\text{UM release}$) in non-Treaty fisheries will be the average 2020--2023 rate (`r round(URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR),2)`)
+As fish are killed in this manner, the mark rate changes, because marked fish are being killed at a higher rate than unmarked fish. Therefore, the new mark rate of the run ${p^\text{mark total*}}$ must be updated as mortalities accrue, 
+$$p^{\text{Mark total*}}=\frac{N*p^\text{Mark total}-n^\text{Tot dead marked}}{N-(n^\text{Tot dead marked}+n^\text{Tot dead unmarked})}$$
+where $N$ is the number of fish at large prior to fishing $p^\text{mark total}$ is mark rate prior to fishing, and $n^\text{Tot dead marked}$ is the total number of marked fish mortalities. The new mark rate must then be used in the equations to calculate marked and unmarked mortalities for a given number of dead fish. The fishing mortality rate on marked ($HR^\text{marked}=n^\text{Tot dead marked}/ (N*p^\text{Mark total})$) and unmarked ($HR^\text{unmarked}=n^\text{Tot dead unmarked}/ \left(N*(1-p^\text{Mark total})\right)$) fish for a given number of total mortalities is thus calculated recursively using the above equations. I updated the mark rate of the fish at large after every 0.1% impact. 
+
+
+The fishing mortality on natural-origin fish is the fishing mortality on unmarked fish and the fishing mortality on hatchery fish is the weighted average of the marked and unmarked harvest rates, where the weights are determined by the mark rate of the hatchery stock.
+
+$$HR^\text{Hatchery}=p^\text{Mark hatchery}*HR^\text{marked}+(1-p^\text{Mark hatchery})*HR^\text{unmarked}$$
+
+
+I assumed that the proportion of handled unmarked fish that will be released ($p^\text{UM release}$) in non-Treaty fisheries would be the average 2020--2023 rate (`r round(URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR),2)`)
 
 ```{r, fig.cap="Figure . Proportion of unmarked fish handled in all non-Treaty fisheries that were released, by year."}
 
@@ -1057,7 +1060,7 @@ URR |> ggplot(aes(x=Year,y=URR))+geom_point()+geom_line()+xlim(2008,2023)+ylab("
 ```
 
 
-I assumed that the mark rate of hatchery fish would be the average mark rate of smolt releases from brood years 2008--2021, excluding an anomolous year in 2019 (mark rate =`r round(ave_MR["mean(MR)"],2) `)
+I assumed that the mark rate of hatchery fish would be the average mark rate of smolt releases from brood years 2008--2021, excluding an anomalous year in 2019 (mark rate =`r round(ave_MR["mean(MR)"],2) `)
 
 
 ### Broodstock collection
