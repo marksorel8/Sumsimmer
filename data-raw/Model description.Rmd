@@ -1338,8 +1338,8 @@ if(sim_for_model){
 
 add_baselines<-FALSE
 if(add_baselines){
-  internal_data$sim_current<-pop_sim()
-  internal_data$sim_0<-pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0)
+  internal_data$sim_current<-summarize_sim(pop_sim(),HCR="Current MA")
+  internal_data$sim_0<-summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="h0")
   
   write_internal<-TRUE
   if(write_internal){

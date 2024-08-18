@@ -177,7 +177,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
   sim_data<-function(do_notifs=FALSE,harv_mod=1){
-    newData <-  with(isolate(v$data),
+        newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
                        treaty_rates=treaty_rates,
@@ -199,8 +199,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
     }else{
 
 
-      output$sim1_harv <-renderPlot({ plot_harvest_trajectory(newData)})
-      output$sim1_esc <-renderPlot({ plot_esc_trajectory(newData)})
+      # output$sim1_harv <-renderPlot({ plot_harvest_trajectory(newData)})
+      # output$sim1_esc <-renderPlot({ plot_esc_trajectory(newData)})
 
       summarize_sim(newData,HCR=id)
     }
@@ -210,7 +210,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   # Create a reactive value to store the simulation outputs
   sim1 <- reactiveVal(
-    sim_data()
+    internal_data[[id]]
   )
 
 
@@ -225,25 +225,25 @@ hcr_data_fun<-function(do_notifs=FALSE){
   })
 
 
-  # output$sim1_esc <- renderPlot({
-  #   req(sim1()) # Render the first plot using the stored data
-  #
-  #   sim1()$esc_t
-  #   # isolate(v$data) %>%  #don't react to any changes in the data
-  #   #   ggplot(aes(x,y)) +
-  #   #   geom_point() +
-  #   #   geom_smooth(method = "lm")
-  # })
+  output$sim1_esc <- renderPlot({
+    req(sim1()) # Render the first plot using the stored data
 
-  # output$sim1_harv <- renderPlot({
-  #   req(sim1()) # Render the first plot using the stored data
-  #
-  #   sim1()$harv_t
-  #   # isolate(v$data) %>%  #don't react to any changes in the data
-  #   #   ggplot(aes(x,y)) +
-  #   #   geom_point() +
-  #   #   geom_smooth(method = "lm")
-  # })
+    sim1()$esc_t
+    # isolate(v$data) %>%  #don't react to any changes in the data
+    #   ggplot(aes(x,y)) +
+    #   geom_point() +
+    #   geom_smooth(method = "lm")
+  })
+
+output$sim1_harv <- renderPlot({
+  req(sim1()) # Render the first plot using the stored data
+
+  sim1()$harv_t
+  # isolate(v$data) %>%  #don't react to any changes in the data
+  #   ggplot(aes(x,y)) +
+  #   geom_point() +
+  #   geom_smooth(method = "lm")
+})
 
   return(list(sim=sim1,
               hcr = hcr_out))

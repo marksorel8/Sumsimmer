@@ -5,7 +5,8 @@ library(tidyverse)
 # Main UI
 ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
-             tabPanel("Current MA", HCR_feedback_UI("page1","Harvest control rule from current MA"))#,
+             tabPanel("No harvest", HCR_feedback_UI("sim_0","No terminal harvest")),
+             tabPanel("Current MA", HCR_feedback_UI("sim_current","Harvest control rule from current MA"))#,
              # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              # tabPanel("Comparison",
@@ -44,7 +45,19 @@ ui <- fluidPage(
 
 # Main server
 server <- function(input, output, session) {
-  sim1<-HCR_feedback_server("page1")
+  no_harv<-HCR_feedback_server("sim_0",
+                               editable=FALSE,
+                               treaty_tiers=NA,
+                                 treaty_rates=0,
+                                 treaty_scalar=NA,
+                                 treaty_offset=NA,
+                                 treaty_share=NA,
+                               NT_tiers=NA,
+                                 NT_rates=0,
+                                 NT_scalar=NA,
+                                 NT_offset=NA,
+                                 NT_share=NA)
+  sim1<-HCR_feedback_server("sim_current",editable=TRUE)
   # sim2<-HCR_feedback_server("page2",
   #                           treaty_tiers=c(36250,rep(NA,6)),
   #                           treaty_rates=c(.1,rep(NA,6)),

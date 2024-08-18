@@ -49,10 +49,10 @@ S=ave_quants(sim$S,rnames="River",HCR_name=HCR),
 Harv=harvest_quants_fun(sim,HCR_name=HCR),
 
 #pHOS, pNOB, PNI
-Hatch=hatchery_quants_fun(sim,HCR)#,
+Hatch=hatchery_quants_fun(sim,HCR),
 
-# esc_t=esc_t,
-# harv_t=harv_t
+esc_t=esc_t,
+harv_t=harv_t
 )
 }
 
@@ -79,37 +79,34 @@ plot_all_fun<-function(sim_list){
   # Assign names to the combined list
   names(combined_list) <- unique(names(unlist(sim_list, recursive = FALSE)))
 
-  # View the result
-
+  #
+list(
   #Escapement
-  NOE_plot<-plot_NOE_quants(combined_list$Esc)
+  NOE_plot=plot_NOE_quants(combined_list$Esc),
 
-  NOE_ratios_plot<-plot_NOE_ratios(combined_list$Esc)
+  NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc),
 
 
 
   #NOS
-  NOS_plot<-plot_NOS_quants(combined_list$NOS)
+  NOS_plot=plot_spawner_quants(combined_list$NOS,ylab="Natural-origin spawners"),
 
 
 
   #RMRS
-  # RMRS=ave_quants(sim$returns,rnames="Population",HCR_name=HCR)
+  RMRS_plot=plot_pop_quants(combined_list$RMRS,"River mouth return"),
 
   #S
-  # S=ave_quants(sim$S,rnames="River",HCR_name=HCR),
+  spawners_plot=plot_spawner_quants(combined_list$NOS,ylab="Total spawners (Hatchery + Wild)"),
 
 
   #Harvest
-  harv_plot<-plot_harvest_quants(combined_list$Harv)
+  harv_plot=plot_harvest_quants(combined_list$Harv),
 
 
   #pHOS, pNOB, PNI
-   hatch_plot<- plot_hatchery_quants(combined_list$Hatch)
-
-
-
-
+   hatch_plot= plot_hatchery_quants(combined_list$Hatch),
+)
 
 }
 
