@@ -37,7 +37,7 @@
 #' @examples
 
 pop_sim<-function(n_years=25,
-                  start_year=2017,
+                  start_year=2018,
                   n_iter=500,
                   init_S=internal_data$init_S,
                   MREER_matrix=internal_data$MREER_out[,,],
@@ -108,7 +108,7 @@ pop_sim<-function(n_years=25,
 
     PFMC<-matrix(NA,n_years+6,n_iter)
 
-    S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
+    S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
 
     S[,1:6,] <- t(init_S)
@@ -164,27 +164,27 @@ pop_sim<-function(n_years=25,
           terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
           terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
 
-          escapement<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
-          NOB[,y,i]<-NOB_fun(escapement[-1],NOB_err=NOB_err[,y,i],
+          escapement[,y,i]<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
+          NOB[,y,i]<-NOB_fun(escapement[-1,y,i],NOB_err=NOB_err[,y,i],
                              met_target=NO_broodstock_target["Methow"],
                              oka_target=NO_broodstock_target["Okanogan"],
                              wen_target=NO_broodstock_target["Wenatchee"])
           HOB[2:4,y,i]<-pmax(NO_broodstock_target-NOB[,y,i],0)
-          NOS[,y,i]<-escapement[-1]-NOB[,y,i]
+          NOS[,y,i]<-escapement[-1,y,i]-NOB[,y,i]
           # hatchey broodstock needs for segregated and integrated programs
           tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
           # predicted pHOS
-          pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1],pHOS_err=pHOS_err[,y,i])
+          pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1,y,i],pHOS_err=pHOS_err[,y,i])
           #predicted Hatchery origin spawners
           HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
           #total number of hatchery origin fish needed for broodstock and predicted HOS
           tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
 
           # if there is there sufficient hatchery escapement to meet broodstock needs
-          if(escapement[1]<tot_hatch_need){
+          if(escapement[1,y,i]<tot_hatch_need){
             # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
             # every group is reduced proporitonally
-            prop_tot<-escapement[1]/tot_hatch_need
+            prop_tot<-escapement[1,y,i]/tot_hatch_need
             HOS<-HOS*prop_tot
             HOB[,y,i]<-HOB[,y,i]*prop_tot
             prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
@@ -219,6 +219,7 @@ pop_sim<-function(n_years=25,
       S = S,
       NOB = NOB,
       HOB = HOB,
+      escapement=escapement,
       returns = returns,
       recruits = recruits,
       terminal_NT = terminal_NT,

@@ -40,7 +40,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
 
               plotOutput(NS(id,"sim1_harv")),
               br(),
-              p(em("Escapement plot."),"The purple and greem bars represent historical spawning escapement and natural origin broodstock collections. The grey shaded area and black lines represent simulated future spawning escapement plus broodstock collection.") ,
+              p(em("Escapement plot."),"Bars represent historical escapement (Spawners, hatchery broodstock, and hatchery surplus). The grey shaded area and black lines represent simulated future escapements.") ,
               plotOutput(NS(id,"sim1_esc")),
   )
 )
@@ -57,7 +57,8 @@ HCR_feedback_server <- function(id,
                                 NT_rates=c(100,200,.05,.06,.07,NA,NA),
                                 NT_scalar=c(rep(NA,5),1,.75),
                                 NT_offset=c(rep(NA,5),29000,16500),
-                                NT_share=c(rep(NA,5),.5,.5)){
+                                NT_share=c(rep(NA,5),.5,.5),
+                                editable=TRUE){
 
   moduleServer(id, function(input, output, session) {
 
@@ -77,7 +78,7 @@ HCR_feedback_server <- function(id,
 
   #output the datatable based on the dataframe (and make it editable)
   output$my_datatable <- renderDT({
-    DT::datatable(v$data, editable = TRUE, filter="none",
+    DT::datatable(v$data, editable = editable, filter="none",
                   options = list(dom = 't',
                                  ordering=F,
                                  scrollX=FALSE,
@@ -196,7 +197,12 @@ hcr_data_fun<-function(do_notifs=FALSE){
      if(do_notifs) showNotification(newData$message, type = "error")
       NULL
     }else{
-      (newData)
+
+
+      output$sim1_harv <-renderPlot({ plot_harvest_trajectory(newData)})
+      output$sim1_esc <-renderPlot({ plot_esc_trajectory(newData)})
+
+      summarize_sim(newData,HCR=id)
     }
 
   }
@@ -219,25 +225,25 @@ hcr_data_fun<-function(do_notifs=FALSE){
   })
 
 
-  output$sim1_esc <- renderPlot({
-    req(sim1()) # Render the first plot using the stored data
+  # output$sim1_esc <- renderPlot({
+  #   req(sim1()) # Render the first plot using the stored data
+  #
+  #   sim1()$esc_t
+  #   # isolate(v$data) %>%  #don't react to any changes in the data
+  #   #   ggplot(aes(x,y)) +
+  #   #   geom_point() +
+  #   #   geom_smooth(method = "lm")
+  # })
 
-    plot_esc_trajectory(sim1())
-    # isolate(v$data) %>%  #don't react to any changes in the data
-    #   ggplot(aes(x,y)) +
-    #   geom_point() +
-    #   geom_smooth(method = "lm")
-  })
-
-  output$sim1_harv <- renderPlot({
-    req(sim1()) # Render the first plot using the stored data
-
-    plot_harvest_trajectory(sim1())
-    # isolate(v$data) %>%  #don't react to any changes in the data
-    #   ggplot(aes(x,y)) +
-    #   geom_point() +
-    #   geom_smooth(method = "lm")
-  })
+  # output$sim1_harv <- renderPlot({
+  #   req(sim1()) # Render the first plot using the stored data
+  #
+  #   sim1()$harv_t
+  #   # isolate(v$data) %>%  #don't react to any changes in the data
+  #   #   ggplot(aes(x,y)) +
+  #   #   geom_point() +
+  #   #   geom_smooth(method = "lm")
+  # })
 
   return(list(sim=sim1,
               hcr = hcr_out))

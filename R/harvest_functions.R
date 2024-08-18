@@ -60,10 +60,10 @@ allowed_Treaty_HR<-min(.999,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER
   }
 
 
-  #reduce if cumative harvest greater than 99% because just not realistic
-  while((Treaty+NT)>.99){
-    Treaty<-Treaty/((Treaty+NT)*1.05)
-    NT<-NT/((Treaty+NT)*1.05)
+  #reduce if cumative harvest greater than 90% because just not realistic
+  if((Treaty+NT)>.9){
+    Treaty<-Treaty*(.9/((Treaty+NT)))
+    NT<-NT*(.9/((Treaty+NT)))
   }
 
 #
@@ -85,6 +85,15 @@ allowed_Treaty_HR<-min(.999,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER
    MHR=MS_fisheries_matrices[["marked_HR"]][round(mark_rate/.01),round(NT/.001)]
    UHR=MS_fisheries_matrices[["um_HR"]][round(mark_rate/.01),round(NT/.001)]
  }
+
+ if((Treaty+MHR)>.9){
+   MHR<-.9-Treaty
+ }
+
+ if((Treaty+UHR)>.9){
+   UHR<-.9-Treaty
+ }
+
 
   c(Treaty=Treaty,
     NT_marked=MHR,
