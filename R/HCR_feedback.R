@@ -153,7 +153,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   # Create a reactive value to store the simulation outputs
   hcr_out <- reactiveVal({
-    hcr_data_fun()
+    internal_data[[id]]$hcr
   }
   )
 
@@ -210,7 +210,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   # Create a reactive value to store the simulation outputs
   sim1 <- reactiveVal(
-    internal_data[[id]]
+    internal_data[[id]]$perf
   )
 
 

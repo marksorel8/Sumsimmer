@@ -35,6 +35,8 @@ summarize_sim<-function(sim,yrs=7:31,HCR="X"){
 #Escapement
 Esc=ave_quants(sim$escapement,rnames="Population",HCR_name=HCR),
 
+Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
+
 #NOS
 NOS=ave_quants(sim$NOS,rnames="River",HCR_name=HCR),
 
@@ -62,7 +64,7 @@ harv_t=harv_t
 # sim$NOS[,7:31,] |> apply(c(1,3),zoo::rollmean,k=5) |> apply(2:3,function(x){min(x)<100}) |> apply(1,mean)
 
 
-plot_all_fun<-function(sim_list){
+plot_all_fun<-function(sim_list,baseline_name){
 
   # sim<-pop_sim()
   # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
@@ -79,12 +81,14 @@ plot_all_fun<-function(sim_list){
   # Assign names to the combined list
   names(combined_list) <- unique(names(unlist(sim_list, recursive = FALSE)))
 
+  combined_list<-lapply(combined_list,function(x)mutate(x,HCR=fct_inorder(HCR)))
+
   #
 list(
   #Escapement
   NOE_plot=plot_NOE_quants(combined_list$Esc),
 
-  NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc),
+  NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
 
 
 
@@ -105,7 +109,7 @@ list(
 
 
   #pHOS, pNOB, PNI
-   hatch_plot= plot_hatchery_quants(combined_list$Hatch),
+   hatch_plot= plot_hatchery_quants(combined_list$Hatch)
 )
 
 }
@@ -113,35 +117,35 @@ list(
 
 
 
-
-
-plot_all_fun<-function(sim_list){
-
-  # sim<-pop_sim()
-  # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
-  # sim_list<-list(Current=sim,weird=sim2)
-  # library(tidyverse)
-  harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)})) |>
-        mutate(HCR=fct_relevel(HCR,names(sim_list)))
-
-  # NOS_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$NOS,rnames="River",HCR_name=x))) |>
-  #   mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")),
-  #          HCR=fct_relevel(HCR,names(sim_list)))
-
-  NOE_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$escapement,rnames="Population",HCR_name=x))) |>
-    mutate(Population=fct_relevel(Population,c("Hatchery","Wenatchee","Methow","Okanogan","Total")),
-           HCR=fct_relevel(HCR,names(sim_list)))
-
-
-
-  harv_plot<-plot_harvest_quants(harvest_quants)
-
-  # NOS_plot<-plot_NOS_quants(NOS_quants)
-
-  NOE_plot<-plot_NOE_quants(NOE_quants)
-
-
-  ggpubr::ggarrange(harv_plot,NOE_plot,nrow=1,common.legend = FALSE, legend = "top")
-
-}
-
+#
+#
+# plot_all_fun<-function(sim_list){
+#
+#   # sim<-pop_sim()
+#   # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
+#   # sim_list<-list(Current=sim,weird=sim2)
+#   # library(tidyverse)
+#   harvest_quants<-do.call(rbind,lapply(names(sim_list),function(x){harvest_quants_fun(sim_list[[x]],HCR_name=x)})) |>
+#         mutate(HCR=fct_relevel(HCR,names(sim_list)))
+#
+#   # NOS_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$NOS,rnames="River",HCR_name=x))) |>
+#   #   mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan","Total")),
+#   #          HCR=fct_relevel(HCR,names(sim_list)))
+#
+#   NOE_quants<-do.call(rbind,lapply(names(sim_list),function(x) ave_quants(sim_list[[x]]$escapement,rnames="Population",HCR_name=x))) |>
+#     mutate(Population=fct_relevel(Population,c("Hatchery","Wenatchee","Methow","Okanogan","Total")),
+#            HCR=fct_relevel(HCR,names(sim_list)))
+#
+#
+#
+#   harv_plot<-plot_harvest_quants(harvest_quants)
+#
+#   # NOS_plot<-plot_NOS_quants(NOS_quants)
+#
+#   NOE_plot<-plot_NOE_quants(NOE_quants)
+#
+#
+#   ggpubr::ggarrange(harv_plot,NOE_plot,nrow=1,common.legend = FALSE, legend = "top")
+#
+# }
+#

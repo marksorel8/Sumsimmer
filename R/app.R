@@ -5,47 +5,68 @@ library(tidyverse)
 # Main UI
 ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
-             tabPanel("No harvest", HCR_feedback_UI("sim_0","No terminal harvest")),
-             tabPanel("Current MA", HCR_feedback_UI("sim_current","Harvest control rule from current MA"))#,
-             # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
+             tabPanel("No harvest", HCR_feedback_UI("No harvest","No terminal harvest")),
+             tabPanel("Current MA", HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
+              # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
-             # tabPanel("Comparison",
-             #          # "Hit this button to plot a comparison of harvest control rules.",
-             #          # br(),
-             #          # actionButton("compareHCR", "Update harvest control rule plot"),
-             #          # br(),
-             #          p(style="text-align:center",
-             #            h2("Harvest control rules")),
-             #          "Harvest rates for different sectors and all sectors compused under alternative harvest control rules. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates.",
-             #          br(),
-             #          plotOutput("compare_HCRs"),
-             #          br(),
-             #          p(style="text-align:center",
-             #            h2("Harvest and escapement")),
-             #          # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
-             #          # br(),
-             #          "The left panel shows box plots of annual harvest and the right 4 panels show boxplots of natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated for values across years for individual simulations, and then averaged across simulations.  For example, the lower end of the bars in the harvest panel represent the average across simulations of the 2 years (out of 25) with the lowest harvest, averaged across simulations. I summarized the results in this way to show what harvest and conservaiton metrics would look line in small run size years, average years, and large run size years.",
-             #          br(),
-             #          plotOutput("compare_perf_metrics"),
-             #
-             # br(),
-             # p(style="text-align:center",
-             #   h2("Integrated hatchery program performance")),
-             # # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
-             # # br(),
-             # "Proportion of hatchery origin spawners (pHOS), prooriton of natural origin broodstock (pNOB) and proportionate natural influence (PNI= pNOB/(pNOB+pHOS)).The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated for values across years for individual simulations, and then averaged across simulations.",
-             # br(),
-             # plotOutput("hatchery_perf_metrics"))
+             tabPanel("Comparison",
+                      # "Hit this button to plot a comparison of harvest control rules.",
+                      # br(),
+                      # actionButton("compareHCR", "Update harvest control rule plot"),
+                      # br(),
+                      p(style="text-align:center",
+                        h2("Harvest control rules")),
+                      p("Harvest rates for different sectors and all sectors combined under alternative harvest control rules. The denominator in the rates shown is the", em("river mouth run size"), "which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates."),
+                      br(),
+                      plotOutput("compare_HCRs"),
+             br(),
+                      p(style="text-align:center",
+                        h2("Harvest and escapement")),
+                      # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
+                      # br(),
+                      "The left panel shows box plots of annual harvest and the right 4 panels show boxplots of natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across years for individual simulations, and then averaged across simulations.  Therefore, the lower end of the bars represent the average across simulations of the 2 years (out of 25) with the lowest harvest. I summarized the results in this way to show what harvest and escapement projections were in small run size, average, and large run size years.",
+                      br(),
+                      plotOutput("compare_perf_metrics"),
+
+             br(),
+             p(style="text-align:center",
+               h2("Integrated hatchery program performance")),
+             # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
+             br(),
+             "Proportion of hatchery origin spawners (pHOS), proporiton of natural origin broodstock (pNOB) and proportionate natural influence (PNI= pNOB/(pNOB+pHOS)).Quantiles were calculated across years for individual simulations, and then averaged across simulations.The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. ",
+             br(),
+             plotOutput("hatchery_perf_metrics"),
+             br(),
+             p(style="text-align:center",
+               h2("Extra plots")),
+             p(style="text-align:center",
+               h4("Ratio of escapement to unfished escapement, and river mouth run size")),
+             # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
+             br(),
+             "Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule. Boxplots in the right panel show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model.",
+             br(),
+             plotOutput("extra_perf_plot"),
+             p(style="text-align:center",
+               h4("Spawners plots")),
+             # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
+             br(),
+             "Quantile of natural-origin (left panel) and total (right panel) spawners across years of simulations.",
+             br(),
+             plotOutput("compare_spawners_plot")
+             )
+
 
              )
 
-  )
+             )
+
+
 
 
 
 # Main server
 server <- function(input, output, session) {
-  no_harv<-HCR_feedback_server("sim_0",
+  no_harv<-HCR_feedback_server("No harvest",
                                editable=FALSE,
                                treaty_tiers=NA,
                                  treaty_rates=0,
@@ -57,7 +78,8 @@ server <- function(input, output, session) {
                                  NT_scalar=NA,
                                  NT_offset=NA,
                                  NT_share=NA)
-  sim1<-HCR_feedback_server("sim_current",editable=TRUE)
+
+  current<-HCR_feedback_server("Current MA",editable=TRUE)
   # sim2<-HCR_feedback_server("page2",
   #                           treaty_tiers=c(36250,rep(NA,6)),
   #                           treaty_rates=c(.1,rep(NA,6)),
@@ -82,38 +104,87 @@ server <- function(input, output, session) {
   #                           NT_share = rep(NA,7))
   #Combine data from all pages and render a combined plot
 
-# render_HCR_compare<-function(){
-#   hcr_list<-list("Current MA"=sim1$hcr(),
-#                  "Alt 1"=sim2$hcr(),
-#                  "Alt 2"=sim3$hcr()
-#   )
+render_HCR_compare<-function(){
+  hcr_list<-list("No harvest"=no_harv$hcr(),
+                  "Current MA"=current$hcr()
+                  )#,
+                 # "Alt 1"=sim2$hcr(),
+                 # "Alt 2"=sim3$hcr()
+  # )
+
+  hcr_list <- Filter(Negate(is.null), hcr_list)
+
+
+
+  perf_list<-list(no_harv$sim()[1:7],
+                  current$sim()[1:7]
+  )#,
+  # "Alt 1"=sim2$sim1(),
+  # "Alt 2"=sim3$sim1()
+  # )
+
+  perf_list <- Filter(Negate(is.null), perf_list)
+
+    # Check if any of the HCRs have been created
+  if(length(hcr_list)==0){
+    showNotification("please render the harvest control rule plots on all of the individual pages before comparing them here.", type = "error")
+  }else{
+
+    output$compare_HCRs<-renderPlot({
+
+      p2<-plot_HCR_compare(hcr_list)
+
+      p2
+    })
+
+output$compare_perf_metrics<-renderPlot({
+
+  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
+
+})
 #
-#   hcr_list <- Filter(Negate(is.null), hcr_list)
+plots<-plot_all_fun(perf_list,"No harvest")
+output$compare_perf_metrics<-renderPlot({
+
+  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
+
+})
+
+output$compare_spawners_plot <-renderPlot({
+
+  ggpubr::ggarrange(plots$NOS_plot,plots$spawners_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1,1))
+
+})
+
+
+output$extra_perf_plot <-renderPlot({
+
+  ggpubr::ggarrange(plots$NOE_ratios_plot,plots$RMRS_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1.3,2))
+
+})
+
+output$hatchery_perf_metrics<-renderPlot({
+  plots[["hatch_plot"]]
+
+})
+
+
+
+
+
+  }
+}
+
+observe({
+  render_HCR_compare()
+})
+
+#   observeEvent(input$compareHCR, {
 #
-#   # Check if any of the HCRs have been created
-#   if(length(hcr_list)==0){
-#     showNotification("please render the harvest control rule plots on all of the individual pages before comparing them here.", type = "error")
-#   }else{
-#
-#     output$compare_HCRs<-renderPlot({
-#
-#       p2<-plot_HCR_compare(hcr_list)
-#
-#       p2
-#     })
-#   }
-# }
-#
-# observe({
-#   render_HCR_compare()
+#     render_HCR_compare()
 # })
-#
-# #   observeEvent(input$compareHCR, {
-# #
-# #     render_HCR_compare()
-# # })
-#
-#
+
+
 # render_performance_plot<-function(){
 #
 #   sim_list<-list("Current MA"=sim1$sim(),
