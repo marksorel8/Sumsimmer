@@ -224,7 +224,17 @@ pop_sim<-function(n_years=25,
       recruits = recruits,
       terminal_NT = terminal_NT,
       terminal_treaty = terminal_treaty,
-      PFMC=PFMC
+      PFMC=PFMC,
+      HCR=list(treaty_tiers =treaty_tiers,
+               treaty_rates =treaty_rates,
+               treaty_scalar =treaty_scalar,
+               treaty_offset =treaty_offset,
+               treaty_share =treaty_share,
+               NT_tiers =NT_tiers,
+               NT_rates =NT_rates,
+               NT_scalar =NT_scalar,
+               NT_offset =NT_offset,
+               NT_share =NT_share)
     )
   }, error=function(e){
     return(e)

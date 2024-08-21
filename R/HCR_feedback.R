@@ -18,7 +18,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               p(em("offset"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size."),
               p(em("share"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset."),
               DTOutput(NS(id,"my_datatable")),
-              "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates.",
+              "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
               br(),
 
               actionButton(NS(id,"go"),label = "Update harvest control rule plot"),
@@ -199,8 +199,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
     }else{
 
 
-      # output$sim1_harv <-renderPlot({ plot_harvest_trajectory(newData)})
-      # output$sim1_esc <-renderPlot({ plot_esc_trajectory(newData)})
+
 
       summarize_sim(newData,HCR=id)
     }
@@ -227,22 +226,17 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   output$sim1_esc <- renderPlot({
     req(sim1()) # Render the first plot using the stored data
+     plot_esc_trajectory( sim1()$esc_t)
 
-    sim1()$esc_t
-    # isolate(v$data) %>%  #don't react to any changes in the data
-    #   ggplot(aes(x,y)) +
-    #   geom_point() +
-    #   geom_smooth(method = "lm")
+
   })
 
 output$sim1_harv <- renderPlot({
   req(sim1()) # Render the first plot using the stored data
 
-  sim1()$harv_t
-  # isolate(v$data) %>%  #don't react to any changes in the data
-  #   ggplot(aes(x,y)) +
-  #   geom_point() +
-  #   geom_smooth(method = "lm")
+  plot_harvest_trajectory(sim1()$harv_t)
+
+
 })
 
   return(list(sim=sim1,

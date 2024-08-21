@@ -28,8 +28,8 @@ quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
 
 
 summarize_sim<-function(sim,yrs=7:31,HCR="X"){
- esc_t<- plot_esc_trajectory(sim)
-  harv_t<- plot_harvest_trajectory(sim)
+ esc_t<- esc_traj_data_fun(sim)
+  harv_t<- harv_traj_dat_fun(sim)
 
   list(
 #Escapement
@@ -54,7 +54,8 @@ Harv=harvest_quants_fun(sim,HCR_name=HCR),
 Hatch=hatchery_quants_fun(sim,HCR),
 
 esc_t=esc_t,
-harv_t=harv_t
+harv_t=harv_t,
+HCR=sim$HCR
 )
 }
 
