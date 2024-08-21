@@ -26,7 +26,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               "check box to include the PFMC ocean mortality that is included in non-treaty share. This has no effect on simulations.",
 
               plotOutput(NS(id,"my_plot")),
-              "Hit this button to start population simulation and plot escapement and harvest. This will take a few seconds.",
+              "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
               br(),
               actionButton(NS(id,"dosim1"),label = "Update simulation"),
               br(),
@@ -35,7 +35,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
 
 
 
-              p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability in the predictions. "),
+              p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability of individual simulations."),
 
 
               plotOutput(NS(id,"sim1_harv")),

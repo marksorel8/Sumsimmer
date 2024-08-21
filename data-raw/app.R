@@ -18,6 +18,8 @@ ui <- fluidPage(
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              tabPanel("Comparison",
+                      h1("This tab is for comparing harvest control rules"),
+                      "It will take a few second for the plots to load upon starting the app. The plots will automatically update after a few seconds when a simulation is updated; however, you must press the buttons to update the harvest control rules and simulations on the individual tabs for them to be updated here.",
                       # "Hit this button to plot a comparison of harvest control rules.",
                       # br(),
                       # actionButton("compareHCR", "Update harvest control rule plot"),
