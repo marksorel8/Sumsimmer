@@ -126,7 +126,7 @@ HCR_feedback_server <- function(id,
 
 hcr_data_fun<-function(do_notifs=FALSE){
   hcr_data<-with(isolate(v$data),
-                 seq_HCR(
+                 Sumsimmer:::seq_HCR(
                    treaty_tiers=treaty_tiers,
                    treaty_rates=treaty_rates,
                    treaty_scalar=treaty_scalar,
@@ -153,7 +153,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   # Create a reactive value to store the simulation outputs
   hcr_out <- reactiveVal({
-    internal_data[[id]]$hcr
+    Sumsimmer:::internal_data[[id]]$hcr
   }
   )
 
@@ -167,7 +167,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
   #render plot
   output$my_plot <- renderPlot({
     req(hcr_out())
-    plot_HCR(hcr_out(),
+    Sumsimmer:::plot_HCR(hcr_out(),
              input$total_NT
 
     )
@@ -201,7 +201,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-      summarize_sim(newData,HCR=id)
+      Sumsimmer:::summarize_sim(newData,HCR=id)
     }
 
   }
@@ -209,7 +209,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   # Create a reactive value to store the simulation outputs
   sim1 <- reactiveVal(
-    internal_data[[id]]$perf
+    Sumsimmer:::internal_data[[id]]$perf
   )
 
 
@@ -226,7 +226,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
   output$sim1_esc <- renderPlot({
     req(sim1()) # Render the first plot using the stored data
-     plot_esc_trajectory( sim1()$esc_t)
+    Sumsimmer:::plot_esc_trajectory( sim1()$esc_t)
 
 
   })
@@ -234,7 +234,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 output$sim1_harv <- renderPlot({
   req(sim1()) # Render the first plot using the stored data
 
-  plot_harvest_trajectory(sim1()$harv_t)
+  Sumsimmer:::plot_harvest_trajectory(sim1()$harv_t)
 
 
 })
