@@ -1,6 +1,11 @@
 library(shiny)
 library(DT)
 library(tidyverse)
+if (!requireNamespace("Sumsimmer", quietly = TRUE)) {
+  # Install the package from GitHub if it is not installed
+  remotes::install_github("marksorel8/Sumsimmer")
+}
+
 library(Sumsimmer)
 # Main UI
 ui <- fluidPage(
