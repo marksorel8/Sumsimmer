@@ -5,11 +5,11 @@ library(Sumsimmer)
 # Main UI
 ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
-             tabPanel("No harvest", HCR_feedback_UI("No harvest","No terminal harvest")),
-             tabPanel("Current MA", HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
-             tabPanel("Simplified MA", HCR_feedback_UI("Simplified MA","Harvest control rule from current MA")),
-             tabPanel("PST", HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 4 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
-             tabPanel("Custom", HCR_feedback_UI("Custom","")),
+             tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No harvest","No terminal harvest")),
+             tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
+             tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Harvest control rule from current MA")),
+             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 4 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             tabPanel("Custom", Sumsimmer:::HCR_feedback_UI("Custom","")),
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              tabPanel("Comparison",
@@ -69,7 +69,7 @@ ui <- fluidPage(
 
 # Main server
 server <- function(input, output, session) {
-  no_harv<-HCR_feedback_server("No harvest",
+  no_harv<-Sumsimmer:::HCR_feedback_server("No harvest",
                                editable=FALSE,
                                treaty_tiers=NA,
                                  treaty_rates=0,
@@ -82,11 +82,11 @@ server <- function(input, output, session) {
                                  NT_offset=NA,
                                  NT_share=NA)
 
-  current<-HCR_feedback_server("Current MA",editable=TRUE)
+  current<-Sumsimmer:::HCR_feedback_server("Current MA",editable=TRUE)
 
-  PST<-do.call(HCR_feedback_server,(c(id="PST",internal_data$`PST`$perf$HCR,editable=TRUE)))
+  PST<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
 
-  simple_ma<-do.call(HCR_feedback_server,(c(id="Simplified MA",internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
+  simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
 
 
@@ -102,7 +102,7 @@ server <- function(input, output, session) {
   #                           NT_scalar=c(NA,1,rep(NA,1)),
   #                           NT_offset=c(NA,29000,rep(NA,1)),
   #                           NT_share = c(NA,.5,rep(NA,1)))
-  sim3<-HCR_feedback_server("Custom",
+  sim3<-Sumsimmer:::HCR_feedback_server("Custom",
                             treaty_tiers=rep(NA,7),
                             treaty_rates=rep(NA,7),
                             treaty_scalar=rep(NA,7),
@@ -151,7 +151,7 @@ render_HCR_compare<-function(){
 
     output$compare_HCRs<-renderPlot({
 
-      p2<-plot_HCR_compare(hcr_list)
+      p2<-Sumsimmer:::plot_HCR_compare(hcr_list)
 
       p2
     })
@@ -162,7 +162,7 @@ output$compare_perf_metrics<-renderPlot({
 
 })
 #
-plots<-plot_all_fun(perf_list,"No harvest")
+plots<-Sumsimmer:::plot_all_fun(perf_list,"No harvest")
 output$compare_perf_metrics<-renderPlot({
 
   ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))

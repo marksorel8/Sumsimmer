@@ -6,7 +6,7 @@
 \usage{
 pop_sim(
   n_years = 25,
-  start_year = 2017,
+  start_year = 2018,
   n_iter = 500,
   init_S = internal_data$init_S,
   MREER_matrix = internal_data$MREER_out[, , ],
@@ -15,7 +15,7 @@ pop_sim(
   pHOS_err = internal_data$pHOS_err[, , ],
   NOB_err = internal_data$NOB_err[, , ],
   pfmc_err = internal_data$pfmc_err[, ],
-  in_river_err = internal_data$in_river_err[, , ],
+  in_river_harvest_model_option = 1,
   smolts = hatchery_smolt_fun(smolts_err = internal_data$smolt_err),
   hatchery_mark_rate = internal_data$hatch_MR_mu,
   HO_broodstock_need = 2000,
@@ -56,7 +56,7 @@ pop_sim(
 
 \item{pfmc_err}{vector of return year annual deviations from PFMC AEQ ocean mort abundance}
 
-\item{in_river_err}{2 x year matrix of return year errors in in-river harvest for treaty and non-treaty}
+\item{in_river_harvest_model_option}{which model of realized vs allowed harvest to use}
 
 \item{smolts}{vector of brood year annual smolt releases}
 
