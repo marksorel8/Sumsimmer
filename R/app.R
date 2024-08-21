@@ -1,13 +1,15 @@
 library(shiny)
 library(DT)
 library(tidyverse)
-
+library(Sumsimmer)
 # Main UI
 ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
              tabPanel("No harvest", HCR_feedback_UI("No harvest","No terminal harvest")),
              tabPanel("Current MA", HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
+             tabPanel("Simplified MA", HCR_feedback_UI("Simplified MA","Harvest control rule from current MA")),
              tabPanel("PST", HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 4 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             tabPanel("Custom", HCR_feedback_UI("Custom","")),
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              tabPanel("Comparison",
@@ -84,6 +86,11 @@ server <- function(input, output, session) {
 
   PST<-do.call(HCR_feedback_server,(c(id="PST",internal_data$`PST`$perf$HCR,editable=TRUE)))
 
+  simple_ma<-do.call(HCR_feedback_server,(c(id="Simplified MA",internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
+
+
+
+
   # sim2<-HCR_feedback_server("page2",
   #                           treaty_tiers=c(36250,rep(NA,2)),
   #                           treaty_rates=c(.1,rep(NA,2)),
@@ -95,23 +102,27 @@ server <- function(input, output, session) {
   #                           NT_scalar=c(NA,1,rep(NA,1)),
   #                           NT_offset=c(NA,29000,rep(NA,1)),
   #                           NT_share = c(NA,.5,rep(NA,1)))
-  # sim3<-HCR_feedback_server("page3",
-  #                           treaty_tiers=rep(NA,7),
-  #                           treaty_rates=rep(NA,7),
-  #                           treaty_scalar=rep(NA,7),
-  #                           treaty_offset=rep(NA,7),
-  #                           treaty_share = rep(NA,7),
-  #                           NT_tiers=rep(NA,7),
-  #                           NT_rates=rep(NA,7),
-  #                           NT_scalar=rep(NA,7),
-  #                           NT_offset=rep(NA,7),
-  #                           NT_share = rep(NA,7))
+  sim3<-HCR_feedback_server("Custom",
+                            treaty_tiers=rep(NA,7),
+                            treaty_rates=rep(NA,7),
+                            treaty_scalar=rep(NA,7),
+                            treaty_offset=rep(NA,7),
+                            treaty_share = rep(NA,7),
+                            NT_tiers=rep(NA,7),
+                            NT_rates=rep(NA,7),
+                            NT_scalar=rep(NA,7),
+                            NT_offset=rep(NA,7),
+                            NT_share = rep(NA,7),
+                            editable=TRUE)
   #Combine data from all pages and render a combined plot
 
 render_HCR_compare<-function(){
   hcr_list<-list("No harvest"=no_harv$hcr(),
                   "Current MA"=current$hcr(),
-                 "PST" = PST$hcr()
+                 "Simplified MA"=simple_ma$hcr(),
+                 "PST" = PST$hcr(),
+                 "Custom" = sim3$hcr()
+
                   )#,
                  # "Alt 1"=sim2$hcr(),
                  # "Alt 2"=sim3$hcr()
@@ -123,7 +134,9 @@ render_HCR_compare<-function(){
 
   perf_list<-list(no_harv$sim()[1:7],
                   current$sim()[1:7],
-                  PST$sim()[1:7]
+                  simple_ma$sim()[1:7],
+                  PST$sim()[1:7],
+                  sim3$sim()[1:7]
   )#,
   # "Alt 1"=sim2$sim1(),
   # "Alt 2"=sim3$sim1()
@@ -145,7 +158,7 @@ render_HCR_compare<-function(){
 
 output$compare_perf_metrics<-renderPlot({
 
-  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
+  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1.2,2))
 
 })
 #

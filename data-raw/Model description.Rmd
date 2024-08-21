@@ -1359,7 +1359,21 @@ if(sim_for_model){
     
     internal_data$`PST` <-list(perf=summarize_sim(do.call(pop_sim,PST_HCR),HCR="PST"),hcr=do.call(seq_HCR,PST_HCR))
     
+    
+    simplified_MA<-list(
+      treaty_tiers=c(36250,rep(NA,2)),
+      treaty_rates=c(.1,rep(NA,2)),
+      treaty_scalar=c(NA,1,rep(NA,1)),
+      treaty_offset=c(NA,29000,rep(NA,1)),
+      treaty_share = c(NA,.5,rep(NA,1)),
+      NT_tiers=c(32222,rep(NA,2)),
+      NT_rates=c(.05,rep(NA,2)),
+      NT_scalar=c(NA,1,rep(NA,1)),
+      NT_offset=c(NA,29000,rep(NA,1)),
+      NT_share = c(NA,.5,rep(NA,1)))
   
+    internal_data$`Simplified MA` <-list(perf=summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"),hcr=do.call(seq_HCR,simplified_MA))
+    
     
     
     internal_data$`No harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="No harvest"),hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0))
