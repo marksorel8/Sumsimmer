@@ -12,3 +12,8 @@ The `r` folder contains functions for the simulation model.
 - Other functions are called by `pop_sim()` or are for summarizing and plotting outputs
 - The `HCR_feedback.r` file defines and shiny server and UI function for a module where different harvest control rules can be defined, simulations run, and harvest and escapement trajectories plotted.
 - `Internal_data.rda`contians data used in population simulations (e.g., parameters, random errors, etc.) and by the shiny app (e.g., simulation results).
+
+
+Questions?
+Contact Mark Sorel
+mark.sorel@dfw.wa.gov
