@@ -22,7 +22,7 @@ ui <- fluidPage(
                         tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
 
                         tags$li(tags$i(style="color: blue;","Simplified MA"), "- This is a simplified version of the harvest control rule in the 2018-2029 Managment Agreement. There is a fixed low rate below a river mouth run size of 29,000 and returns above 29,000 are fully allocated in a 50/50 split between treaty and non-treaty fisheries."),
-                        tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 5 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
+                        tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
                         tags$li(tags$i(style="color: blue;","Custom"), " - This is a blank canvas for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
                       ),
 
@@ -36,9 +36,9 @@ ui <- fluidPage(
 
                       ),
              tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No harvest","No terminal harvest")),
-             tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
-             tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Harvest control rule from current MA")),
-             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 4 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from 2018-2027 Agreement")),
+             tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
+             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
              tabPanel("Custom", Sumsimmer:::HCR_feedback_UI("Custom","")),
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
