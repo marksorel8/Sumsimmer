@@ -4,6 +4,7 @@ The `data-raw` folder contains:
 
 - The `Model description.Rmd` file documents the data and process used to develop the simulation model. It also generates the `Internal_data.rda` file, which lives in the `r` folder and is described below.
 - `app.r` defines a shiny app for comparing the outcomes of alternative harvest control rules.
+- `Modeling.Rmd` is a bit of "scrap paper". I used it for data exploration and analysis during the process of model development and and keeping it here in case I need to go back to anything.
 
 
 The `r` folder contains functions for the simulation model.   
