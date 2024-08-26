@@ -8,7 +8,8 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
   withMathJax(),  # Enable MathJax
 
   # Show plot
-  mainPanel(  "The current harvest control rule specifies fixed rates in some lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
+  mainPanel(  h3("Harvest control rule definition"),
+  "The current harvest control rule specifies fixed rates in some lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
               $$(scalar * run size - offset) * share$$",
 
 
@@ -20,28 +21,32 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               DTOutput(NS(id,"my_datatable")),
               "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
               br(),
-
+  h3("Harvest control rule plot"),
               actionButton(NS(id,"go"),label = "Update harvest control rule plot"),
               checkboxInput(NS(id,"total_NT"), "Include PFMC", value = FALSE),
               "check box to include the PFMC ocean mortality that is included in non-treaty share. This has no effect on simulations.",
 
               plotOutput(NS(id,"my_plot")),
+              p(tags$b("Harvest control rule figure."), "Allowed in-river harvest rate across different river mouth runs izes (RMRS). The average PFMC AEQ mortality is used to calculate the allowed non-treaty rate. The `Include PFMC` button can be used to include the PFMC mortalities in the harvest rate, although this doesn't make a lot of sense because the denominator in the harvest rates shown here is the River Mouth Run size. Note that the allowed harvest for the non-treaty sector can be nevative when the PFMC AEQ mortalities is greater than the allowed."),
+  h3("Simulations plots"),
               "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
               br(),
               actionButton(NS(id,"dosim1"),label = "Update simulation"),
               br(),
-              "check box to use the broken stick model of allowed vs. realized harvest.",
+              "check box to use the broken stick model of allowed vs. realized harvest. The broken-stick model assumes that in-river harvest is not responsive (due to managment error) at lower allowed harvest rates.",
               checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
 
 
 
-              p(em("Harvest plot."),"Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability of individual simulations."),
-
 
               plotOutput(NS(id,"sim1_harv")),
-              br(),
-              p(em("Escapement plot."),"Bars represent historical escapement (Spawners, hatchery broodstock, and hatchery surplus). The grey shaded area and black lines represent simulated future escapements.") ,
+  p(tags$b("Harvest figure."), " Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability of individual simulations."),
+
+
+  br(),
+
               plotOutput(NS(id,"sim1_esc")),
+  p(tags$b("Escapement figure.")," Bars represent historical escapement (Spawners, hatchery broodstock, and hatchery surplus). The grey shaded area and black lines represent simulated future escapements.")
   )
 )
 }

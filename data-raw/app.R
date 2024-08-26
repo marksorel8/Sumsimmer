@@ -10,6 +10,31 @@ library(Sumsimmer)
 # Main UI
 ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
+             tabPanel("Welcome",
+                      h1("Welcome!"),
+                      h3("This app is for comparing simulated outcomes of harvest control rules for the summer Chinook managment stock of the",
+                         tags$a(href="https://critfc.org/wp-content/uploads/2022/05/2018-2027-USvOR.pdf","US v Oregon Mangement Agreement"),
+                         "."),
+                      br(),
+                      p("The first 5 tabs define different harvest control rules and the final tab called", tags$i(style="color: blue;","Comparison"), "is for comparing performance metrics of the harvest control rules."),
+                      tags$ul(
+                        tags$li(tags$i(style="color: blue;","No harvest"), " - A baseline with no terminral harvest"),
+                        tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
+
+                        tags$li(tags$i(style="color: blue;","Simplified MA"), "- This is a simplified version of the harvest control rule in the 2018-2029 Managment Agreement. There is a fixed low rate below a river mouth run size of 29,000 and returns above 29,000 are fully allocated in a 50/50 split between treaty and non-treaty fisheries."),
+                        tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 5 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
+                        tags$li(tags$i(style="color: blue;","Custom"), " - This is a blank canvas for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
+                      ),
+
+                      "The harvest control rule in the `no harvest` tab is not editable, but all the other ones are, in case you want to tweak them. Double click on a cell to edit it's values. The description of how the harvest control rules are defined based on the values in the table is repeated on each tab.",
+                      br(),
+                      br(),
+                      "To update the results after modifying a harvest control rule, hit the `Update harvest control rule plot` and `Update simulation` buttons. It will take a few seconds for the simulation to run. The `Comparison` tab will automatically update after a few seconds.",
+                      br(),
+                      br(),
+                      "Each tab will take a second to load when first opened, and the `Comparison` tab will take several seconds."
+
+                      ),
              tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No harvest","No terminal harvest")),
              tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from current MA")),
              tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Harvest control rule from current MA")),
@@ -19,7 +44,9 @@ ui <- fluidPage(
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              tabPanel("Comparison",
                       h1("This tab is for comparing harvest control rules"),
-                      "It will take a few second for the plots to load upon starting the app. The plots will automatically update after a few seconds when a simulation is updated; however, you must press the buttons to update the harvest control rules and simulations on the individual tabs for them to be updated here.",
+                      "It will take a few second for the plots to load upon starting the app.",
+                      "The Harvest and Escapement plots are the main ones to look at. Other plots are included for a more nuanced comparison. Additional metrics could be added.",
+                      "The plots will automatically update after a few seconds when a simulation is updated; however, you must press the buttons on the individual harvest-control-rule tabs after making changes for them to be updated here.",
                       # "Hit this button to plot a comparison of harvest control rules.",
                       # br(),
                       # actionButton("compareHCR", "Update harvest control rule plot"),

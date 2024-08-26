@@ -26,7 +26,7 @@ internal_data<-list()
 
 # Overview
 
-This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River.
+This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River. That simulation model can be accessed [here](https://marksorel.shinyapps.io/Summer_Chinook_simulator/). Underlying code can be accessed [here](https://github.com/marksorel8/Sumsimmer).
 
 Broadly, the simulation is built around Ricker stock-recruit models for the three primary natural populations (Wenatchee, Methow, and Okanogan), and a single stock-recruit model for the production of all hatchery-origin fish that return during the summer Chinook managment period. The model has several other components including, return ages of fish, ocean harvest, terminal harvest, hatchery-origin spawning, and hatchery broodstock collection. 
 
@@ -656,7 +656,7 @@ fit$AIC
 
 
 
-```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' observations."}
+```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' observations. Vertical dashed line is at Smsy, the number of spawners for maximum sustainable yield."}
 ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
   left_join(
@@ -677,7 +677,7 @@ ricker_pred <-ricker_pred |> mutate(pred=(
 ##plot spawners vs recruits (more years will be available if estimate age comp through IPM)
 ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR ,aes(y=R))+
   ylab("Recruits") +
-  xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()
+  xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)
 
 
 
@@ -1153,6 +1153,22 @@ pdat|> ggplot(aes(x=NOS,y=pred,color=hatchery_escapement))+geom_line(aes(group=g
 # deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
 ```
 
+```{r, eval=FALSE}
+#HOS eval
+esc_dat |> ggplot(aes(x=year,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_line()
+
+
+esc_dat |> filter(year>=2008)|> ggplot(aes(x=NOS,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth()
+
+
+phos_dat |> ggplot(aes(x=hatchery_escapement,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth(method = "lm")
+                                            phos_dat |> ggplot(aes(x=NOS,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth(method = "lm")                     
+
+```
+
+
+
+
 
 
 Combining these modules, and initualizing the model with spawners and smolt released for brood year 2017--2022, produces a closed-loop simulation model (see diagram figure). This can be used to simmulate the outcomes of different harvest control rules on harvest, escapement, pHOS, and pNOB.
@@ -1415,9 +1431,9 @@ pfmc_morts<-
 
 
 harvest_quants<-data.frame(rbind(
-  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean), # sum across populations, quantile across years, geometrtic mean across simulations
-  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean),
-  apply(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,geo_mean)
+  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,mean), # sum across populations, quantile across years, geometrtic mean across simulations
+  apply(apply(apply(sim$terminal_NT[,yrs,],2:3,sum) + sim$PFMC[yrs,],2,quantile,c(.025,.25,.5,.75,.975)),1,mean),
+  apply(apply(apply(sim$terminal_treaty[,yrs,],2:3,sum),2,quantile,c(.025,.25,.5,.75,.975)),1,mean)
 ))
 colnames(harvest_quants)<-c("min","LQI","med","UQI","max")
 harvest_quants$Sector<-c("NT_in_river","NT_plus_PFMC","Treaty")
@@ -1439,7 +1455,7 @@ harvest_plot_dat |> ggplot(aes(x = Sector, ymin = `min`, lower = `LQI`, middle =
 
 
 ```{r, fig.cap="Figure. Estimates of 2008-2022 in-river harvest (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
-plot_harvest_trajectory(sim)
+plot_harvest_trajectory(harv_traj_dat_fun(sim))
 ```
 
 
@@ -1509,7 +1525,7 @@ esc_plot_dat |> ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med
 
 ```{r fig.cap="Figure. Estimates of 2008-2022 natural-origin escapement (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
 
-plot_esc_trajectory(sim)
+plot_esc_trajectory( esc_traj_data_fun(sim))
 
 ```
 

@@ -104,10 +104,10 @@ plot_HCR<-function(HR_seqs,
                    Total_NT=FALSE){
   with(HR_seqs,{
     if(Total_NT){
-      plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT_w_PFMC)*1.15)))
+      plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT_w_PFMC)*1.15)),xlab="River mouth run size")
       abline(0,0,lty=2)
     }else{
-      plot(RMRS,NT,type="l",lwd=2,ylab="Harvest rate (excludes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT)*1.15)))
+      plot(RMRS,NT,type="l",lwd=2,ylab="Harvest rate (excludes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT)*1.15)),xlab="River mouth run size")
       abline(0,0,lty=2)
     }
     points(RMRS,Treaty,type="l",col="firebrick4",lwd=2)
