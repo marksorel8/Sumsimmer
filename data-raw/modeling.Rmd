@@ -444,7 +444,7 @@ rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=MR,fill=lifestage))
 rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> ggplot(aes(x=brood_year,y=MR))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
 
 ave_MR<-rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> 
-  filter(brood_year>=2008 &brood_year!=2019) |> summarize(mean(MR),sd(MR))
+  filter(brood_year>=2008 &brood_year!=2019) |> summarize(mean(MR),sd(MR)) 
 
 
 internal_data$hatch_MR_mu<-ave_MR$`mean(MR)`
@@ -984,11 +984,38 @@ pfmc_mort_dat<-
 pfmc_morts |> left_join(pfmc_HRs |> select(Year,`PFMC NT Ocean Impacts`)) |> filter(Year>=2010) |> select(Year,`River Mouth Run Size`,`PFMC NT Harvest Total`,`PFMC NT Ocean Impacts`) |> rename(RMRS=`River Mouth Run Size`,PFMCNT=`PFMC NT Harvest Total` ) |> 
   mutate(run_size=RMRS+PFMCNT)
 
-pfmc_mort_dat |> ggplot(aes(x=RMRS,y=log(PFMCNT)))+geom_point()+geom_smooth(method="lm",formula=("y~log(x)-1"))
+pfmc_mort_dat|> ggplot(aes(x=log(RMRS),y=log(PFMCNT)))+geom_point()+geom_smooth(method="lm",formula=("y~log(x)-1"))
 
-pfm_mort_mod<-lm(log(PFMCNT)~(RMRS)-1,data=pfmc_mort_dat)
+pfm_mort_mod<-lm(log(PFMCNT)~log(RMRS)-1,data=pfmc_mort_dat)
+plot(pfm_mort_mod)
 summary(pfm_mort_mod)
 AIC(pfm_mort_mod)
+
+
+RMRS<-seq(1,150000,by=10000)
+
+pred<-predict(pfm_mort_mod,newdata=data.frame(RMRS),se=TRUE,interval="prediction")
+  
+pred$fit |> bind_cols(RMRS=RMRS)  |> 
+  ggplot(aes(x=RMRS))+geom_ribbon(aes(ymin = (lwr),ymax=(upr)),fill="grey")+geom_line(aes(y=(fit)))+geom_point(data=pfmc_mort_dat,aes(y=PFMCNT))+theme_classic()+ylab("PFMC AEQ")+xlab("River mouth run size")
+
+#lognormal error model
+
+pfmc_mod_fun<-function(par){
+  -sum(dnorm(log(par[1]*pfmc_mort_dat$RMRS),log(pfmc_mort_dat$PFMCNT),exp(par[2]),log=TRUE))
+}
+
+pfmc_mod_fit<-optim(c(c(.06),0),pfmc_mod_fun)
+
+
+tibble(RMRS=RMRS,fit=pfmc_mod_fit$par[1]*RMRS) |> mutate(
+  lwr=fit*exp(-1.96*exp(pfmc_mod_fit$par[2])),
+  upr=fit*exp(1.96*exp(pfmc_mod_fit$par[2]))
+) |> ggplot(aes(x=RMRS))+geom_ribbon(aes(ymin = (lwr),ymax=(upr)),fill="grey")+geom_line(aes(y=(fit)))+geom_point(data=pfmc_mort_dat,aes(y=PFMCNT))+theme_classic()+ylab("PFMC AEQ")+xlab("River mouth run size")
+
+
+
+exp(pred$fit)/RMRS
 
 pfmc_mort_dat |> ggplot(aes(x=run_size,y=(`PFMC NT Ocean Impacts`)))+geom_point()+geom_smooth(method="lm")
 
@@ -1077,6 +1104,30 @@ pfmc_err<-matrix(rnorm(n_year*n_sim,0,sd_lar_pfmc),n_year,n_sim)
 internal_data$pfmc_err<-pfmc_err
 internal_data$PFMC_ave_prop<-PFMC_ave_prop
 
+
+library(framrsquared)
+fram_db <- connect_fram_db("data-raw/data/Valid2022_Round_7.1.1_11142023.mdb")
+
+
+mortality<-fram_db |> 
+  fetch_table('Mortality')
+AEQ<-fram_db |> 
+  fetch_table('AEQ')
+
+PFMCNTAEQ<-mortality |> filter(fishery_id%in%c(12, 16, 18, 20, 22, 26, 27, 30, 31, 32, 33, 34, 35),stock_id%in%c(45,46)) |> left_join(AEQ,relationship = "many-to-one") |> 
+  mutate(tot_AEQ_mort= (landed_catch +non_retention +shaker+drop_off  +
+           msf_landed_catch +msf_non_retention +msf_shaker+msf_drop_off)*aeq ) |> 
+  left_join(fram_db |> 
+  fetch_table('RunID') |> select(run_id,run_year),relationship="many-to-one") |> group_by(run_year) |> summarize(AEQ_morts=sum(tot_AEQ_mort)) 
+    
+    
+   PFMCNTAEQ |>  ggplot(aes(x=run_year,y=AEQ_morts))+geom_point()+geom_line()
+ 
+tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
+  mutate(age=as.numeric(substr(Age,4,4)),
+         year=BroodYear+age) |> group_by(year) |> summarise(rmrs=sum(riv_mouth)) |>
+  left_join(PFMCNTAEQ |> mutate(year=as.numeric(run_year))) |>
+  mutate(er=AEQ_morts/(AEQ_morts+rmrs )) |> ggplot(aes(x=AEQ_morts+rmrs,y=er))+geom_point()
 ```
 
 
@@ -1097,7 +1148,7 @@ internal_data$pfmc_morts_2<-pfmc_morts_2
 
 #allowed vs actual HR
 ##total
-pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_smooth(method="lm",formula=("y~x-1"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
+pfmc_morts_2|> ggplot(aes(x=total_allowed,y=Total_harvest))+geom_point()+geom_smooth(method="lm",formula=("y~x"),se=FALSE)+geom_abline(intercept=0,slope=1,lwd=1.5)+facet_wrap(~Sector)
 
 
 ##in river
@@ -1383,7 +1434,6 @@ internal_data$pHOS_err<-pHOS_err
 
 
 ## smolt releases
-
 
 
 ```{r}
