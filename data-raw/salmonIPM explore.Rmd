@@ -1,0 +1,216 @@
+---
+title: "salmonIPM test"
+output: html_document
+date: "2024-09-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Goint to try fitting an IPM to summer Chinook data using salmonIPM package.
+
+The input data is a data frame with 
+- Population
+- A scalar for habitat area
+- year
+- S_obs
+- n_agex_obs
+- n_H_obs
+- n_W_obs
+- fit_pHOS (boolean)
+- B-take_obs
+- F-rate
+
+## S_obs
+```{r}
+library(tidyverse)
+## @knitr packages 
+library(salmonIPM)
+library(distributional)  # plotting priors
+library(posterior)       # working with posterior samples
+library(vioplot)         # posterior violin plots
+library(shinystan)       # interactive exploration of posterior
+library(here)            # file system paths
+
+# escapement estimates, pHOS, Broodstock removals from SPI database
+wa.esc <- read_csv("https://data.wa.gov/resource/fgyz-n3uk.csv?$query=SELECT%20stock_number%2C%20population_name%2C%20sub_population_name%2C%20data_series_num%2C%20species%2C%20year%2C%20abundance_qty%2C%20data_type%2C%20production_type%2C%20calculation_type%2C%20escapement_methodology%2C%20escapement_methodology_desc%2C%20biologist_methodology_desc%2C%20comments%2C%20report_types%2C%20last_update%20WHERE%20%60population_name%60%20IN%20('Methow%20Summer%20Chinook'%2C%20'Okanogan%20Summer%20Chinook'%2C%20'Wenatchee%20Summer%20Chinook')")
+
+# data on natural-origin carcass ages and natural origin broodstock removal in Okanogan
+ok_dat<-readxl::read_xlsx(here::here("data-raw/data/Okanogan_Sum_Chk_data_1998-2023_MSorel.xlsx"))
+
+# data on natural-origin carcass ages
+age_dat<-
+   #in Methow and Wenatchee
+  readxl::read_xlsx(here::here("data-raw/data/UC_SUCH_Escapement_Age_Exploitation_4Thomas.xlsx"),skip=1) |> filter(Basin!="Okanogan") |> bind_rows(
+  # in Okanogan
+  readxl::read_xlsx(here::here("data-raw/data/Okanogan_Sum_Chk_data_1998-2023_MSorel.xlsx")) |> 
+                                                                                                                                                            mutate(Basin="Okanogan"))
+
+# preterminal survival from fisheries based on CTC exploitation rate analysis
+MREER<-read_csv(here::here("data-raw","data","summer_MREER_combined_age.csv"))
+
+# estimates of unmarked exploitation rate derived from TAC BA tables by me (mark)
+term_ER<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),sheet="term_UM_er")
+
+
+#escapement
+esc_dat<-
+  #SPI data
+  wa.esc %>% filter(population_name %in% c("Wenatchee Summer Chinook","Methow Summer Chinook","Okanogan Summer Chinook")) %>% 
+  
+  mutate(abundance_qty =as.numeric(abundance_qty ),
+         data_type=case_when(population_name!="Okanogan Summer Chinook"~data_type,
+                             escapement_methodology=="Total Natural Spawners"~"TSAIJ",
+                             escapement_methodology%in%c("NOSAIJ","Natural-Origin Spawners")~"NOSAIJ",
+                             escapement_methodology%in%c("HOSAIJ","Hatchery-Origin Spawners")~"Spawner Fish",
+                             TRUE~escapement_methodology
+         ),
+         year=as.numeric(year)) %>%  
+  pivot_wider(id_cols = c(year,population_name),values_from =abundance_qty,names_from = data_type) %>% 
+  mutate( #ts_test=NOSAIJ+`Spawner Fish`,
+    # phos_test=`Spawner Fish`/TSAIJ,
+    total_spawners=ifelse(is.na(TSAIJ),`Spawner Fish`+NOSAIJ,TSAIJ),
+    NOS=ifelse(is.na(NOSAIJ),total_spawners,NOSAIJ),
+    HOS=total_spawners-NOS,
+    PHOS=HOS/total_spawners
+  ) %>% arrange(population_name,year) %>% ungroup %>% mutate(population_name=stringi::stri_extract_first_words(population_name)) |>
+  #add auxiliary okanogan broodstock removal data from Andrea
+  left_join(ok_dat |> select(year=`Spawn Year`,NOBroodStockRemoved2=NO_broodstock_removed ) |> mutate(population_name="Okanogan")) |> 
+  #prior to 2012, the estimate of brodstock collection for the Methow include both Methow and Okanogan (collecitona tWells Dam). Goin to apportion the removals based on natural_origin spawning escapement.
+  
+  mutate(pop_group=ifelse(population_name=="Wenatchee","Wenatchee","OkMet")) |> 
+  group_by(year,pop_group) |> 
+  mutate(NOBroodStockRemoved=case_when(population_name=="Wenatchee"~NOBroodStockRemoved,
+                                       population_name=="Methow"&year>=2012~NOBroodStockRemoved,
+                                       population_name=="Okanogan"&year>=2012~NOBroodStockRemoved2,
+                                       TRUE~(NOS/sum(NOS))*sum(NOBroodStockRemoved,na.rm=T)
+  ),
+  ) |> select(-c(NOBroodStockRemoved2)) |> 
+  ungroup() |> 
+  mutate(NOR = NOS + replace_na(NOBroodStockRemoved,0)) |> 
+  left_join(age_dat |> select(population_name=Basin,year=`Spawn Year`,`SG No. Age 2`:`SG No. Age 6`) |> filter(year>=1989)) 
+
+
+IPM_dat<-esc_dat |> 
+  rowwise() |> 
+  mutate(
+    n_age3_obs=`SG No. Age 2`+`SG No. Age 3`,
+    n_age5_obs=`SG No. Age 5`+`SG No. Age 6`,
+    tot_carc=sum(across(`SG No. Age 2`:`SG No. Age 6`),na.rm=TRUE),
+    n_H_obs=round(tot_carc*PHOS),
+    n_W_obs=tot_carc-n_H_obs,
+    fit_p_HOS=(tot_carc>0&PHOS>0),
+    A=1
+  ) |> 
+    select(pop=population_name,
+           A,
+          year,
+         S_obs=total_spawners,
+         n_age3_obs,
+         n_age4_obs=`SG No. Age 4`,
+         n_age5_obs,
+         n_W_obs,
+         n_H_obs,
+         fit_p_HOS,
+         B_take_obs=NOBroodStockRemoved
+    ) |> 
+  left_join(
+    MREER |> filter(RunYear>=1988) |> 
+  left_join(term_ER,by=c("RunYear"="Year")) |> 
+  mutate(F_rate=1-((1-MREER)*(1-term_UM_HR ))) |> 
+  select(year=RunYear,F_rate)
+  ) |> 
+  filter(between(year,1983,2022)) |> 
+  mutate(across(n_age3_obs:n_age5_obs,\(x)replace_na(x,0))) |> 
+  ungroup() 
+
+
+
+library("salmonIPM")
+
+fitNnp <- salmonIPM(life_cycle = "SS", pool_pops = FALSE, SR_fun = "BH", 
+                    fish_data = IPM_dat |> filter(year>=2001),
+                    chains = 4, iter = 2000, warmup = 1000, 
+                    control = list(adapt_delta = 0.95),
+                    seed = 321)
+
+
+save(fitNnp,file="fitNnp_9_11.Rdata")
+N_pop<-3
+vioplot(log(as.matrix(fitNnp, "Rmax")), 
+        col = "slategray4", border = NA, drawRect = FALSE, side = "left", 
+        las = 1, xlab = "", names = LETTERS[1:N_pop], ylab = "", 
+        cex.axis = 1.2, cex.lab = 1.5)
+
+
+vioplot(log(as.matrix(fitNnp, "alpha")), 
+        col = "slategray4", border = NA, drawRect = FALSE, side = "left", 
+        las = 1, xlab = "", names = LETTERS[1:N_pop], ylab = "", cex.axis = 1.2, cex.lab = 1.5)
+
+
+## @knitr multipop_posteriors
+par_names <- c("mu_alpha","mu_Rmax","sigma_year_R","rho_R","sigma_R",
+               "mu_p","sigma_pop_p","rho_pop_p","sigma_p","rho_p","tau")
+
+# specify priors using distributional package
+log_S_obs <- na.omit(log(IPM_dat$S_obs))
+priorNpop <- c(mu_alpha = dist_normal(2,2),
+               mu_Rmax = dist_normal(max(log_S_obs), sd(log_S_obs)),
+               sigma_year_R = dist_normal(0,3),
+               rho_R = dist_wrap("pexp", 0, 0.85, 20),
+               sigma_R = dist_normal(0,3),
+               mu_p = dist_beta(1,2),
+               sigma_pop_p = dist_normal(0,2),
+               rho_pop_p = dist_uniform(-1,1),
+               sigma_p = dist_normal(0,2),
+               rho_p = dist_uniform(-1,1),
+               tau = dist_normal(0,1))
+
+# true parameter values
+trueNpop <- simNpop$pars_out %>% 
+  c(rho_pop_p = .$R_pop_p[2,1], rho_p = .$R_p[2,1]) %>% 
+  .[par_names] %>% unlist() %>% setNames(gsub("(\\d)", "[\\1]", names(.)))
+
+# extract and transform draws using posterior package
+postNpop <- as_draws_rvars(fitNnp) %>% 
+  mutate_variables(mu_p = as.vector(mu_p), 
+                   sigma_pop_p = as.vector(sigma_pop_p), rho_pop_p = R_pop_p[2,1], 
+                   sigma_p = as.vector(sigma_p), rho_p = R_p[2,1]) %>% 
+  as_draws_matrix(.[par_names])
+
+# plot
+par(mfrow = c(4,4), mar = c(5,1,0,1))
+for(j in names(trueNpop)) {
+  hist(postNpop[,j], 20, prob = TRUE, col = alpha("slategray4", 0.5), border = "white",
+       xlab = j, ylab = "", yaxt = "n", main = "", cex.axis = 1.2, cex.lab = 1.5)
+  curve(density(priorNpop[gsub("\\[.\\]", "", j)], at = x)[[1]], lwd = 0.5, add = TRUE)
+  abline(v = trueNpop[[j]], lwd = 2, lty = 3)
+}
+legend("right", c("true","prior","posterior"), cex = 1.5, text.col = "white", 
+       fill = c(NA, NA, alpha("slategray4", 0.5)), border = NA,
+       inset = c(-1,0), xpd = NA, bty = "n")
+legend("right", c("true","prior","posterior"), cex = 1.5, 
+       lty = c(3,1,NA), lwd = c(2,1,NA), col = c(rep("black",2), "slategray4"),
+       inset = c(-1,0), xpd = NA, bty = "n")
+## @knitr
+
+
+
+```
+
+```{r}
+
+tac_RR<-readxl::read_xlsx(here::here("data-raw/data/SummerChinook.xlsx")) |> 
+ pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
+  mutate(age=as.numeric(substr(Age,4,4)),
+         year=BroodYear+age) |> group_by(year) |> filter(age>3) |> summarize(RMRS=sum(riv_mouth))
+
+dat<-esc_dat |> group_by(year) |> summarize(across(c(total_spawners,NOS,NOR),sum)) |> left_join(term_ER,by=c("year"="Year")) |> 
+  mutate(across(c(total_spawners,NOS,NOR),\(x){x*term_UM_HR  })) |> left_join(tac_RR) |> filter(between(year,2001,2023))
+
+
+cor(dat$RMRS,dat$total_spawners)
+
+```
+
