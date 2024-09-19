@@ -91,7 +91,11 @@ ui <- fluidPage(
              br(),
 
              plotOutput("compare_spawners_plot"),
-             p(tags$b("Spawners figures.")," Quantile of natural-origin (left panel) and total (right panel) spawners across years of simulations.")
+             p(tags$b("Spawners figures.")," Quantile of natural-origin (left panel) and total (right panel) spawners across years of simulations."),
+             br(),
+             br(),
+             plotOutput("hatchery_surplus"),
+             p(tags$b("Hatchery surplus figures.")," Quantiles of number of hatchery origin returns that were not harvested nor needed for broodstock.")
              )
 
 
@@ -168,11 +172,11 @@ render_HCR_compare<-function(){
 
 
 
-  perf_list<-list(no_harv$sim()[1:7],
-                  current$sim()[1:7],
-                  simple_ma$sim()[1:7],
-                  PST$sim()[1:7],
-                  sim3$sim()[1:7]
+  perf_list<-list(no_harv$sim()[1:8],
+                  current$sim()[1:8],
+                  simple_ma$sim()[1:8],
+                  PST$sim()[1:8],
+                  sim3$sim()[1:8]
   )#,
   # "Alt 1"=sim2$sim1(),
   # "Alt 2"=sim3$sim1()
@@ -220,6 +224,11 @@ output$extra_perf_plot <-renderPlot({
 
 output$hatchery_perf_metrics<-renderPlot({
   plots[["hatch_plot"]]
+
+})
+
+output$hatchery_surplus<-renderPlot({
+  plots[["h_surplus"]]
 
 })
 

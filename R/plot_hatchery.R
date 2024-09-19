@@ -95,3 +95,17 @@ plot_hatchery_quants<-function(hatchery_quants){
 
 }
 
+
+hatchery_surplus_quants<-function(sim,yrs=7:31,qtiles=c(.025,.25,.5,.75,.975),HCR_name="Current"){
+  surplus<-sim$escapement[1,yrs,] -sim$HOB[,yrs,] |> apply(2:3,sum)
+ quants<-apply(apply(surplus,2,quantile,qtiles),1,mean)
+
+ quants |> t() |> data.frame() |>
+   `colnames<-`(c("min","LQI","med","UQI","max"))  |>
+   mutate(HCR=HCR_name)
+}
+
+plot_hatchery_surplus<-function(surplus_quants){
+  surplus_quants |> ggplot(aes(x = 1, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab(ylab)+xlab("")+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank())+
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")
+}
