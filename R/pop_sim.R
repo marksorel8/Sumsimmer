@@ -103,29 +103,30 @@ pop_sim<-function(n_years=25,
 # total broodstock collection target
     tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
 
-
+#arrays and matrices to hold results
     NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
 
     PFMC<-matrix(NA,n_years+6,n_iter)
 
     S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
-
+# initialise spawners and smolts in first size years
     S[,1:6,] <- t(init_S)
-    S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter]
-    HOB[1,,]<-HO_broodstock_need
+    S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter] # expected smolt releases if broodstock are sufficient. reduced proportionally within population simulations if not enough fish available for broodstocks
+
+    HOB[1,,]<-HO_broodstock_need # HO broodstock collected.reduced  within population simulations if not enough fish available
 
     for(i in 1:n_iter){
       for (y in 1 : (n_years+6)){
 
 
-        if(y>6){
+        if(y>6){ # years to simulate managment
 
-          RMRS<- sum(returns[,y,i])
-          PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i])
+          RMRS<- sum(returns[,y,i]) # river mouth run size
+          PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i]) # PFMC AEQ ocean morts (needed to implement HCR)
 
 
-
+# allowed exploitation based on HRC
           NT_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
                                     NT_tiers,
                                     NT_rates,
@@ -143,6 +144,8 @@ pop_sim<-function(n_years=25,
 
 
           Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
+
+  # account for implementation error and come up with harvest rate
           in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
                                         coefs=in_river_harvest_model_coefs,
                                         allowed_Treaty_ER=Treaty_allowed_ER,
@@ -159,7 +162,7 @@ pop_sim<-function(n_years=25,
 
 
 
-
+#calculate harvested fish in different sectors
           terminal_NT[1,y,i] <- returns[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
           terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
           terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
@@ -174,13 +177,13 @@ pop_sim<-function(n_years=25,
           # hatchey broodstock needs for segregated and integrated programs
           tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
           # predicted pHOS
-          pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1,y,i],pHOS_err=pHOS_err[,y,i])
+          # pHOS<-pHOS_fun(NOS = NOS[,y,i], HOE = escapement[1,y,i],pHOS_err=pHOS_err[,y,i])
           #predicted Hatchery origin spawners
-          HOS<-NOS[,y,i]*((1/(1-pHOS))-1)
+          HOS<-rep(0,3)#NOS[,y,i]*((1/(1-pHOS))-1)
           #total number of hatchery origin fish needed for broodstock and predicted HOS
           tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
 
-          # if there is there sufficient hatchery escapement to meet broodstock needs
+          # is there sufficient hatchery escapement to meet broodstock needs
           if(escapement[1,y,i]<tot_hatch_need){
             # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
             # every group is reduced proporitonally
@@ -188,7 +191,7 @@ pop_sim<-function(n_years=25,
             HOS<-HOS*prop_tot
             HOB[,y,i]<-HOB[,y,i]*prop_tot
             prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
-            S[1,y,i]<-max(S[1,y,i]*prop_tot2,S[1,y,i])
+            S[1,y,i]<-S[1,y,i]*prop_tot2
 
           }
           S[2:4,y,i]<-NOS[,y,i]+HOS
@@ -202,10 +205,11 @@ pop_sim<-function(n_years=25,
         age_recruits<- recruits[,y,i]*t(age_prop_array[,,y,i]) # populations (rows) by ages (columns)
 
 
-        # returns
+        # returns (recruits less ocean mortality)
         returns_age_y<-(t(age_recruits) * MREER_matrix[-1,y,i]) # ages (row) by populations (column).
 
-        # remember that returns wont be complete until 7th year (start_year+6)
+        # building up returns
+        ## remember that returns wont be complete until 7th year (start_year+6)
         for ( age in 4:6){ #adults only
           returns[,y+age,i]<-returns[,y+age,i]+returns_age_y[age-2,]
         }
@@ -219,13 +223,13 @@ pop_sim<-function(n_years=25,
       S = S,
       NOB = NOB,
       HOB = HOB,
-      escapement=escapement,
+      escapement = escapement,
       returns = returns,
       recruits = recruits,
       terminal_NT = terminal_NT,
       terminal_treaty = terminal_treaty,
-      PFMC=PFMC,
-      HCR=list(treaty_tiers =treaty_tiers,
+      PFMC = PFMC,
+      HCR = list(treaty_tiers =treaty_tiers,
                treaty_rates =treaty_rates,
                treaty_scalar =treaty_scalar,
                treaty_offset =treaty_offset,
