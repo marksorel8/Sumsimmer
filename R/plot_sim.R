@@ -5,10 +5,10 @@ CV<-function(x){(sd(x)/mean(x))*100}
 
 geo_mean<-function(x){exp(mean(log(x)))}
 
-ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
+ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975)){
   data.frame(cbind(
-    apply(apply(x[,yrs,],c(1,3),quantile),1:2,fun),
-    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile),1,fun))) |>
+    apply(apply(x[,yrs,],c(1,3),quantile,qtiles),1:2,fun),
+    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile,qtiles),1,fun))) |>
      t() |> data.frame() |>
     `colnames<-`(c("min","LQI","med","UQI","max"))  |>
       rownames_to_column(rnames)|>
@@ -16,10 +16,10 @@ ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
 
 }
 
-quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames){
+quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975)){
   data.frame(cbind(
-    apply(apply(x[,yrs,],c(1,3),fun),1,quantile),
-    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun))))|>
+    apply(apply(x[,yrs,],c(1,3),fun),1,quantile,qtiles),
+    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun),qtiles)))|>
     t() |> data.frame() |>
     `colnames<-`(c("min","LQI","med","UQI","max")) |>
     rownames_to_column(rnames)|>
@@ -53,6 +53,10 @@ Harv=harvest_quants_fun(sim,HCR_name=HCR),
 #pHOS, pNOB, PNI
 Hatch=hatchery_quants_fun(sim,HCR),
 
+#hatchery surplus
+H_surplus=hatchery_surplus_quants(sim,HCR_name=HCR),
+
+
 esc_t=esc_t,
 harv_t=harv_t,
 HCR=sim$HCR
@@ -71,7 +75,7 @@ plot_all_fun<-function(sim_list,baseline_name){
   # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
   # sim3<-pop_sim(treaty_tiers = rep(NA,7),treaty_rates=rep(0,7),
                 # NT_tiers = rep(NA,7),NT_rates=rep(0,7))
-  # sim_list<-list(summarize_sim(sim,HCR="a") ,summarize_sim(sim2,HCR="b"),summarize_sim(sim3,HCR="H0"))
+  # sim_list<-list(summarize_sim(sim,HCR="a") ,summarize_sim(sim2,HCR="b"))
   # library(tidyverse)
 
   # Combine lists by name
@@ -110,9 +114,10 @@ list(
 
 
   #pHOS, pNOB, PNI
-   hatch_plot= plot_hatchery_quants(combined_list$Hatch)
-)
+   hatch_plot= plot_hatchery_quants(combined_list$Hatch),
 
+h_surplus = plot_hatchery_surplus(combined_list$H_surplus)
+)
 }
 
 
