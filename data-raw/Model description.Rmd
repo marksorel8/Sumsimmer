@@ -24,6 +24,11 @@ internal_data<-list()
 
 ```
 
+# Disclaimer
+
+ \textcolor{red}{**This document does not represent any policy policy position nor management decision of any agency, has not been endorsed by any agency, and should not be interpreted as such.**}
+
+
 # Overview
 
 This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River. That simulation model can be accessed [here](https://marksorel.shinyapps.io/Summer_Chinook_simulator/). Underlying code can be accessed [here](https://github.com/marksorel8/Sumsimmer).
