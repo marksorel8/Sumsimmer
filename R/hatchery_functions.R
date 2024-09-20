@@ -24,16 +24,37 @@ NOB_fun<-function(escapement,
 
 
 #proportion of hatchery origin spawners. Assumes available.
-pHOS_fun <- function (NOS, #natural origin spawners
-                      HOE, # hatchery origin escapement
-                      pHOS_mod_coefs=internal_data$pHOS_mod_coefs , # intercepts, effect of hatchery return
+#' Title
+#'
+#' @param model pHOS model. options are
+#'  - "zero" no hatchery spawning
+#'  - "HOE" hatchery-origin spawners are a function of hatchery escapement, fit to data from  2010-2022
+#'  -
+#' @param NOS vector of natural origin spawners
+#' @param HOE hatchery origin escapement. only need if using model option ""
+#' @param pHOS_mod_coefs # coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""
+#' @param pHOS_err # annual deviations
+
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+pHOS_fun <- function (model,
+                      NOS,
+                      HOE,
+                      pHOS_mod_coefs=internal_data$pHOS_mod_coefs ,
                       pHOS_err
 ){
 
-  hoe2<-ifelse(HOE<=0,1,HOE)
-  nos2<-ifelse(NOS<=0,1,NOS)
+  if(model=="zero"){
+    rep(0,3)
+  }else{
+      hoe2<-ifelse(HOE<=0,1,HOE)
+ pmax(0,pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(hoe2)+pHOS_err)
+  }
 
-  plogis(pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(hoe2)+pHOS_mod_coefs[5:7]*log(nos2)+pHOS_err)
 
 }
 
@@ -42,5 +63,5 @@ pHOS_fun <- function (NOS, #natural origin spawners
 
 hatchery_smolt_fun <- function(smolts_mu= internal_data$smolts_mu ,
                                smolts_err){
- exp(smolts_mu+smolts_err)
+  exp(smolts_mu+smolts_err)
 }

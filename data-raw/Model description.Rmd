@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
 library(tidyverse)
 
 library(here)
-devtools::load_all(".")
+# devtools::load_all(".")
 internal_data<-list()
 
 ```
@@ -75,7 +75,7 @@ URR<-readxl::read_xlsx(here::here("data-raw","data","Terminal_summer.xlsx"),shee
 # conversion rates from Bonneville to Rock Island from DART
 conv_rate<-read_csv(here::here("data-raw/data/pitconrate_1716318730_518.csv"),n_max=11)
 
-# conv_rate |> select(Year=ObservationYear,meanConRate)  |> left_join(above_bon_HR ) |> mutate(total_mort=1-meanConRate) |> mutate(test=total_mort-above_bon_HR,test2=test/(1-above_bon_HR)) |> summarise(across(everything(),mean))
+# conv_rate |> select(Year=ObservationYear,meanConRate)  |> 
 
 # Mgmt stock
 tac_RR<-readxl::read_xlsx(here::here("data-raw/data/SummerChinook.xlsx"))
@@ -87,8 +87,6 @@ releases<-get_release_data(first_by=1987, last_by=2023)
 
 
 ## FRAM PFMC AEQ Fishery Year morts
-# pfmc_morts<-readxl::read_xlsx("data/New Summer Chinook Reconstruction  101023.xlsx",sheet="HarvestDataEntry",skip=2,n_max = 45) |> 
-#   filter(Year>=2008)
 
 pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalRunSize",skip=2,n_max = 45) |> 
   filter(Year>=2008) |> rename(`PFMC NT Harvest Total`=`PFMC NT Ocean Impacts`)
@@ -130,14 +128,13 @@ ns<-nrow(wide_surv)
 n_fac<-5
 
 B <- matrix(list(0), n_fac, n_fac)
-# diag(B)<-paste0("b",1:n_fac)
+
 diag(B)<-c("b",list(1),1,1,1)
-# diag(B)[2:5]<-list(1)
+
 Q <- diag(1, n_fac)
-# Q<-"diagonal and unequal"
+
 R <- "diagonal and unequal"
-# R<-matrix(list(0), ns, ns)
-# diag(R)<-rep(c("m","o","w","h"),each=4)
+
 U <- "zero"
 x0 <- "zero"
 A <- "unequal"
@@ -155,23 +152,6 @@ Z[5,4]<-0
 
 D<-"diagonal and unequal"
 d<-t(apply(matrix(1:ncol(wide_surv),nrow(wide_surv),ncol(wide_surv),byrow = TRUE), 1,scale))
-# Z[c(1,5,9,13),2]<-0
-# Z[,-1]<-list(0)
-
-# cnt=1
-# for ( i in 2:5){
-#   Z[(cnt):(cnt+3),i]<-paste0("Z",i,(cnt):(cnt+3))
-#   cnt=cnt+4
-# }
-
-# cnt=1
-# for(i in c(3,5,7,9)){
-# Z2<-matrix(list(0), 4, 2)
-# Z2[1:(4 * 2)] <- paste0(rep(paste0("z",seq(3,by=1,length.out=2)),each=4),rep(1:4,times=2))
-# Z2[upper.tri(Z2)]<-0
-# Z[seq(cnt,by=1,length.out=4),seq(i,by=1,length.out=2)]<-Z2
-# cnt=cnt+4
-# }
 
 
 
@@ -190,9 +170,6 @@ fit.dfa.surv <- MARSS(wide_surv, model = mod.list.dfa_MREER, control = list(maxi
 
 pre_turm_surv_scales<-PreTermSurv_mod |>  #filter(between(CY,1986,2021)) |> 
   group_by(Age) |> summarise(mu=mean(logit_surv,na.rm=T),sd=sd(logit_surv,na.rm=T))
-
-
-# scales$sd[scales$sd>1]<-1
 
 
 PreTermSurv_mod2<-t(fit.dfa.surv$ytT*pre_turm_surv_scales$sd+pre_turm_surv_scales$mu)|> `colnames<-`(rownames(wide_surv)) |> as_tibble() |>  mutate(cy=1973:2023) |> pivot_longer(-cy,names_to = "Age",values_to = "logit_surv") |> mutate(age=as.numeric(substr(Age,4,4)),by=cy-age) |> 
@@ -298,6 +275,13 @@ long_dat<-esc_dat |> select(spawn_year=year,basin=population_name,NOR,`SG No. Ag
          NO_river_mouth=(NO_returns/(1-term_UM_HR)),
          NO_recruits=(NO_river_mouth/(1-MREER)))
 
+
+#write a file of the no returns to river mouth to use to evaluate the ability to forecast that
+write.csv(long_dat,"long_dat.csv")
+long_dat |> ungroup() |>  group_by(brood_year,age) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth)) |> 
+ filter(n==3) |> pivot_wider(names_from = age,values_from = NO_river_mouth) |>
+  write_csv("NO_river_mouth.csv")
+
 ```
 
 
@@ -397,6 +381,9 @@ all_recruit_dat<-
 ggplot(all_recruit_dat |> mutate(age=factor(age,levels=6:2)), aes(x=brood_year,y=Recruits,fill=age))+geom_col()+facet_wrap(~basin,scales="free_y")+ylab("Recruits")+xlab("Brood year")+theme_minimal()
 ```
 
+
+
+
 # Simulation model
 
 To simulate the system I needed modules to simulate the following processes:
@@ -454,13 +441,6 @@ ave_MR<-rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(relea
 
 internal_data$hatch_MR_mu<-ave_MR$`mean(MR)`
 
-# rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=releases2))+geom_col()+ylab("Smolt releases (yearlings + 0.5 * subyearlings)")+xlab("Brood year")
-
-
-# rel2 |> filter(brood_year>=1995)|> ggplot(aes(x=brood_year,y=MR,fill=lifestage))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
-
-
-# rel2 |> group_by(brood_year) |> summarize(MR=sum(ad_releases2)/sum(releases2)) |> ggplot(aes(x=brood_year,y=MR))+geom_col()+ylab("Smolt releases")+xlab("Brood year")
 
 
 ```
@@ -471,11 +451,6 @@ internal_data$hatch_MR_mu<-ave_MR$`mean(MR)`
 
 rel3<-rel2 |> filter(brood_year >=1995) |> group_by(brood_year) |> summarize(releases=sum(releases2)/1000,log_rel=log(releases)) 
 
-# plot(log_rel~brood_year,rel3,type="o")
-
-# rel3 |> filter(brood_year >=2000) |> pull(log_rel) |> hist()
-# 
-# rel3 |> filter(brood_year >=2000) |> pull(log_rel) |> forecast::Acf()
 
 rel_mod<-lm(log_rel~1,data=(rel3 |> filter(brood_year >=2000)))
 
@@ -485,16 +460,7 @@ rel_mod<-lm(log_rel~1,data=(rel3 |> filter(brood_year >=2000)))
 smolts_mu<-rel_mod$coefficients
 smolts_sd<-sigma(rel_mod)
 
-# 
-# 
-# hist(exp(rnorm(1000,smolts_mu,smolts_sd)))
-# rel3 |> filter(brood_year >=2000) |> pull(releases) |> hist()
-# 
-# set.seed(1819)
-# smolt_err<-matrix(rnorm(n_year*n_sim,0,smolts_sd),n_year,n_sim)
-# 
-# internal_data$smolts_mu<-smolts_mu
-# internal_data$smolt_err<-smolt_err
+
 ```
 
 When simulating future hatchery production, I assumed that the geometric mean number of yearling smolt equivalents released since year 2000 (n = `r format((round(exp(smolts_mu)*1000,0)),scientific=FALSE,big.mark=",")`) would be released annually, with lognormal error (CV = `r (round(smolts_sd,2))`), as long as the hatchery-origin escapement was sufficient to provide 2,000 for broodstock, plus any broodstock that was needed to back fill for shortfalls in natural-origin broodstock collection relative to targets in conservation programs. The number of smolts released was assumed to decrease proportionally to any shortfall in hatchery escapement for broodstock.
@@ -527,7 +493,7 @@ hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatc
   mutate(hatch_recruits=hatchery/(1-MREER)) 
 #combine hatchery and wild recruits per spawner/smolt 
 
-SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS) |> right_join(
+SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS,NOS,HOS) |> right_join(
   long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |> filter(n==5,brood_year<=2017)
 ) #|> 
 # mutate(rps=NO_recruits/total_spawners,
@@ -542,7 +508,8 @@ SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,P
 
 
 all_SR<-  
-  SR_dat |> select(basin,brood_year,S=total_spawners,R=NO_recruits,PHOS) |> 
+  SR_dat |>
+  select(basin,brood_year,S=total_spawners,R=NO_recruits,PHOS) |> 
   bind_rows(hatch_recruits |> 
               group_by(brood_year) |> 
               summarize(n=n(),hatch_recruits=sum(hatch_recruits)) |> drop_na() |> 
@@ -689,7 +656,7 @@ ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey"
 
 ```{r  stock_recruit_tab}
 
-tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(rep(alpha[1],3),alpha[2]),2),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(alpha[1],rep(alpha[2],3),2)),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
 
 ```
 
@@ -768,15 +735,6 @@ mat_age_dat_mod <-
   ungroup()
 
 
-#   mat_age_dat_mod |> 
-#   ggplot(aes(x=brood_year,y=scale_log_prop))+geom_point()+geom_line()+facet_grid(age~basin)
-#   
-#   
-# ##model of age proportion of recruitment. 
-# mod<-glmmTMB::glmmTMB(scale_log_prop~0+rr(age_fac+0|by_fac,d=2)+rr(age_fac+0|by_fac:basin,d=2)+diag(basin:age_fac+0|by_fac),data=mat_age_dat_mod,dispformula = ~0)
-# summary(mod)
-# 
-
 
 
 
@@ -813,25 +771,6 @@ Z <- matrix(list(0), ns, n_fac)
 Z[1:(ns * n_fac)] <- paste0(rep(paste0("z",1:n_fac),each=ns),rep(1:16,times=n_fac))
 
 Z[upper.tri(Z)]<-0
-# Z[c(1,5,9,13),2]<-0
-# Z[,-1]<-list(0)
-
-# cnt=1
-# for ( i in 2:5){
-#   Z[(cnt):(cnt+3),i]<-paste0("Z",i,(cnt):(cnt+3))
-#   cnt=cnt+4
-# }
-
-# cnt=1
-# for(i in c(3,5,7,9)){
-# Z2<-matrix(list(0), 4, 2)
-# Z2[1:(4 * 2)] <- paste0(rep(paste0("z",seq(3,by=1,length.out=2)),each=4),rep(1:4,times=2))
-# Z2[upper.tri(Z2)]<-0
-# Z[seq(cnt,by=1,length.out=4),seq(i,by=1,length.out=2)]<-Z2
-# cnt=cnt+4
-# }
-
-
 
 
 
@@ -1089,25 +1028,19 @@ esc_dat %>% filter(year>=2012)|> dplyr::select(year,population_name ,Broodstock=
 Ok_bs_mod<-(lm(log(NOBroodStockRemoved)~log(NOR)-1,
                data=(esc_dat %>% filter(year>=2012,population_name=="Okanogan"))))
 
-# summary(Ok_bs_mod)
-# 
-# set.seed(1314)
-# NOB_err<-array(exp(rnorm(n_year*n_sim*3,0,.1)),dim=c(3,n_year,n_sim))
-# 
-# internal_data$NOB_err<-NOB_err
-# internal_data$Ok_BS_coef<-coef(Ok_bs_mod)
 
 ```
 
 
 ### Hatchery-origin spawners
 
-pHOS was modeled as a decreasing function of log transformed natural-origin spawner abundance and hatchery escapement, with normal errors in logit-space. Each basin has it's own unique intercept and effect of natural-origin spawners. 
+The number of hatchery-origin spawners in each population in each year was simulated as a linear function of hatchery escapement with normal error (truncated so that hatchery-origin spawners could not be <0). Each population had a unique intercept for hatchery origin spawners and a common coefficient for the effect of log-transformed hatchery-origin escapement on hatchery-origin spawners. The thinking behind log-transforming hatchery escapement is that at very high hatchery escapement, efforts would be made to keep lots of hatchery fish off of spawning grounds (e.g., with weirs or directed fisheries). There is also data support for log transforming that covariate.
 
 
-```{r pHOS, fig.cap="Figure. proportion of hatchery origin spawners (pHOS) vs natural-origin spawner abundance. THe lines represent the mean relationship at different levels of hatchery escapement, and the points represent observations from 2010-2022."}
+```{r HOS, fig.cap="Figure. Number of hatchery origin spawners (HOS) vs hatchery escapement. The line represent the mean relationship, the shaded area is a 95% prediction interval, and points represent observations from 2010-2022."}
 
 
+# HOS data for model fitting
 phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mutate(logit_phos=qlogis(PHOS)) |> left_join((returns |> group_by(year) |> summarize(hatch_return=sum(hatchery))) |> 
                                                                                                                             drop_na())|> 
   group_by(population_name) |> 
@@ -1120,55 +1053,54 @@ phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mut
   mutate(hatchery_escapement=hatch_return*(1-term_M_HR ))
 
 
-
-pHOS_mod<-glmmTMB::glmmTMB(logit_phos~population_name+log(NOS):population_name+log(hatchery_escapement)-1+diag(population_name+0|year_fac),data=phos_dat|> filter(!is.na(hatchery_escapement)),dispformula = ~0)
-
-pdat<-
-  phos_dat |> 
-  group_by(population_name) %>%
-  summarise(min_value = min(NOS)*.5, max_value = max(NOS)*2) %>%
-  rowwise() %>%
-  mutate(value_sequence = list(seq(min_value, max_value,by=250))) %>%
-  unnest(value_sequence) %>%
-  dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(10000,80000,by=2000),year_fac=as.factor(3000))
-
-pred<-predict(pHOS_mod,newdata = pdat)
-pdat<-pdat |> mutate(pred=plogis(pred),
-                     group=as.factor(hatchery_escapement)) 
-
-
-pdat|> ggplot(aes(x=NOS,y=pred,color=hatchery_escapement))+geom_line(aes(group=group),lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_gradient(low = "lightblue", high = "darkblue",limits=c(10000,80000))+ylab("pHOS")+xlab("1,000 natural origin spawners")+geom_point(data=phos_dat |> filter(!is.na(hatchery_escapement)),aes(x=NOS,y=PHOS,fill=hatchery_escapement),size=3,shape=21,color="black")+scale_fill_gradient(low = "lightblue", high = "darkblue",limits=c(10000,80000)) +theme_minimal()+scale_x_continuous(labels=function(x)x/1000)
-#note different scales
-
-# internal_data$pHOS_mod_coefs<-
-# pHOS_mod$fit$par
+## diagnostic plots
+# esc_dat |> ggplot(aes(x=year,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_line()
 # 
-# set.seed(1516)
-# pHOS_err<-
-# sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
 # 
-# pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
+# esc_dat |> filter(year>=2010)|> ggplot(aes(x=NOS,y=HOS))+geom_point()+facet_wrap(~population_name,scales = "free")+geom_smooth(method = "lm")
 # 
-# internal_data$pHOS_err<-pHOS_err
-# deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+# 
+# phos_dat |> ggplot(aes(x=(hatchery_escapement),y=(HOS)))+geom_point()+facet_wrap(~population_name,scales = "free")+geom_smooth(method = "lm")
+# 
+# 
+# phos_dat |> ggplot(aes(x=(NOS),y=(PHOS)))+geom_point()+facet_wrap(~population_name,scales = "free")+geom_smooth(method = "lm")
+
+#                                             
+
+# wen<-phos_dat |> filter(population_name=="Wenatchee")
+# 
+# mod<-lm((HOS)~1,data=wen)
+# summary(mod)
+# AIC(mod)
+# 
+# met<-phos_dat |> filter(population_name=="Methow")
+# 
+# mod<-lm((HOS)~hatchery_escapement,data=met)
+# summary(mod)
+# AIC(mod)
+# 
+# oka<-phos_dat |> filter(population_name=="Okanogan")
+# 
+# mod<-lm((HOS)~hatchery_escapement,data=oka)
+# summary(mod)
+# AIC(mod)
+
+HOS_mod<-glmmTMB::glmmTMB((HOS)~population_name+log(hatchery_escapement)-1+diag(population_name+0|year_fac),data=phos_dat,dispformula = ~0)
+summary(HOS_mod)
+AIC(HOS_mod)
+
+phos_dat2<-phos_dat |> mutate(pred_HOS=predict(HOS_mod,re.form=~0))|>
+  left_join(tibble(population_name=c("Methow","Okanogan","Wenatchee"),resid_sd=tail( exp(HOS_mod$fit$par),3)))
+
+
+phos_dat2 |> ggplot(aes(x=hatchery_escapement))+geom_ribbon(aes(ymax=pred_HOS+(1.96*resid_sd),ymin=pred_HOS-(1.96*resid_sd)),fill="gray")+geom_line(aes(y=pred_HOS))+geom_point(aes(y=HOS))+facet_wrap(~population_name,scales="free")+ylab("Hatchery-origin spawners")+xlab("Hatchery escapement")+
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
+    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
+
+
+
+
 ```
-
-```{r, eval=FALSE}
-#HOS eval
-esc_dat |> ggplot(aes(x=year,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_line()
-
-
-esc_dat |> filter(year>=2008)|> ggplot(aes(x=NOS,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth()
-
-
-phos_dat |> ggplot(aes(x=hatchery_escapement,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth(method = "lm")
-                                            phos_dat |> ggplot(aes(x=NOS,y=HOS))+geom_point()+facet_wrap(~population_name)+geom_smooth(method = "lm")                     
-
-```
-
-
-
-
 
 
 Combining these modules, and initualizing the model with spawners and smolt released for brood year 2017--2022, produces a closed-loop simulation model (see diagram figure). This can be used to simmulate the outcomes of different harvest control rules on harvest, escapement, pHOS, and pNOB.
@@ -1298,19 +1230,19 @@ if(sim_for_model){
   internal_data$in_river_err<-in_river_err
   
   #==========================================================================================
-  # pHOS
+  # HOS
   #==========================================================================================
   internal_data$pHOS_mod_coefs<-
-    pHOS_mod$fit$par
+    head(HOS_mod$fit$par,4) #intercepts for met, ok, wen, and shared effect of HOE
   
   set.seed(1516)
   pHOS_err<-
-    sapply(exp(pHOS_mod$fit$par[8:10]),function(x)rnorm(n_year*n_sim,0,x))
+    sapply(exp(tail(HOS_mod$fit$par,3)),function(x)rnorm(n_year*n_sim,0,x))
   
   pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
   
   internal_data$pHOS_err<-pHOS_err
-  # deciding whether to log transform NOS and hatchery returns could have considerable effect on pQET type outcomes. Need to chat with managers to determine how to represent managment of pHOS. Key question is whether pHOS increases a lot at low NOS (log relationship) or not.
+
   
   #==========================================================================================
   # natural origin broodstock
@@ -1382,13 +1314,13 @@ if(sim_for_model){
       treaty_scalar=c(NA,1,rep(NA,1)),
       treaty_offset=c(NA,29000,rep(NA,1)),
       treaty_share = c(NA,.5,rep(NA,1)),
-      NT_tiers=c(32222,rep(NA,2)),
-      NT_rates=c(.05,rep(NA,2)),
+      NT_tiers=c(36250,rep(NA,2)),
+      NT_rates=c(.1,rep(NA,2)),
       NT_scalar=c(NA,1,rep(NA,1)),
       NT_offset=c(NA,29000,rep(NA,1)),
       NT_share = c(NA,.5,rep(NA,1)))
   
-    internal_data$`Simplified MA` <-list(perf=summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"),hcr=do.call(seq_HCR,simplified_MA))
+    internal_data$`Simplified MA` <-list(perf=Sumsimmer:::summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"),hcr=do.call(Sumsimmer:::seq_HCR,simplified_MA))
     
     
     
