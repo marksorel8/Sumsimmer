@@ -23,26 +23,20 @@ NOB_fun<-function(escapement,
 #---------------------------------------------------
 
 
-#proportion of hatchery origin spawners. Assumes available.
-#' Title
+#' Hatchery origin spawners. Assumes available.
 #'
-#' @param model pHOS model. options are
+#' @param model HOS model. options are
 #'  - "zero" no hatchery spawning
 #'  - "HOE" hatchery-origin spawners are a function of hatchery escapement, fit to data from  2010-2022
-#'  -
-#' @param NOS vector of natural origin spawners
 #' @param HOE hatchery origin escapement. only need if using model option ""
-#' @param pHOS_mod_coefs # coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""
-#' @param pHOS_err # annual deviations
-
+#' @param pHOS_mod_coefs  coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""
+#' @param pHOS_err  annual deviations
 #'
-#' @return
+#' @return vector of three reals (hatchery origin spawners)
 #' @export
 #'
-#' @examples
 #'
-pHOS_fun <- function (model,
-                      NOS,
+HOS_fun <- function (model,
                       HOE,
                       pHOS_mod_coefs=internal_data$pHOS_mod_coefs ,
                       pHOS_err

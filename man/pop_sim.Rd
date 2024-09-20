@@ -12,6 +12,7 @@ pop_sim(
   MREER_matrix = internal_data$MREER_out[, , ],
   age_prop_array = internal_data$age_props[, , , ],
   SR_err = internal_data$SR_err[, , ],
+  HOS_model = "HOE",
   pHOS_err = internal_data$pHOS_err[, , ],
   NOB_err = internal_data$NOB_err[, , ],
   pfmc_err = internal_data$pfmc_err[, ],
@@ -50,6 +51,8 @@ pop_sim(
 
 \item{SR_err}{population x brood year matrix of recruitment deviations}
 
+\item{HOS_model}{options are "zero" = no hatchery spawning or "HOE" where it hatchery spawners is a funciton of hatchery escapement}
+
 \item{pHOS_err}{population x return year matrix of pHOS errors}
 
 \item{NOB_err}{population x return year matrix of natural origin broodstock collection errors. Exponentiated!}
@@ -80,8 +83,49 @@ pop_sim(
 
 \item{treaty_share}{if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset}
 
+\item{NT_tiers}{same as above but for non-treaty}
+
+\item{NT_rates}{same as above but for non-treaty}
+
+\item{NT_scalar}{same as above but for non-treaty}
+
+\item{NT_offset}{same as above but for non-treaty}
+
+\item{NT_share}{same as above but for non-treaty}
+
 \item{...}{}
+}
+\value{
+returns a list object with results of the simulation and the also includes the hatchery control rule used.
 }
 \description{
 Simulate summer Chinook population
+}
+\examples{
+
+# the PAcific salmon treaty harvest control rule is
+# 85\% of the 2009-2015 average harvest when escapment
+# goal is not met
+
+## 85\% of avg 09-15
+ave_harv<-internal_data$pfmc_morts_2 |> filter(between(Year,2009,2015)) |>
+ select(Year, RMRS,`PFMC NT Harvest Total`,In_river_harvest,Sector) |>
+ pivot_wider(values_from = In_river_harvest,names_from=Sector) |>
+ mutate(ER=(Treaty+NT)/RMRS) |> summarize(ER_limit=mean(ER)*.85) |>
+ pull(ER_limit) |> c()
+
+## define harvest control rule
+PST_HCR<-list( treaty_tiers=c(round(12143/(1-floor((ave_harv)*100)/100)),rep(NA,2)),
+              treaty_rates=c(floor((ave_harv/2)*100)/100,rep(NA,2)),
+              treaty_scalar=c(NA,1,rep(NA,1)),
+              treaty_offset=c(NA,12143,rep(NA,1)),
+              treaty_share = c(NA,.5,rep(NA,1)),
+              NT_tiers=c(round(12143/(1-floor((ave_harv)*100)/100)),rep(NA,2)),
+              NT_rates=c(floor((ave_harv/2)*100)/100,rep(NA,2)),
+              NT_scalar=c(NA,1,rep(NA,1)),
+              NT_offset=c(NA,12143,rep(NA,1)),
+              NT_share = c(NA,.5,rep(NA,1)))
+
+## do simulation
+PST_sim<-do.call(pop_sim,PST_HCR)
 }
