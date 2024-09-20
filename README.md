@@ -1,5 +1,7 @@
 ## This is a reposotory for the development of a simulation model of harvest during the Columbia River summer Chinook managment period.
 
+## **This model does not represent any policy policy position nor managment decision of any agency, has not been endorsed by any agency, and should not be interpreted as such** 
+
 The `data-raw` folder contains:
 
 - The `Model description.Rmd` file documents the data and process used to develop the simulation model. It also generates the `Internal_data.rda` file, which lives in the `r` folder and is described below.

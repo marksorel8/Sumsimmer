@@ -401,10 +401,20 @@ To simulate the system I needed modules to simulate the following processes:
 ### Stock-recruit models
 
 I fit Ricker spawner-recruit relationships for each natural population.
-$$recruits_y=\alpha*spawners_y*\text{exp}(-\beta*spawners_y+\varepsilon_y)$$
+$$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}(-\beta*\text{spawners}_y+\varepsilon_y)$$
 where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\beta$ determines the strength of density dependence (i.e., the rate at which productivity declines with increasing spawners). I assumed that all populations had the same $\alpha$ but allowed $\beta$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
-Hatchery-origin spawners were included in the total number of spawners in these relationships. I assumed that hatchery- and natural-origin spawners had similar reproductive success. 
+
+I fit three different versions of the model representing different scenarios of how hatchery-origin spawners contribute to production.
+
+1) Hatchery-origin spawners were included in the total number of spawners in these relationships, which assumes that hatchery- and natural-origin spawners have similar reproductive success. 
+2) Hatchery origin spawners were not included, which assumes that hatchery-origin spawners have zero reproductive success
+3) the total number of spawners was calculated as:
+
+$$\text{spawners}_y = \text{NOS}_y+\delta_y ~\text{HOS}_y$$
+
+where $\delta_y = .1+0.6~\overline{\text{PNI}}_y$ and $\overline{\text{PNI}}_y$ is the 5-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year. This specification is designed to scale the reproductive success of hatchery-origin spawners based on PNI such that their minimum is 10% of a natural-origin spawner and their maximum is 70%. 
+
 
 ```{r tot_spawners, fig.cap="Figure .Numbers of natural- and hatchery-origin spawners by year and population."}
 
@@ -412,7 +422,7 @@ esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=populat
 ```
 
 
-I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker model defined abvoe). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling equivalent" releases to fit the model to. 
+I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker model defined above). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling equivalent" releases to fit the model to. 
 
 ```{r releases, fig.cap="Figure .Upper Columbia River hatchery smolt releases by lifestage and brood year.",cache=TRUE}
 
@@ -477,6 +487,9 @@ $$
 $$
 where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=1-\sqrt{\phi^2}$. The annual increments were assumed to follow a multivariate normal distribution with an unstructured covariance matrix. Thus, when simulating future recruitment from this model, I accounted for how recruitment is correlated from year to year and among populations within years.
 
+
+
+
 ```{r hatch_recruits_per_release,include =FALSE,cache=TRUE}
 #lambert w function
 W <- function(x) {
@@ -509,7 +522,7 @@ SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,P
 
 all_SR<-  
   SR_dat |>
-  select(basin,brood_year,S=total_spawners,R=NO_recruits,PHOS) |> 
+  select(basin,brood_year,S_tot=total_spawners,S_no=NOS,S_PNI=NOS+HOS*,R=NO_recruits,PHOS) |> 
   bind_rows(hatch_recruits |> 
               group_by(brood_year) |> 
               summarize(n=n(),hatch_recruits=sum(hatch_recruits)) |> drop_na() |> 

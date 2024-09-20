@@ -12,9 +12,10 @@ ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
              tabPanel("Welcome",
                       h1("Welcome!"),
-                      h3("This app is for comparing simulated outcomes of harvest control rules for the summer Chinook managment stock of the",
+                      h3("This app is for comparing simulated outcomes of harvest control rules for the summer Chinook managment period of the",
                          tags$a(href="https://critfc.org/wp-content/uploads/2022/05/2018-2027-USvOR.pdf","US v Oregon Mangement Agreement"),
                          "."),
+                      h3(tags$i(style="color: red;","This app does not represent any policy policy position nor managment decision of any agency, has not been endorsed by any agency, and should not be interpreted as such.")),
                       br(),
                       p("The first 5 tabs define different harvest control rules and the final tab called", tags$i(style="color: blue;","Comparison"), "is for comparing performance metrics of the harvest control rules."),
                       tags$ul(
