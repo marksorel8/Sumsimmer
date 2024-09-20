@@ -29,8 +29,8 @@ NOB_fun<-function(escapement,
 #'  - "zero" no hatchery spawning
 #'  - "HOE" hatchery-origin spawners are a function of hatchery escapement, fit to data from  2010-2022
 #' @param HOE hatchery origin escapement. only need if using model option ""
-#' @param pHOS_mod_coefs  coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""
-#' @param pHOS_err  annual deviations
+#' @param HOS_mod_coefs  coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""
+#' @param HOS_err  annual deviations
 #'
 #' @return vector of three reals (hatchery origin spawners)
 #' @export
@@ -38,15 +38,15 @@ NOB_fun<-function(escapement,
 #'
 HOS_fun <- function (model,
                       HOE,
-                      pHOS_mod_coefs=internal_data$pHOS_mod_coefs ,
-                      pHOS_err
+                      HOS_mod_coefs=internal_data$HOS_mod_coefs ,
+                      HOS_err
 ){
 
   if(model=="zero"){
     rep(0,3)
   }else{
       hoe2<-ifelse(HOE<=0,1,HOE)
- pmax(0,pHOS_mod_coefs[1:3]+pHOS_mod_coefs[4]*log(hoe2)+pHOS_err)
+ pmax(0,HOS_mod_coefs[1:3]+HOS_mod_coefs[4]*log(hoe2)+HOS_err)
   }
 
 

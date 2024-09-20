@@ -656,7 +656,7 @@ ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey"
 
 ```{r  stock_recruit_tab}
 
-tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(alpha[1],rep(alpha[2],3),2)),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(alpha[1],rep(alpha[2],3)),2),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
 
 ```
 
@@ -1086,8 +1086,8 @@ phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mut
 # AIC(mod)
 
 HOS_mod<-glmmTMB::glmmTMB((HOS)~population_name+log(hatchery_escapement)-1+diag(population_name+0|year_fac),data=phos_dat,dispformula = ~0)
-summary(HOS_mod)
-AIC(HOS_mod)
+# summary(HOS_mod)
+# AIC(HOS_mod)
 
 phos_dat2<-phos_dat |> mutate(pred_HOS=predict(HOS_mod,re.form=~0))|>
   left_join(tibble(population_name=c("Methow","Okanogan","Wenatchee"),resid_sd=tail( exp(HOS_mod$fit$par),3)))
@@ -1232,16 +1232,16 @@ if(sim_for_model){
   #==========================================================================================
   # HOS
   #==========================================================================================
-  internal_data$pHOS_mod_coefs<-
+  internal_data$HOS_mod_coefs<-
     head(HOS_mod$fit$par,4) #intercepts for met, ok, wen, and shared effect of HOE
   
   set.seed(1516)
-  pHOS_err<-
+  HOS_err<-
     sapply(exp(tail(HOS_mod$fit$par,3)),function(x)rnorm(n_year*n_sim,0,x))
   
-  pHOS_err<-array(t(pHOS_err),dim=c(3,n_year,n_sim))
+  HOS_err<-array(t(HOS_err),dim=c(3,n_year,n_sim))
   
-  internal_data$pHOS_err<-pHOS_err
+  internal_data$HOS_err<-HOS_err
 
   
   #==========================================================================================

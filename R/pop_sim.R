@@ -9,7 +9,7 @@
 #' @param age_prop_array age x population x brood year array of age proportions by population and brood year
 #' @param SR_err population x brood year matrix of recruitment deviations
 #' @param HOS_model options are "zero" = no hatchery spawning or "HOE" where it hatchery spawners is a funciton of hatchery escapement
-#' @param pHOS_err population x return year matrix of pHOS errors
+#' @param HOS_err population x return year matrix of pHOS errors
 #' @param NOB_err population x return year matrix of natural origin broodstock collection errors. Exponentiated!
 #' @param pfmc_err vector of return year annual deviations from PFMC AEQ ocean mort abundance
 #' @param in_river_harvest_model_option which model of realized vs allowed harvest to use
@@ -76,7 +76,7 @@ pop_sim<-function(n_years=25,
                   age_prop_array=internal_data$age_props[,,,],
                   SR_err=internal_data$SR_err[,,],
                   HOS_model="HOE",
-                  pHOS_err=internal_data$pHOS_err[,,],
+                  HOS_err=internal_data$HOS_err[,,],
                   NOB_err=internal_data$NOB_err[,,],
                   pfmc_err=internal_data$pfmc_err[,],
                   in_river_harvest_model_option=1,
@@ -210,7 +210,7 @@ pop_sim<-function(n_years=25,
           # hatchey broodstock needs for segregated and integrated programs
           tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
           # Hatchery origin spawners
-          HOS<-HOS_fun(mode=HOS_model,HOE = escapement[1,y,i],pHOS_err=pHOS_err[,y,i])
+          HOS<-HOS_fun(mode=HOS_model,HOE = escapement[1,y,i],HOS_err=HOS_err[,y,i])
           #total number of hatchery origin fish needed for broodstock and predicted HOS
           tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
 

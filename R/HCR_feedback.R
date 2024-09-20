@@ -35,6 +35,8 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               br(),
               "check box to use the broken stick model of allowed vs. realized harvest. The broken-stick model assumes that in-river harvest is not responsive (due to managment error) at lower allowed harvest rates.",
               checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
+  "Uncheck box to assume no hatchery-origin spawners",
+  checkboxInput(NS(id,"HOS_option"), "Hatchery-origin spawners", value = TRUE),
 
 
 
@@ -181,7 +183,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-  sim_data<-function(do_notifs=FALSE,harv_mod=1){
+  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model){
         newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
@@ -194,7 +196,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
                        NT_scalar=NT_scalar,
                        NT_offset=NT_offset,
                        NT_share=NT_share,
-                       in_river_harvest_model_option = harv_mod
+                       in_river_harvest_model_option = harv_mod,
+                       HOS_model=HOS_model
                      )
     )
 
@@ -222,7 +225,10 @@ hcr_data_fun<-function(do_notifs=FALSE){
   observeEvent(input$dosim1, {
     req(input$dosim1)
 
-      sim1( sim_data(do_notifs=TRUE,harv_mod=ifelse(input$option2,2,1)))
+      sim1( sim_data(do_notifs=TRUE,
+                     harv_mod=ifelse(input$option2,2,1),
+                     HOS_model=ifelse(input$HOS_option,"HOE","zero")
+                     ))
 
 
 
