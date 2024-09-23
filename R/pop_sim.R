@@ -141,7 +141,7 @@ pop_sim<-function(n_years=25,
 
     PFMC<-matrix(NA,n_years+6,n_iter)
 
-    S<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
+    S<-adult_return<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
 # initialise spawners and smolts in first size years
     S[,1:6,] <- t(init_S)
@@ -155,7 +155,7 @@ pop_sim<-function(n_years=25,
 
         if(y>6){ # years to simulate managment
 
-          RMRS<- sum(returns[,y,i]) # river mouth run size
+          RMRS<- sum(adult_return[,y,i]) #adult river mouth run size
           PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i]) # PFMC AEQ ocean morts (needed to implement HCR)
 
 
@@ -176,7 +176,7 @@ pop_sim<-function(n_years=25,
                                         treaty_share)
 
 
-          Mark_rate= (hatchery_mark_rate*returns[1,y,i])/RMRS
+          Mark_rate= (hatchery_mark_rate*adult_return[1,y,i])/RMRS
 
   # account for implementation error and come up with harvest rate
           in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
@@ -196,11 +196,11 @@ pop_sim<-function(n_years=25,
 
 
 #calculate harvested fish in different sectors
-          terminal_NT[1,y,i] <- returns[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
-          terminal_NT[2:4,y,i] <- returns[2:4,y,i] * in_river_h_rate["NT_unmarked"]
-          terminal_treaty[,y,i] <- returns[,y,i] * in_river_h_rate["Treaty"]
+          terminal_NT[1,y,i] <- adult_return[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
+          terminal_NT[2:4,y,i] <- adult_return[2:4,y,i] * in_river_h_rate["NT_unmarked"]
+          terminal_treaty[,y,i] <- adult_return[,y,i] * in_river_h_rate["Treaty"]
 
-          escapement[,y,i]<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i])
+          escapement[,y,i]<-returns[,y,i]-(terminal_NT[,y,i]+terminal_treaty[,y,i]) #including jacks in escapement but assuming only adults harvested
           NOB[,y,i]<-NOB_fun(escapement[-1,y,i],NOB_err=NOB_err[,y,i],
                              met_target=NO_broodstock_target["Methow"],
                              oka_target=NO_broodstock_target["Okanogan"],
@@ -241,8 +241,11 @@ pop_sim<-function(n_years=25,
 
         # building up returns
         ## remember that returns wont be complete until 7th year (start_year+6)
+        returns[,y+3,i]<-returns[,y+3,i]+returns_age_y[1,]
         for ( age in 4:6){ #adults only
           returns[,y+age,i]<-returns[,y+age,i]+returns_age_y[age-2,]
+          adult_return[,y+age,i]<-adult_return[,y+age,i]+returns_age_y[age-2,]
+
         }
 
 
@@ -256,6 +259,7 @@ pop_sim<-function(n_years=25,
       HOB = HOB,
       escapement = escapement,
       returns = returns,
+      adult_return = adult_return,
       recruits = recruits,
       terminal_NT = terminal_NT,
       terminal_treaty = terminal_treaty,
