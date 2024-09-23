@@ -37,6 +37,15 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
   "Uncheck box to assume no hatchery-origin spawners",
   checkboxInput(NS(id,"HOS_option"), "Hatchery-origin spawners", value = TRUE),
+  "This is the proportion of unmarked fish captured in the non-treaty fisheries that are released.",
+  numericInput(
+    NS(id,"URR"),
+    "Non-treaty unmarked release rate",
+    value=0.88,
+    min = .05,
+    max = .95,
+    step = .01
+  ),
 
 
 
@@ -183,7 +192,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model){
+  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR){
         newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
@@ -197,7 +206,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
                        NT_offset=NT_offset,
                        NT_share=NT_share,
                        in_river_harvest_model_option = harv_mod,
-                       HOS_model=HOS_model
+                       HOS_model=HOS_model,
+                       NT_Unmarked_release_rate=URR
                      )
     )
 
@@ -227,7 +237,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
       sim1( sim_data(do_notifs=TRUE,
                      harv_mod=ifelse(input$option2,2,1),
-                     HOS_model=ifelse(input$HOS_option,"HOE","zero")
+                     HOS_model=ifelse(input$HOS_option,"HOE","zero"),
+                     URR=input$URR
                      ))
 
 
