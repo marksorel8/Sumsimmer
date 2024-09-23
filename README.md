@@ -1,6 +1,6 @@
-## This is a reposotory for the development of a simulation model of harvest during the Columbia River summer Chinook managment period.
+## <span style="color:red">**Disclaimer. This model does not represent an agency policy position nor management decision, has not been endorsed any agency, and should not be interpreted as such.** </span>
 
-## **This model does not represent any policy policy position nor managment decision of any agency, has not been endorsed by any agency, and should not be interpreted as such** 
+## This is a reposotory for the development of a simulation model of harvest during the Columbia River summer Chinook managment period.
 
 The `data-raw` folder contains:
 
