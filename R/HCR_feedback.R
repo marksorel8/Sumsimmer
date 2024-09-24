@@ -18,6 +18,10 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               p(em("scalar"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multiplied by the run size."),
               p(em("offset"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size."),
               p(em("share"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset."),
+  br(),
+  p("The", em("run size"), "abundance index for the current harvest control rule is the total river mouth run size plus calendar year PFMC AEQ mortalities. Check this box to change the abundance index to the ",em("wild river mouth run size"), "which is wild escapement devided by one minus the wild terminal harvest rate."),
+  checkboxInput(NS(id,"wild_AI"), "Use wild abundance index", value = FALSE),
+  br(),
               DTOutput(NS(id,"my_datatable")),
               "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
               br(),
@@ -154,9 +158,10 @@ HCR_feedback_server <- function(id,
 
 
 
-hcr_data_fun<-function(do_notifs=FALSE){
+hcr_data_fun<-function(do_notifs=FALSE,index){
   hcr_data<-with(isolate(v$data),
                  Sumsimmer:::seq_HCR(
+                   index=index,
                    treaty_tiers=treaty_tiers,
                    treaty_rates=treaty_rates,
                    treaty_scalar=treaty_scalar,
@@ -190,7 +195,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
   # Observe the button click event to call the function and store its output
   observeEvent(input$go, {
     req(input$go)
-    hcr_out(hcr_data_fun(do_notifs=TRUE))
+    hcr_out(hcr_data_fun(do_notifs=TRUE,
+                         index=ifelse(input$wild_AI,"wild","total")))
 
   })
 
@@ -206,9 +212,10 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE){
+  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE,index){
         newData <-  with(isolate(v$data),
                      pop_sim(
+                       index=index,
                        treaty_tiers=treaty_tiers,
                        treaty_rates=treaty_rates,
                        treaty_scalar=treaty_scalar,
@@ -254,7 +261,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
                      harv_mod=input$option2,
                      HOS_model=ifelse(input$HOS_option,"HOE","zero"),
                      URR=input$URR,
-                     IE=input$IE
+                     IE=input$IE,
+                     index=ifelse(input$wild_AI,"wild","total")
                      ))
 
 

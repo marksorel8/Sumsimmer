@@ -27,7 +27,7 @@ sim_in_river<-function(model_option=1,
                        mark_rate # proportion of RMRS that is marked
 ){
 
- tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
+ tot_run_size<-RMRS+pfmc_AEQ
 
 if(model_option%in%c(1,3)){
 

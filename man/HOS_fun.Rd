@@ -4,7 +4,7 @@
 \alias{HOS_fun}
 \title{Hatchery origin spawners. Assumes available.}
 \usage{
-HOS_fun(model, HOE, pHOS_mod_coefs = internal_data$pHOS_mod_coefs, pHOS_err)
+HOS_fun(model, HOE, HOS_mod_coefs = internal_data$HOS_mod_coefs, HOS_err)
 }
 \arguments{
 \item{model}{HOS model. options are
@@ -15,9 +15,9 @@ HOS_fun(model, HOE, pHOS_mod_coefs = internal_data$pHOS_mod_coefs, pHOS_err)
 
 \item{HOE}{hatchery origin escapement. only need if using model option ""}
 
-\item{pHOS_mod_coefs}{coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""}
+\item{HOS_mod_coefs}{coefficients of the pHOS model: intercepts, effect of hatchery escapement only need if using model option ""}
 
-\item{pHOS_err}{annual deviations}
+\item{HOS_err}{annual deviations}
 }
 \value{
 vector of three reals (hatchery origin spawners)

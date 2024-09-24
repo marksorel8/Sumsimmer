@@ -30,7 +30,8 @@ plot_harvest_quants<-function(harvest_quants){
 # p1<-plot_all_fun(sim_list)
 
 
-seq_HCR<-function(treaty_tiers = c(16000,36250,50000,Inf),
+seq_HCR<-function(index="total",
+                  treaty_tiers = c(16000,36250,50000,Inf),
                   treaty_rates = c(.05,.1,NA,NA),
                   treaty_scalar = c(NA,NA,1,.75),
                   treaty_offset = c(NA,NA,29000,16500),
@@ -60,32 +61,44 @@ seq_HCR<-function(treaty_tiers = c(16000,36250,50000,Inf),
               "Non-treaty")
 
 
-    RMRS<-seq(2500,150000,length.out=n)
+    RMRS<-seq(500,150000,length.out=n)
     PFMC<-sim_PFMC(RMRS,pfmc_err=0)
     Treaty<-numeric(n)
-    for(i in 1:n){allowed<-allowed_ER(RMRS[i]+PFMC[i],
-                                      treaty_tiers,
-                                      treaty_rates,
-                                      treaty_scalar,
-                                      treaty_offset,
-                                      treaty_share
-    )
-    Treaty[i]<-(allowed*(RMRS[i]+PFMC[i]))/(RMRS[i])
+
+    if(index=="total"){
+      AI<-RMRS+PFMC
+    }else{
+      if(index=="wild"){
+        AI<-RMRS#+wild_PFMC[y,i]
+      }
+    }
+
+
+    for(i in 1:n){
+      allowed<-allowed_ER(AI[i],
+                          treaty_tiers,
+                          treaty_rates,
+                          treaty_scalar,
+                          treaty_offset,
+                          treaty_share
+      )
+      Treaty[i]<-(allowed*(RMRS[i]+PFMC[i]))/(RMRS[i])
     }
 
     NT<-numeric(n)
     NT_w_PFMC<-numeric(n)
-    for(i in 1:n){allowed<-allowed_ER(RMRS[i]+PFMC[i],
-                                      NT_tiers,
-                                      NT_rates,
-                                      NT_scalar,
-                                      NT_offset,
-                                      NT_share)
+    for(i in 1:n){
+      allowed<-allowed_ER(AI[i],
+                          NT_tiers,
+                          NT_rates,
+                          NT_scalar,
+                          NT_offset,
+                          NT_share)
 
 
-    NT_w_PFMC[i]<-((allowed*(RMRS[i]+PFMC[i])))/(RMRS[i])
+      NT_w_PFMC[i]<-((allowed*(RMRS[i]+PFMC[i])))/(RMRS[i])
 
-    NT[i]<-((allowed*(RMRS[i]+PFMC[i]))-PFMC[i])/(RMRS[i])
+      NT[i]<-((allowed*(RMRS[i]+PFMC[i]))-PFMC[i])/(RMRS[i])
     }
 
     list(Treaty = Treaty,
@@ -149,15 +162,15 @@ plot_HCR_compare<-function(seq_list){
 #plot_HCR()
 
 harv_traj_dat_fun<-function(sim,yrs=7:31){
- list(ave= (apply(sim$terminal_NT[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Non-treaty",year=2024:2048) |>
-    dplyr::bind_rows(
-      apply(sim$terminal_treaty[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Treaty",year=2024:2048)
-    ) |> dplyr::rename(In_river_harvest=`50%`)),
-    rand=tibble::tibble(In_river_harvest=c(apply(sim$terminal_NT[,yrs,],2:3,sum)[,15],
-                                           apply(sim$terminal_treaty[,yrs,],2:3,sum)[,15]),
-                        year=rep(2024:2048,time=2),
-                        Sector=rep(c("Non-treaty","Treaty"),each=25))
- )
+  list(ave= (apply(sim$terminal_NT[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Non-treaty",year=2024:2048) |>
+               dplyr::bind_rows(
+                 apply(sim$terminal_treaty[,yrs,],2:3,sum) |>  apply(1,quantile,c(.025,.25,.5,.75,.975)) |> t() |> tibble::as_tibble() |> dplyr::mutate(Sector="Treaty",year=2024:2048)
+               ) |> dplyr::rename(In_river_harvest=`50%`)),
+       rand=tibble::tibble(In_river_harvest=c(apply(sim$terminal_NT[,yrs,],2:3,sum)[,15],
+                                              apply(sim$terminal_treaty[,yrs,],2:3,sum)[,15]),
+                           year=rep(2024:2048,time=2),
+                           Sector=rep(c("Non-treaty","Treaty"),each=25))
+  )
 }
 
 plot_harvest_trajectory<-function(harv_traj_dat){

@@ -2,6 +2,7 @@
 
 #' Simulate summer Chinook population
 #'
+#' @param index whether to use total or wild abundance index for harvest. options are "total" (default) or "wild"
 #' @param n_years integer number of return years to simulate forward
 #' @param start_year first brood year of simulation
 #' @param init_S 4 x 6 matrix with the spawner (or smolt) abundance of each population in the first six years
@@ -32,7 +33,6 @@
 #' @param NT_scalar same as above but for non-treaty
 #' @param NT_offset same as above but for non-treaty
 #' @param NT_share same as above but for non-treaty
-
 #'
 #' @return returns a list object with results of the simulation and the also includes the hatchery control rule used.
 #' @export
@@ -70,7 +70,8 @@
 
 
 
-pop_sim<-function(n_years=25,
+pop_sim<-function(index="total",
+                  n_years=25,
                   start_year=2018,
                   n_iter=500,
                   init_S=internal_data$init_S,
@@ -171,11 +172,21 @@ pop_sim<-function(n_years=25,
         if(y>6){ # years to simulate managment
 
           RMRS<- sum(adult_return[,y,i]) #adult river mouth run size
+          wild_RMRS<-sum(adult_return[-1,y,i]) #wild adult river mouth run size
           PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i]) # PFMC AEQ ocean morts (needed to implement HCR)
+          # wild_PFMC<-PFMC[y,i]*(wild_RMRS/RMRS)
+
+          if(index=="total"){
+            AI<-RMRS+PFMC[y,i]
+          }else{
+            if(index=="wild"){
+            AI<-wild_RMRS#+wild_PFMC[y,i]
+            }
+          }
 
 
-          # allowed exploitation based on HRC
-          NT_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
+          # allowed exploitation based on HCR
+          NT_allowed_ER<-allowed_ER(AI,
                                     NT_tiers,
                                     NT_rates,
                                     NT_scalar,
@@ -183,7 +194,7 @@ pop_sim<-function(n_years=25,
                                     NT_share)
 
 
-          Treaty_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
+          Treaty_allowed_ER<-allowed_ER(AI,
                                         treaty_tiers,
                                         treaty_rates,
                                         treaty_scalar,

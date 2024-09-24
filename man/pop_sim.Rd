@@ -5,18 +5,21 @@
 \title{Simulate summer Chinook population}
 \usage{
 pop_sim(
+  index = "total",
   n_years = 25,
   start_year = 2018,
   n_iter = 500,
   init_S = internal_data$init_S,
+  init_PNI = internal_data$init_PNI,
   MREER_matrix = internal_data$MREER_out[, , ],
   age_prop_array = internal_data$age_props[, , , ],
   SR_err = internal_data$SR_err[, , ],
   HOS_model = "HOE",
-  pHOS_err = internal_data$pHOS_err[, , ],
+  HOS_err = internal_data$HOS_err[, , ],
   NOB_err = internal_data$NOB_err[, , ],
   pfmc_err = internal_data$pfmc_err[, ],
   in_river_harvest_model_option = 1,
+  implementation_error_scalar = 1,
   smolts = hatchery_smolt_fun(smolts_err = internal_data$smolt_err),
   hatchery_mark_rate = internal_data$hatch_MR_mu,
   HO_broodstock_need = 2000,
@@ -32,11 +35,12 @@ pop_sim(
   NT_rates = c(100, 200, 0.05, 0.06, 0.07, NA, NA),
   NT_scalar = c(rep(NA, 5), 1, 0.75),
   NT_offset = c(rep(NA, 5), 29000, 16500),
-  NT_share = c(rep(NA, 5), 0.5, 0.5),
-  ...
+  NT_share = c(rep(NA, 5), 0.5, 0.5)
 )
 }
 \arguments{
+\item{index}{whether to use total or wild abundance index for harvest. options are "total" (default) or "wild"}
+
 \item{n_years}{integer number of return years to simulate forward}
 
 \item{start_year}{first brood year of simulation}
@@ -44,6 +48,8 @@ pop_sim(
 \item{n_iter}{number of population projections do to. Max possible is 500, the default}
 
 \item{init_S}{4 x 6 matrix with the spawner (or smolt) abundance of each population in the first six years}
+
+\item{init_PNI}{PNI values from 14 years leading up to the first year of simulation}
 
 \item{MREER_matrix}{age x brood year matrix of simulated mature run exploitation rates}
 
@@ -53,13 +59,15 @@ pop_sim(
 
 \item{HOS_model}{options are "zero" = no hatchery spawning or "HOE" where it hatchery spawners is a funciton of hatchery escapement}
 
-\item{pHOS_err}{population x return year matrix of pHOS errors}
+\item{HOS_err}{population x return year matrix of pHOS errors}
 
 \item{NOB_err}{population x return year matrix of natural origin broodstock collection errors. Exponentiated!}
 
 \item{pfmc_err}{vector of return year annual deviations from PFMC AEQ ocean mort abundance}
 
-\item{in_river_harvest_model_option}{which model of realized vs allowed harvest to use}
+\item{in_river_harvest_model_option}{which model of realized vs allowed harvest to use. option 1 is a proportion of allowed fit to data, option 2 is a broken hockey stick fit to data. Option 3 is the same as option 1 but assumes that the expected value is the allowed whereas option 1 assumes that the expected value is less than the allowed.}
+
+\item{implementation_error_scalar}{a scalar for implementation error relative to the default which was fit to data. default of 1. increase to increase error or decrease to decrease error.}
 
 \item{smolts}{vector of brood year annual smolt releases}
 
@@ -92,8 +100,6 @@ pop_sim(
 \item{NT_offset}{same as above but for non-treaty}
 
 \item{NT_share}{same as above but for non-treaty}
-
-\item{...}{}
 }
 \value{
 returns a list object with results of the simulation and the also includes the hatchery control rule used.

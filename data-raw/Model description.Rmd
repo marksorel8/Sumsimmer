@@ -418,11 +418,11 @@ $$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text
 where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. I assumed that all populations had the same $\alpha$ but allowed $\text{Rmax}$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
 
-I explored different assumptions regarding the contribution of hatchery-origin spawners to production and found some data support (based on AIC) for the following model. For the per-capita contirbution of a hatchery-origin spawner I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year:
+I explored different assumptions regarding the contribution of hatchery-origin spawners to production and found some data support (based on AIC) for the following model. For the per-capita reproductive contribution of a hatchery-origin spawner relative to a natural origin spawner, I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year:
 
 $$\text{spawners}_y = \text{NOS}_y+\overline{\text{PNI}}_y* \text{HOS}_y$$
 
-where $\overline{\text{PNI}}_y$ is the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year.
+where $\overline{\text{PNI}}_y$ is the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current brood year.
 
 
 ```{r tot_spawners, fig.cap="Figure .Numbers of natural- and hatchery-origin spawners by year and population."}
@@ -778,6 +778,9 @@ corrplot::corrplot(rick_cor |> `colnames<-`(c("Hatchery","Methow","Okanogan","We
                      `rownames<-`(c("Hatchery","Methow","Okanogan","Wenatchee")) ,type="lower",diag=FALSE)
 
 ```
+
+
+To account for [Allee effects](https://en.wikipedia.org/wiki/Allee_effect), I assumed that recruitment would be 25% of the expected value when there were <50 spawners in a basin. 
 
 
 ### Maturation ages
