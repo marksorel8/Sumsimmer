@@ -15,7 +15,7 @@ ui <- fluidPage(
                       h3("This app is for comparing simulated outcomes of harvest control rules for the summer Chinook managment period of the",
                          tags$a(href="https://critfc.org/wp-content/uploads/2022/05/2018-2027-USvOR.pdf","US v Oregon Mangement Agreement"),
                          "."),
-                      h3(tags$i(style="color: red;","This app does not represent any policy policy position nor managment decision of any agency, has not been endorsed by any agency, and should not be interpreted as such.")),
+                      h3(tags$i(style="color: red;","This app does not represent any agency policy position nor managment decision, has not been endorsed by any agency, and should not be interpreted as such.")),
                       br(),
                       p("The first 5 tabs define different harvest control rules and the final tab called", tags$i(style="color: blue;","Comparison"), "is for comparing performance metrics of the harvest control rules."),
                       tags$ul(
@@ -30,7 +30,7 @@ ui <- fluidPage(
                       "The harvest control rule in the `no harvest` tab is not editable, but all the other ones are, in case you want to tweak them. Double click on a cell to edit it's values. The description of how the harvest control rules are defined based on the values in the table is repeated on each tab.",
                       br(),
                       br(),
-                      "To update the results after modifying a harvest control rule, hit the `Update harvest control rule plot` and `Update simulation` buttons. It will take a few seconds for the simulation to run. The `Comparison` tab will automatically update after a few seconds.",
+                      "To update the results after modifying a harvest control rule, hit the `Update harvest control rule plot` and `Update simulation` buttons. It will take a few seconds (about 10 on my laptop) for the simulation to run. The `Comparison` tab will automatically update.",
                       br(),
                       br(),
                       "Each tab will take a second to load when first opened, and the `Comparison` tab will take several seconds."
