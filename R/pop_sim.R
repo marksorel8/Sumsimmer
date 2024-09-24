@@ -5,6 +5,7 @@
 #' @param n_years integer number of return years to simulate forward
 #' @param start_year first brood year of simulation
 #' @param init_S 4 x 6 matrix with the spawner (or smolt) abundance of each population in the first six years
+#' @param init_PNI PNI values from 14 years leading up to the first year of simulation
 #' @param MREER_matrix age x brood year matrix of simulated mature run exploitation rates
 #' @param age_prop_array age x population x brood year array of age proportions by population and brood year
 #' @param SR_err population x brood year matrix of recruitment deviations
@@ -31,6 +32,7 @@
 #' @param NT_offset same as above but for non-treaty
 #' @param NT_share same as above but for non-treaty
 #' @param ...
+
 #'
 #' @return returns a list object with results of the simulation and the also includes the hatchery control rule used.
 #' @export
@@ -72,6 +74,7 @@ pop_sim<-function(n_years=25,
                   start_year=2018,
                   n_iter=500,
                   init_S=internal_data$init_S,
+                  init_PNI=internal_data$init_PNI,
                   MREER_matrix=internal_data$MREER_out[,,],
                   age_prop_array=internal_data$age_props[,,,],
                   SR_err=internal_data$SR_err[,,],
@@ -137,15 +140,21 @@ pop_sim<-function(n_years=25,
     tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
 
 #arrays and matrices to hold results
-    NOS<-NOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
+    NOS<-NOB<-HOS<-pHOS<-pNOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
 
     PFMC<-matrix(NA,n_years+6,n_iter)
+
+    PNI<-array(0,dim=c(3,n_years+14,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year-8,by=1,length.out=n_years+14),iter=1:n_iter))
+    PNI[,1:14,]<-init_PNI
 
     S<-adult_return<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
 # initialise spawners and smolts in first size years
     S[,1:6,] <- t(init_S)
     S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter] # expected smolt releases if broodstock are sufficient. reduced proportionally within population simulations if not enough fish available for broodstocks
+
+
+
 
     HOB[1,,]<-HO_broodstock_need # HO broodstock collected.reduced  within population simulations if not enough fish available
 
@@ -210,23 +219,25 @@ pop_sim<-function(n_years=25,
           # hatchey broodstock needs for segregated and integrated programs
           tot_HO_broodstock_need<-tot_broodstock_target-sum(NOB[,y,i])
           # Hatchery origin spawners
-          HOS<-HOS_fun(mode=HOS_model,HOE = escapement[1,y,i],HOS_err=HOS_err[,y,i])
+          HOS[,y,i]<-HOS_fun(mode=HOS_model,HOE = escapement[1,y,i],HOS_err=HOS_err[,y,i])
           #total number of hatchery origin fish needed for broodstock and predicted HOS
-          tot_hatch_need<-sum(HOS)+tot_HO_broodstock_need
+          tot_hatch_need<-sum(HOS[,y,i])+tot_HO_broodstock_need
 
           # is there sufficient hatchery escapement to meet broodstock needs
           if(escapement[1,y,i]<tot_hatch_need){
             # if hatchery escapement does not meet broodstock needs pluys preducted hatchery origin spawners
             # every group is reduced proporitonally
             prop_tot<-escapement[1,y,i]/tot_hatch_need
-            HOS<-HOS*prop_tot
+            HOS[,y,i]<-HOS[,y,i]*prop_tot
             HOB[,y,i]<-HOB[,y,i]*prop_tot
             prop_tot2<-(sum(HOB[,y,i])+sum(NOB[,y,i]))/tot_broodstock_target
             S[1,y,i]<-S[1,y,i]*prop_tot2
 
           }
-          S[2:4,y,i]<-NOS[,y,i]+HOS
-
+          S[2:4,y,i]<-NOS[,y,i]+HOS[,y,i]*rowMeans(PNI[,(y-6):(y+3),i])
+          pHOS[,y,i]<-HOS[,y,i]/(NOS[,y,i]+HOS[,y,i])
+          pNOB[,y,i]<-NOB[,y,i]/(NOB[,y,i]+HOB[-1,y,i])
+          PNI[,(y+8),i]<- pNOB[,y,i]/( pNOB[,y,i]+ pHOS[,y,i])
         }
 
 
@@ -241,7 +252,7 @@ pop_sim<-function(n_years=25,
 
         # building up returns
         ## remember that returns wont be complete until 7th year (start_year+6)
-        returns[,y+3,i]<-returns[,y+3,i]+returns_age_y[1,]
+        # returns[,y+3,i]<-returns[,y+3,i]+returns_age_y[1,]
         for ( age in 4:6){ #adults only
           returns[,y+age,i]<-returns[,y+age,i]+returns_age_y[age-2,]
           adult_return[,y+age,i]<-adult_return[,y+age,i]+returns_age_y[age-2,]
@@ -254,9 +265,13 @@ pop_sim<-function(n_years=25,
     }
     list(
       NOS = NOS,
+      HOS=HOS,
       S = S,
       NOB = NOB,
       HOB = HOB,
+      pNOB=pNOB,
+      pHOS=pHOS,
+      PNI =PNI,
       escapement = escapement,
       returns = returns,
       adult_return = adult_return,

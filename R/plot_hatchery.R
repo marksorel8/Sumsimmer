@@ -1,7 +1,7 @@
 hatchery_quants_fun<-function(dat,HCR_name="Current",rnames="River",qtiles=c(.025,.25,.5,.75,.975),yrs=7:31,...){
 
   ##pHOS
-  sim_pHOS<-1-(dat$NOS[,yrs,]/dat$S[-1,yrs,])
+  sim_pHOS<-dat$pHOS[,yrs,]#(dat$HOS[,yrs,]/(dat$HOS[-1,yrs,]+dat$NOS[-1,yrs,]))
   # sim_pHOS_tot<-1-(apply(dat$NOS[,yrs,],2:3,sum)/apply(dat$S[-1,yrs,],2:3,sum))
 
   pHOS_quants<-
@@ -14,7 +14,7 @@ hatchery_quants_fun<-function(dat,HCR_name="Current",rnames="River",qtiles=c(.02
   #     Total=quantile(apply(sim_pHOS_tot,2,mean),qtiles)))
 
   ##pNOB
-  sim_pNOB<-dat$NOB[,yrs,]/(dat$HOB[-1,yrs,]+dat$NOB[,yrs,])
+  sim_pNOB<-dat$pNOB[,yrs,]#dat$NOB[,yrs,]/(dat$HOB[-1,yrs,]+dat$NOB[,yrs,])
   # sim_pNOB_tot<-apply(dat$NOB[,yrs,],2:3,sum)/apply((dat$HOB[-1,yrs,]+dat$NOB[,yrs,]),2:3,sum)
 
   pNOB_quants<-   data.frame(
@@ -26,7 +26,7 @@ hatchery_quants_fun<-function(dat,HCR_name="Current",rnames="River",qtiles=c(.02
   #     Total=quantile(apply(sim_pNOB_tot,2,mean),qtiles)))
 
   ##PNI
-  sim_PNI<-sim_pNOB/(sim_pNOB+sim_pHOS)
+  sim_PNI<-dat$PNI[,yrs+8,] #sim_pNOB/(sim_pNOB+sim_pHOS)
   # sim_PNI_tot<-sim_pNOB_tot/(sim_pNOB_tot+sim_pHOS_tot)
 
   PNI_quants<-
