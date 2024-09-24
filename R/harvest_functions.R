@@ -29,7 +29,7 @@ sim_in_river<-function(model_option=1,
 
  tot_run_size<-RMRS+pfmc_AEQ # used in harvest control rule
 
-if(model_option==1){
+if(model_option%in%c(1,3)){
 
   total_allowed_Treaty<-tot_run_size*allowed_Treaty_ER
 

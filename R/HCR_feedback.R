@@ -29,14 +29,25 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               plotOutput(NS(id,"my_plot")),
               p(tags$b("Harvest control rule figure."), "Allowed in-river harvest rate across different river mouth runs izes (RMRS). The average PFMC AEQ mortality is used to calculate the allowed non-treaty rate. The `Include PFMC` button can be used to include the PFMC mortalities in the harvest rate, although this doesn't make a lot of sense because the denominator in the harvest rates shown here is the River Mouth Run size. Note that the allowed harvest for the non-treaty sector can be nevative when the PFMC AEQ mortalities is greater than the allowed."),
   h3("Simulations plots"),
-              "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
-              br(),
-              actionButton(NS(id,"dosim1"),label = "Update simulation"),
-              br(),
-              "check box to use the broken stick model of allowed vs. realized harvest. The broken-stick model assumes that in-river harvest is not responsive (due to managment error) at lower allowed harvest rates.",
-              checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
   "Uncheck box to assume no hatchery-origin spawners",
   checkboxInput(NS(id,"HOS_option"), "Hatchery-origin spawners", value = TRUE),
+              br(),
+              "Choices for model of allowed vs. realized harvest. The log-log model assumes that the average harvest will be less than the allowed, the broken-stick model assumes that in-river harvest is not responsive (due to managment error) at lower allowed harvest rates, and the average model assumes that harvest will be equal to allowed on average",
+  selectInput(NS(id,"option2"),"Harvest implemention error model",
+              c("Log-log"=1,"Broken stick"=2,"Average"=3)),
+  br(),
+  "Scalar for implementation error in harvest (i.e., due to forecast and managment error). The defaults are .20 for treaty and 0.15 for non-treaty with the default model, and .21 for treaty and .18 for non-treaty with the broken hockey stick model. The below scalar is multiplied by those default values. ",
+  numericInput(
+    NS(id,"IE"),
+    "Implementation error scalar",
+    value=1,
+    min = .05,
+    max = 5,
+    step = .1
+  ),
+  br(),
+              # checkboxInput(NS(id,"option2"), "Use broken stick", value = FALSE),
+
   "This is the proportion of unmarked fish captured in the non-treaty fisheries that are released.",
   numericInput(
     NS(id,"URR"),
@@ -46,7 +57,10 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
     max = .95,
     step = .01
   ),
-
+  br(),
+                "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
+  br(),
+  actionButton(NS(id,"dosim1"),label = "Update simulation"),
 
 
 
@@ -192,7 +206,7 @@ hcr_data_fun<-function(do_notifs=FALSE){
 
 
 
-  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR){
+  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE){
         newData <-  with(isolate(v$data),
                      pop_sim(
                        treaty_tiers=treaty_tiers,
@@ -207,7 +221,8 @@ hcr_data_fun<-function(do_notifs=FALSE){
                        NT_share=NT_share,
                        in_river_harvest_model_option = harv_mod,
                        HOS_model=HOS_model,
-                       NT_Unmarked_release_rate=URR
+                       NT_Unmarked_release_rate=URR,
+                       implementation_error_scalar=IE
                      )
     )
 
@@ -236,9 +251,10 @@ hcr_data_fun<-function(do_notifs=FALSE){
     req(input$dosim1)
 
       sim1( sim_data(do_notifs=TRUE,
-                     harv_mod=ifelse(input$option2,2,1),
+                     harv_mod=input$option2,
                      HOS_model=ifelse(input$HOS_option,"HOE","zero"),
-                     URR=input$URR
+                     URR=input$URR,
+                     IE=input$IE
                      ))
 
 

@@ -13,7 +13,8 @@
 #' @param HOS_err population x return year matrix of pHOS errors
 #' @param NOB_err population x return year matrix of natural origin broodstock collection errors. Exponentiated!
 #' @param pfmc_err vector of return year annual deviations from PFMC AEQ ocean mort abundance
-#' @param in_river_harvest_model_option which model of realized vs allowed harvest to use
+#' @param in_river_harvest_model_option which model of realized vs allowed harvest to use. option 1 is a proportion of allowed fit to data, option 2 is a broken hockey stick fit to data. Option 3 is the same as option 1 but assumes that the expected value is the allowed whereas option 1 assumes that the expected value is less than the allowed.
+#' @param implementation_error_scalar a scalar for implementation error relative to the default which was fit to data. default of 1. increase to increase error or decrease to decrease error.
 #' @param smolts vector of brood year annual smolt releases
 #' @param n_iter  number of population projections do to. Max possible is 500, the default
 #' @param hatchery_mark_rate    real between 0 and 1. proprotion of hatchery origin fish that are adipose clipped
@@ -31,7 +32,6 @@
 #' @param NT_scalar same as above but for non-treaty
 #' @param NT_offset same as above but for non-treaty
 #' @param NT_share same as above but for non-treaty
-#' @param ...
 
 #'
 #' @return returns a list object with results of the simulation and the also includes the hatchery control rule used.
@@ -83,6 +83,7 @@ pop_sim<-function(n_years=25,
                   NOB_err=internal_data$NOB_err[,,],
                   pfmc_err=internal_data$pfmc_err[,],
                   in_river_harvest_model_option=1,
+                  implementation_error_scalar =1,
                   smolts=hatchery_smolt_fun(smolts_err =internal_data$smolt_err),
                   hatchery_mark_rate = internal_data$hatch_MR_mu,
                   HO_broodstock_need = 2000,
@@ -98,8 +99,7 @@ pop_sim<-function(n_years=25,
                   NT_rates=c(100,200,.05,.06,.07,NA,NA),
                   NT_scalar=c(rep(NA,5),1,.75),
                   NT_offset=c(rep(NA,5),29000,16500),
-                  NT_share=c(rep(NA,5),.5,.5),
-                  ...
+                  NT_share=c(rep(NA,5),.5,.5)
 ){
 
 
@@ -125,21 +125,27 @@ pop_sim<-function(n_years=25,
     if(in_river_harvest_model_option==1){
       in_river_harvest_model_coefs<- internal_data$in_river_coefs_option1
     }else{
-      in_river_harvest_model_coefs<- internal_data$in_river_coefs
+      if(in_river_harvest_model_option==3){
+        in_river_harvest_model_coefs<- c(1,1)
+      }else{
+        if(in_river_harvest_model_option==2){
+          in_river_harvest_model_coefs<- internal_data$in_river_coefs
+        }
+      }
     }
 
-    if(in_river_harvest_model_option==1){
-      in_river_err<-  internal_data$in_river_err_option1[,,]
+    if(in_river_harvest_model_option%in%c(1,3)){
+      in_river_err<-  internal_data$in_river_err_option1[,,]*implementation_error_scalar
     }else{
-      in_river_err<- internal_data$in_river_err[,,]
+      in_river_err<- internal_data$in_river_err[,,]*implementation_error_scalar
     }
 
-# mark selective fisheries matrices
+    # mark selective fisheries matrices
     MS_matrices<-make_marked_um_hrs_fun(release_mort_rate=release_mort_rate,URR=NT_Unmarked_release_rate)
-# total broodstock collection target
+    # total broodstock collection target
     tot_broodstock_target<-HO_broodstock_need+sum(NO_broodstock_target)
 
-#arrays and matrices to hold results
+    #arrays and matrices to hold results
     NOS<-NOB<-HOS<-pHOS<-pNOB<-array(0,dim=c(3,n_years+6,n_iter),dimnames=list(pop=c("Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+6),iter=1:n_iter))
 
     PFMC<-matrix(NA,n_years+6,n_iter)
@@ -149,7 +155,7 @@ pop_sim<-function(n_years=25,
 
     S<-adult_return<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
-# initialise spawners and smolts in first size years
+    # initialise spawners and smolts in first size years
     S[,1:6,] <- t(init_S)
     S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter] # expected smolt releases if broodstock are sufficient. reduced proportionally within population simulations if not enough fish available for broodstocks
 
@@ -168,7 +174,7 @@ pop_sim<-function(n_years=25,
           PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i]) # PFMC AEQ ocean morts (needed to implement HCR)
 
 
-# allowed exploitation based on HRC
+          # allowed exploitation based on HRC
           NT_allowed_ER<-allowed_ER(RMRS+PFMC[y,i],
                                     NT_tiers,
                                     NT_rates,
@@ -187,7 +193,7 @@ pop_sim<-function(n_years=25,
 
           Mark_rate= (hatchery_mark_rate*adult_return[1,y,i])/RMRS
 
-  # account for implementation error and come up with harvest rate
+          # account for implementation error and come up with harvest rate
           in_river_h_rate<-sim_in_river(model_option=in_river_harvest_model_option,
                                         coefs=in_river_harvest_model_coefs,
                                         allowed_Treaty_ER=Treaty_allowed_ER,
@@ -199,12 +205,12 @@ pop_sim<-function(n_years=25,
                                         MS_fisheries_matrices=MS_matrices,
                                         URR=NT_Unmarked_release_rate
 
-                                        )
+          )
 
 
 
 
-#calculate harvested fish in different sectors
+          #calculate harvested fish in different sectors
           terminal_NT[1,y,i] <- adult_return[1,y,i] * (((1-hatchery_mark_rate)*in_river_h_rate["NT_unmarked"])+(hatchery_mark_rate*in_river_h_rate["NT_marked"])) #weighted (by hatchery mark rate) mean of unmarked and marked mortality rates
           terminal_NT[2:4,y,i] <- adult_return[2:4,y,i] * in_river_h_rate["NT_unmarked"]
           terminal_treaty[,y,i] <- adult_return[,y,i] * in_river_h_rate["Treaty"]
@@ -280,15 +286,15 @@ pop_sim<-function(n_years=25,
       terminal_treaty = terminal_treaty,
       PFMC = PFMC,
       HCR = list(treaty_tiers =treaty_tiers,
-               treaty_rates =treaty_rates,
-               treaty_scalar =treaty_scalar,
-               treaty_offset =treaty_offset,
-               treaty_share =treaty_share,
-               NT_tiers =NT_tiers,
-               NT_rates =NT_rates,
-               NT_scalar =NT_scalar,
-               NT_offset =NT_offset,
-               NT_share =NT_share)
+                 treaty_rates =treaty_rates,
+                 treaty_scalar =treaty_scalar,
+                 treaty_offset =treaty_offset,
+                 treaty_share =treaty_share,
+                 NT_tiers =NT_tiers,
+                 NT_rates =NT_rates,
+                 NT_scalar =NT_scalar,
+                 NT_offset =NT_offset,
+                 NT_share =NT_share)
     )
   }, error=function(e){
     return(e)

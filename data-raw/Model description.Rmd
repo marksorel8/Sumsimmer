@@ -5,7 +5,7 @@ output:
    toc: true
    toc_depth: 5
    toc_float: true
-date: "2024-08-06"
+date: "2024-09-23"
 ---
 
 ```{r setup, include=FALSE}
@@ -14,19 +14,20 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   scipen=999,
-  cache.extra = 1
+  cache.extra = 3
 )
 library(tidyverse)
 
 library(here)
-# devtools::load_all(".")
+devtools::load_all(".")
 internal_data<-list()
 
 ```
 
 # Disclaimer
 
- \textcolor{red}{**This document does not represent any policy policy position nor management decision of any agency, has not been endorsed by any agency, and should not be interpreted as such.**}
+ 
+<p style="color:red">**This document does not represent agency policy position nor management decision, has not been endorsed by any agency, and should not be interpreted as such.**</p>
 
 
 # Overview
@@ -257,7 +258,14 @@ esc_dat<-
   ) |> select(-c(NOBroodStockRemoved2)) |> 
   ungroup() |> 
   mutate(NOR = NOS + replace_na(NOBroodStockRemoved,0)) |> 
-  left_join(age_dat |> select(population_name=Basin,year=`Spawn Year`,`SG No. Age 2`:`SG No. Age 6`) |> filter(year>=1989)) 
+  left_join(age_dat |> select(population_name=Basin,year=`Spawn Year`,`SG No. Age 2`:`SG No. Age 6`,pNOB) ) |> 
+  mutate(PHOS=pmax(PHOS,0),
+         pNOB=replace_na(pNOB,1),
+         pNI=pNOB/(pNOB+PHOS)) |> 
+  group_by(population_name) |> 
+  arrange(year) |> 
+  mutate(pNI_bar=lag(zoo::rollmean(pNI,10,fill=1,align="right"),4)) |> 
+  filter(year>=1989)
 
 
 
@@ -284,7 +292,7 @@ long_dat<-esc_dat |> select(spawn_year=year,basin=population_name,NOR,`SG No. Ag
 #write a file of the no returns to river mouth to use to evaluate the ability to forecast that
 write.csv(long_dat,"long_dat.csv")
 long_dat |> ungroup() |>  group_by(brood_year,age) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth)) |> 
- filter(n==3) |> pivot_wider(names_from = age,values_from = NO_river_mouth) |>
+  filter(n==3) |> pivot_wider(names_from = age,values_from = NO_river_mouth) |>
   write_csv("NO_river_mouth.csv")
 
 ```
@@ -343,7 +351,7 @@ tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
   left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
   summarize(n=n(),mreer=weighted.mean(MREER,riv_mouth)) |> drop_na() |>  
   ggplot(aes(x=year,y=mreer))+
-  geom_point()+geom_line()+ylab("Ocean ER")+xlim(1998,2022)+theme_minimal()
+  geom_point()+geom_line()+ylab("Ocean ER")+xlim(1989,2022)+theme_minimal()+ylim(0,1)
 
 ```
 
@@ -361,7 +369,7 @@ As an estimate of the natural-origin river mouth run size, I used the estimate o
 ```{r rmrs_fig,fig.cap="Figure 5. Reconstructed river mouth run size by origin and year."}
 returns<-tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") |>
   mutate(age=as.numeric(substr(Age,4,4)),
-         year=BroodYear+age) |> 
+         year=BroodYear+age)|> 
   left_join(long_dat |> group_by(spawn_year,age) |> summarize(wild=sum(NO_river_mouth),n=n()) |> filter(n==3) |> rename(year=spawn_year)) |> mutate(hatchery=riv_mouth-wild) 
 
 returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("River mouth run size")+xlab("")+theme_minimal()
@@ -406,19 +414,15 @@ To simulate the system I needed modules to simulate the following processes:
 ### Stock-recruit models
 
 I fit Ricker spawner-recruit relationships for each natural population.
-$$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}(-\beta*\text{spawners}_y+\varepsilon_y)$$
-where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\beta$ determines the strength of density dependence (i.e., the rate at which productivity declines with increasing spawners). I assumed that all populations had the same $\alpha$ but allowed $\beta$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
+$$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text{spawners_y}}{e*\text{Rmax}}+\varepsilon_y\right)$$
+where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. I assumed that all populations had the same $\alpha$ but allowed $\text{Rmax}$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
 
-I fit three different versions of the model representing different scenarios of how hatchery-origin spawners contribute to production.
+I explored different assumptions regarding the contribution of hatchery-origin spawners to production and found some data support (based on AIC) for the following model. For the per-capita contirbution of a hatchery-origin spawner I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year:
 
-1) Hatchery-origin spawners were included in the total number of spawners in these relationships, which assumes that hatchery- and natural-origin spawners have similar reproductive success. 
-2) Hatchery origin spawners were not included, which assumes that hatchery-origin spawners have zero reproductive success
-3) the total number of spawners was calculated as:
+$$\text{spawners}_y = \text{NOS}_y+\overline{\text{PNI}}_y* \text{HOS}_y$$
 
-$$\text{spawners}_y = \text{NOS}_y+\delta_y ~\text{HOS}_y$$
-
-where $\delta_y = .1+0.6~\overline{\text{PNI}}_y$ and $\overline{\text{PNI}}_y$ is the 5-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year. This specification is designed to scale the reproductive success of hatchery-origin spawners based on PNI such that their minimum is 10% of a natural-origin spawner and their maximum is 70%. 
+where $\overline{\text{PNI}}_y$ is the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year.
 
 
 ```{r tot_spawners, fig.cap="Figure .Numbers of natural- and hatchery-origin spawners by year and population."}
@@ -426,8 +430,14 @@ where $\delta_y = .1+0.6~\overline{\text{PNI}}_y$ and $\overline{\text{PNI}}_y$ 
 esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=population_name,hatchery=HOS,wild=NOS) |> pivot_longer(c(hatchery,wild),names_to = "Origin",values_to = "Spawners")|> ggplot(aes(x=year,y=Spawners,fill=Origin))+geom_col()+facet_grid(~basin)+theme_minimal()
 ```
 
+```{r PNI_plot, fig.cap="Figure . 10-year running average of the Porportional Natural Influence of hatchery programs through 4 brrod years prior to the return year on the x-axis."}
 
-I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery (i.e., $\beta =0$ in the Ricker model defined above). The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling equivalent" releases to fit the model to. 
+esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=population_name,pNI_bar) |>  ggplot(aes(x=year,y=pNI_bar))+geom_col()+facet_grid(~basin)+theme_minimal()+xlab("Return Year")+ylab("10-year PNI")
+
+```
+
+
+I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery. The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling equivalent" releases to fit the model to. 
 
 ```{r releases, fig.cap="Figure .Upper Columbia River hatchery smolt releases by lifestage and brood year.",cache=TRUE}
 
@@ -508,12 +518,17 @@ W <- function(x) {
 
 
 hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatchery) |> left_join(sim_MREER |> select(year=cy,Age,MREER)) |>
-  mutate(hatch_recruits=hatchery/(1-MREER)) 
+  mutate(hatch_recruits=hatchery/(1-MREER))
 #combine hatchery and wild recruits per spawner/smolt 
 
-SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS,NOS,HOS) |> right_join(
+SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS,NOS,HOS,pNI_bar) |> right_join(
   long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |> filter(n==5,brood_year<=2017)
-) #|> 
+) |> 
+  #get rid of some outliers
+  filter(!(basin=="Methow"&NO_recruits>9000),
+         !(basin=="Wenatchee"&NO_recruits>40000))
+
+#|> 
 # mutate(rps=NO_recruits/total_spawners,
 #        year_fac=as.factor(brood_year),
 #        const=as.factor(1)) |> 
@@ -526,8 +541,12 @@ SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,P
 
 
 all_SR<-  
-  SR_dat |>
-  select(basin,brood_year,S_tot=total_spawners,S_no=NOS,S_PNI=NOS+HOS*,R=NO_recruits,PHOS) |> 
+  SR_dat |> 
+  mutate(S_PNI=NOS+HOS*pNI_bar,
+         S_no=NOS,
+         S_ho=HOS,
+         S_dummy=1) |> 
+  select(basin,brood_year,S_tot=total_spawners,S_no,S_ho, S_PNI ,R=NO_recruits,PHOS,S_dummy,pNI_bar) |> 
   bind_rows(hatch_recruits |> 
               group_by(brood_year) |> 
               summarize(n=n(),hatch_recruits=sum(hatch_recruits)) |> drop_na() |> 
@@ -536,58 +555,114 @@ all_SR<-
                           summarise(releases2=sum(releases2))) |> 
               mutate(basin="Hatchery") |> 
               mutate(releases2=releases2/1000,
-                     PHOS=1) |> 
-              select(basin,brood_year,S=releases2,R=hatch_recruits,PHOS)
-  )
+                     PHOS=1,
+                     S_tot=releases2,
+                     S_no=releases2,
+                     S_PNI=releases2,
+                     S_ho=0,
+                     S_dummy=1,
+                     pNI_bar=0) |> 
+              select(basin,brood_year,S_tot,S_no,S_ho, S_PNI,R=hatch_recruits,PHOS,S_dummy,pNI_bar) |> 
+              filter(R<max(R,na.rm=T))
+  ) |> 
+  drop_na() 
 
-test_mod_dat<-all_SR |> group_by(basin) |> 
-  mutate(rps=R/S,lrps=log(rps),
-         mu_rps=mean(lrps),
-         sd_rps=sd(lrps),
-         mu_s=mean(S),
-         sd_s=sd(S),
-         s_scale=c(scale(S)),
-         lrps_scale=c(scale(lrps))) |> 
-  ungroup() |>
-  mutate(year_fac=as.factor(brood_year),
-         const=as.factor(1),
-         s_scale=ifelse(basin=="Hatchery",0,s_scale),
-         wild=ifelse(basin=="Hatchery",0,1),
-         S=ifelse(basin=="Hatchery",0,S))
+
+
+make_TMB_data<-function(dat,spawners){
+  test_mod_dat<-dat |> group_by(basin) |>
+    mutate(rps=R/{{spawners}},
+           lrps=log(rps),
+           mu_rps=mean(lrps),
+           sd_rps=sd(lrps),
+           mu_s=mean({{spawners}}),
+           sd_s=sd({{spawners}}),
+           s_scale=c(scale({{spawners}})),
+           lrps_scale=c(scale(lrps))) |>
+    ungroup() |>
+    mutate(year_fac=as.factor(brood_year),
+           const=as.factor(1),
+           s_scale=ifelse(basin=="Hatchery",0,s_scale),
+           wild=ifelse(basin=="Hatchery",0,1),
+           S=ifelse(basin=="Hatchery",0,{{spawners}}))
+  
+  col_name <- deparse(substitute(spawners))  # Convert symbol to string
+  formula <- as.formula(paste("lrps~basin-1+",col_name,":basin"))
+  
+  mod_mat<-model.matrix(formula,data=test_mod_dat)
+  
+  list(
+    lrps=test_mod_dat$lrps,
+    R=test_mod_dat$R,
+    X=mod_mat,
+    err_ind=(as.numeric(test_mod_dat$year_fac))+(as.numeric(factor(test_mod_dat$basin))-1)*n_yrs,
+    NOS=dat$S_no,
+    HOS=dat$S_ho,
+    pNI_bar=dat$pNI_bar,
+    S_PNI=dat$S_PNI,
+    test_mod_dat=test_mod_dat
+  )
+}
+
 
 
 ## begin TMB ricker model
 library(RTMB)
-mod_mat<-model.matrix(lrps~basin-1+S:basin,data=test_mod_dat)
-
-n_yrs<-diff(range(test_mod_dat$brood_year))+1
+n_yrs<-diff(range(all_SR$brood_year))+1
 n_pops<-4
 
+SR_TMB_dat<-make_TMB_data(all_SR,S_dummy)
 ##parameters
 params<-list(
-  alpha=c(3,1),
-  beta=rep(.00001,3),
+  alpha=log(c(10,rep(2,3))),
+  Rmax=rep(log(50000),3),
   log_sigma=rep(-1,4),
   cors=rep(.2,6),
-  err=matrix(0,n_yrs+1,4),
+  err=matrix(-1,n_yrs+1,4),
   # log_R=0
-  logit_rho=rep(0,4)
+  logit_rho=rep(0,4)#,
+  # logit_RRS=0
 )
 
 ##data
-dat<-list(
-  lrps=test_mod_dat$lrps,
-  X=mod_mat,
-  err_ind=(as.numeric(test_mod_dat$year_fac))+(as.numeric(factor(test_mod_dat$basin))-1)*n_yrs
-)
+# dat<-list(
+#   lrps=test_mod_dat$lrps,
+#   X=mod_mat,
+#   err_ind=(as.numeric(test_mod_dat$year_fac))+(as.numeric(factor(test_mod_dat$basin))-1)*n_yrs
+# )
 
 ##objective function
 f<-function(parms){
-  RTMB::getAll(dat, parms, warn=FALSE)
+  RTMB::getAll(SR_TMB_dat, parms, warn=FALSE)
   
-  par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
+  # par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
+  S<-HOS*(pNI_bar)+NOS
   
-  pred<-X%*%par_vec #linear predictor
+  
+  # alpha_vec<-exp(c(alpha[1],rep(alpha[2],3)))
+  alpha_vec<-exp(alpha)
+  alpha_vec2<-(X[,1:4]%*%alpha_vec)
+  alpha_vec3<-alpha_vec2*S
+  
+  
+  Rmax_vec<-c(1000000,exp(Rmax))
+  Rmax_vec2<-(X[,5:8]%*%Rmax_vec)
+  
+  
+  # x2<-matrix(0,nrow(X),ncol(X))
+  # x2[,1:4]<-X[,1:4]
+  # S<-(NOS+(HOS*.8))
+  # for(i in 5:8){
+  # x2[,i]<-X[,i]*S
+  # }
+  
+  # pred<-X%*%par_vec #linear predictor
+  
+  pred<-alpha_vec3*exp(-alpha_vec3/(exp(1)*Rmax_vec2))
+  # pred<-alpha_vec3/(1+alpha_vec3/Rmax_vec2) # Beverton-Holt
+  
+  #   
+  #   alpha*Esc*exp(-alpha*Esc/(A*exp(1)*Rmax))
   
   
   rho<-plogis(logit_rho)
@@ -602,15 +677,17 @@ f<-function(parms){
   REPORT(err2)
   
   
-  pred2<-pred+(err2)[err_ind]
+  pred2<-pred*exp((err2)[err_ind])
   ## Initialize joint negative log likelihood
   nll <- 0
-  nll <- nll -sum(dnorm(lrps,pred2,.00001,log=TRUE))
+  nll <- nll -sum(dnorm(log(R),log(pred2),.0001,log=TRUE))
   us<-unstructured(4)
   
   nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
   
-  nll <- nll -sum(dnorm(logit_rho,-2,1.5,log=TRUE))
+  nll <- nll -sum(dnorm(logit_rho,-1,2,log=TRUE))
+  
+  
   
   nll
 }
@@ -618,49 +695,64 @@ f<-function(parms){
 f(params) #test objective function 
 
 #cosntruct model object
-obj <- MakeADFun(f, params, random=c("err"))
+obj <- MakeADFun(f, params,, random=c("err"))
 
 #optimize
 fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
+
+fit$AIC
 
 fit_rep<-obj$report(par=obj$env$last.par.best)
 #fitted paramter values
 par_list<-obj$env$parList(par=obj$env$last.par.best)
 
+
 alpha<-exp(par_list$alpha)
-beta<- -par_list$beta
+Rmax<- exp(par_list$Rmax)
+beta<-alpha[2]*exp(-1)/Rmax
 marg_sd<-exp(par_list$log_sigma)
 rho<-plogis(par_list$logit_rho)
 us<-unstructured(4)
 rick_cor<-us$corr(par_list$cors)
-Smsy <- (1 - W(exp(1-exp(par_list$alpha)[-1]))) / -par_list$beta
-Smsy
-fit$AIC
+
+
+Smsy <-(1-W(exp(1-log(alpha[2]))))/beta
+# Smsy
+# fit$AIC
 
 ```
 
 
 
 ```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' observations. Vertical dashed line is at Smsy, the number of spawners for maximum sustainable yield."}
-ricker_pred<-test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S),4000)*1.5,length.out=50)) %>%
+ricker_pred<-SR_TMB_dat$test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S_PNI),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
   left_join(
     tibble(basin=c("Hatchery","Methow","Okanogan","Wenatchee"),
            marg_sd=marg_sd)
+  ) |> 
+  ungroup()
+
+
+
+
+ricker_pred2 <-ricker_pred |> 
+  mutate(
+    alpha_vec=model.matrix(const~basin-1,data=ricker_pred)%*%c(alpha),
+    Rmax_vec=model.matrix(const~basin-1,data=ricker_pred)%*%c(1000000,Rmax)) |> 
+  rowwise() |> 
+  mutate(
+    recruits=alpha_vec*S*exp((-alpha_vec*S)/(exp(1)*Rmax_vec)),
+    lcl=exp(log(recruits)-1.96*marg_sd),
+    ucl=exp(log(recruits)+1.96*marg_sd)
   )
 
 
 
-ricker_pred <-ricker_pred |> mutate(pred=(
-  model.matrix(const~basin-1+S:basin,data=ricker_pred)%*%c(log(alpha[1]),rep(log(alpha[2]),3),0,-beta) ),
-  recruits=exp(pred)*S,
-  lcl=exp(pred-1.96*marg_sd)*S,
-  ucl=exp(pred+1.96*marg_sd)*S)
-
-
 
 ##plot spawners vs recruits (more years will be available if estimate age comp through IPM)
-ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR ,aes(y=R))+
+ricker_pred2 |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+
+  facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR |> mutate(S=S_tot) ,aes(y=R))+
   ylab("Recruits") +
   xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)
 
@@ -674,7 +766,7 @@ ricker_pred |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey"
 
 ```{r  stock_recruit_tab}
 
-tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(c(alpha[1],rep(alpha[2],3)),2),"$\\beta$"=c(0,round(beta*1000,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(alpha,2),Rmax=c(0,round(Rmax,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
 
 ```
 
@@ -1112,12 +1204,8 @@ phos_dat2<-phos_dat |> mutate(pred_HOS=predict(HOS_mod,re.form=~0))|>
 
 
 phos_dat2 |> ggplot(aes(x=hatchery_escapement))+geom_ribbon(aes(ymax=pred_HOS+(1.96*resid_sd),ymin=pred_HOS-(1.96*resid_sd)),fill="gray")+geom_line(aes(y=pred_HOS))+geom_point(aes(y=HOS))+facet_wrap(~population_name,scales="free")+ylab("Hatchery-origin spawners")+xlab("Hatchery escapement")+
-    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
-    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
-
-
-
-
+  scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
+  scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
 ```
 
 
@@ -1185,8 +1273,9 @@ if(sim_for_model){
   
   
   
-  internal_data$alphas<-c(alpha[1],rep(alpha[2],3))
-  internal_data$betas<-beta
+  internal_data$alphas<-alpha#c(alpha[1],rep(alpha[2],3))
+  # internal_data$betas<-beta
+  internal_data$Rmax<-Rmax
   internal_data$SR_err<-SR_err
   internal_data$Smsy<-Smsy
   
@@ -1260,7 +1349,7 @@ if(sim_for_model){
   HOS_err<-array(t(HOS_err),dim=c(3,n_year,n_sim))
   
   internal_data$HOS_err<-HOS_err
-
+  
   
   #==========================================================================================
   # natural origin broodstock
@@ -1285,18 +1374,30 @@ if(sim_for_model){
   
   
   init_S<-esc_dat |> filter(between(year,2018,2023)) |>
-    dplyr::select(year,basin=population_name,total_spawners) |>
-    arrange(basin) |> pivot_wider(names_from = basin,values_from=total_spawners) |>
+    mutate(effective_spawners=NOS+HOS*pNI_bar) |> 
+    dplyr::select(year,basin=population_name,effective_spawners) |>
+    arrange(basin) |> pivot_wider(names_from = basin,values_from=effective_spawners) |>
     left_join(rel3 |> dplyr::select(year=brood_year,Hatchery=releases)) |>
     dplyr::select(Hatchery,Methow,Okanogan,Wenatchee)
-  ##whoa! 2022 total spawners in methow in 2022. Doesn't appear to be a data entry mistake!
   
   # fill missing 2022:2023 hatchery releases with mean 
   set.seed(2021)
   init_S$Hatchery[5:6]<-rep(exp(smolts_mu),2)
   
-  
   internal_data$init_S<-init_S
+  
+  init_PNI<-
+    esc_dat |> filter(between(year,2010,2023)) |>
+    dplyr::select(year,basin=population_name,pNI) |>
+    arrange(basin) |> pivot_wider(names_from = basin,values_from=pNI)
+  
+   internal_data$init_PNI<-init_PNI |> select(-year) |> as.matrix() |> t()
+  
+  
+  write_internal<-TRUE
+  if(write_internal){
+    usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
+  }
   
   add_baselines<-TRUE
   if(add_baselines){
@@ -1337,7 +1438,7 @@ if(sim_for_model){
       NT_scalar=c(NA,1,rep(NA,1)),
       NT_offset=c(NA,29000,rep(NA,1)),
       NT_share = c(NA,.5,rep(NA,1)))
-  
+    
     internal_data$`Simplified MA` <-list(perf=Sumsimmer:::summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"),hcr=do.call(Sumsimmer:::seq_HCR,simplified_MA))
     
     
@@ -1376,7 +1477,7 @@ sim<-pop_sim()
 yrs<-7:31
 
 pfmc_morts<-
-  internal_data$pfmc_morts_2 |> select(Year,Sector,In_river_harvest) |> pivot_wider(values_from = In_river_harvest,names_from = Sector) |> left_join(internal_data$pfmc_morts_2 |> select(Year,Sector,Total_harvest) |> filter(Sector=="NT") |> select(Year,NT_total_harvest=Total_harvest)) |>  filter(between(Year,2008,2023)) |>
+  Sumsimmer:::internal_data$pfmc_morts_2 |> select(Year,Sector,In_river_harvest) |> pivot_wider(values_from = In_river_harvest,names_from = Sector) |> left_join(internal_data$pfmc_morts_2 |> select(Year,Sector,Total_harvest) |> filter(Sector=="NT") |> select(Year,NT_total_harvest=Total_harvest)) |>  filter(between(Year,2008,2023)) |>
   `colnames<-`(c("Year","Total Treaty", "Total In-river NT","Total NT"))
 
 
