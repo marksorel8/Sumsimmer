@@ -1,10 +1,13 @@
 ---
 title: "Model description"
 output:
- html_document:
-   toc: true
-   toc_depth: 5
-   toc_float: true
+  word_document:
+    toc: true
+    toc_depth: '5'
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: true
 date: "2024-09-23"
 ---
 
@@ -14,7 +17,8 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   scipen=999,
-  cache.extra = 3
+  cache.extra = 4,
+  fig.width = 7
 )
 library(tidyverse)
 
@@ -27,7 +31,7 @@ internal_data<-list()
 # Disclaimer
 
  
-<p style="color:red">**This document does not represent agency policy position nor management decision, has not been endorsed by any agency, and should not be interpreted as such.**</p>
+<p style="color:red">**This document does not represent agency policy positions nor management decisions, has not been endorsed by any agency, and should not be interpreted as such.**</p>
 
 
 # Overview
@@ -302,7 +306,7 @@ I multiply the carcass age proportions by the escapement to calculate escapement
 
 $$Escapement_{a,y}=Escapement_y*p^{escapement~age}_{a,y}$$
 
-```{r esc_age, fig.cap="Figure 2. Annual proportions of carcasses of different ages recovered on the spawning grounds."}
+```{r esc_age, fig.cap="Figure 2. Annual proportions of carcasses of different ages recovered on the spawning grounds.", fig.width=8}
 
 
 long_dat |>  mutate(age=factor(age,levels=6:2)) |> 
@@ -414,15 +418,17 @@ To simulate the system I needed modules to simulate the following processes:
 ### Stock-recruit models
 
 I fit Ricker spawner-recruit relationships for each natural population.
-$$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text{spawners_y}}{e*\text{Rmax}}+\varepsilon_y\right)$$
+$$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text{spawners}_y}{e*\text{Rmax}}+\varepsilon_y\right)$$
 where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. I assumed that all populations had the same $\alpha$ but allowed $\text{Rmax}$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
 
-I explored different assumptions regarding the contribution of hatchery-origin spawners to production and found some data support (based on AIC) for the following model. For the per-capita reproductive contribution of a hatchery-origin spawner relative to a natural origin spawner, I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year:
+I explored different assumptions regarding the relative reproductive succes (RRS) of hatchery-origin spawners (e.g., fitting a common RRS or unique RRS  for each population) and found data support (based on AIC) for a common RRS =1.0. Thus hatchery origin spawners were modeled as contributing eqally to recruitment as natural-origin spawners. Interestingly, in models where each basin had a unique RRS, it was high in the Methow and Wenatchee and low in the Okanogan. Thus the lower productivity parameter in the Okanogan (Table 1) might actually be due to lower reproductive contribution of hatchery-origin spawners.  
 
-$$\text{spawners}_y = \text{NOS}_y+\overline{\text{PNI}}_y* \text{HOS}_y$$
+<!-- For the per-capita reproductive contribution of a hatchery-origin spawner relative to a natural origin spawner, I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year: -->
 
-where $\overline{\text{PNI}}_y$ is the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current brood year.
+<!-- $$\text{spawners}_y = \text{NOS}_y+\overline{\text{PNI}}_y* \text{HOS}_y$$ -->
+
+<!-- where $\overline{\text{PNI}}_y$ is the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current brood year. -->
 
 
 ```{r tot_spawners, fig.cap="Figure .Numbers of natural- and hatchery-origin spawners by year and population."}
@@ -524,7 +530,7 @@ hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatc
 SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS,NOS,HOS,pNI_bar) |> right_join(
   long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |> filter(n==5,brood_year<=2017)
 ) |> 
-  #get rid of some outliers
+  # get rid of some outliers
   filter(!(basin=="Methow"&NO_recruits>9000),
          !(basin=="Wenatchee"&NO_recruits>40000))
 
@@ -591,6 +597,8 @@ make_TMB_data<-function(dat,spawners){
   
   mod_mat<-model.matrix(formula,data=test_mod_dat)
   
+  pop_index<-dat$basin |> as.factor()|> as.numeric()
+  
   list(
     lrps=test_mod_dat$lrps,
     R=test_mod_dat$R,
@@ -600,7 +608,8 @@ make_TMB_data<-function(dat,spawners){
     HOS=dat$S_ho,
     pNI_bar=dat$pNI_bar,
     S_PNI=dat$S_PNI,
-    test_mod_dat=test_mod_dat
+    test_mod_dat=test_mod_dat,
+    pop_index=pop_index
   )
 }
 
@@ -621,7 +630,9 @@ params<-list(
   err=matrix(-1,n_yrs+1,4),
   # log_R=0
   logit_rho=rep(0,4)#,
-  # logit_RRS=0
+  # logit_RRS=rep(2,3)
+  # mu_RRS=0,
+  # sigma_RRS=0
 )
 
 ##data
@@ -634,9 +645,8 @@ params<-list(
 ##objective function
 f<-function(parms){
   RTMB::getAll(SR_TMB_dat, parms, warn=FALSE)
-  
   # par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
-  S<-HOS*(pNI_bar)+NOS
+  S<-HOS+NOS
   
   
   # alpha_vec<-exp(c(alpha[1],rep(alpha[2],3)))
@@ -686,16 +696,18 @@ f<-function(parms){
   nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
   
   nll <- nll -sum(dnorm(logit_rho,-1,2,log=TRUE))
-  
-  
-  
+  # nll <- nll -sum(dnorm(logit_RRS,0,1,log=TRUE))
+    # nll <- nll -sum(dnorm(logit_RRS,mu_RRS,exp(sigma_RRS),log=TRUE))
+    # nll <- nll  -sum(dexp(exp(sigma_RRS),1,log=TRUE))
+    
+    
   nll
 }
 
 f(params) #test objective function 
 
 #cosntruct model object
-obj <- MakeADFun(f, params,, random=c("err"))
+obj <- MakeADFun(f, params,random=c("err"))
 
 #optimize
 fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
@@ -706,7 +718,9 @@ fit_rep<-obj$report(par=obj$env$last.par.best)
 #fitted paramter values
 par_list<-obj$env$parList(par=obj$env$last.par.best)
 
-
+# plogis(par_list$logit_RRS)
+# exp(par_list$sigma_RRS)
+# (par_list$mu_RRS)
 alpha<-exp(par_list$alpha)
 Rmax<- exp(par_list$Rmax)
 beta<-alpha[2]*exp(-1)/Rmax
@@ -725,7 +739,7 @@ Smsy <-(1-W(exp(1-log(alpha[2]))))/beta
 
 
 ```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' observations. Vertical dashed line is at Smsy, the number of spawners for maximum sustainable yield."}
-ricker_pred<-SR_TMB_dat$test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S_PNI),4000)*1.5,length.out=50)) %>%
+ricker_pred<-SR_TMB_dat$test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S_tot),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
   left_join(
     tibble(basin=c("Hatchery","Methow","Okanogan","Wenatchee"),
@@ -754,7 +768,9 @@ ricker_pred2 <-ricker_pred |>
 ricker_pred2 |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+
   facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR |> mutate(S=S_tot) ,aes(y=R))+
   ylab("Recruits") +
-  xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)
+  xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)+
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")+
+    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")
 
 
 
@@ -1206,7 +1222,7 @@ phos_dat2<-phos_dat |> mutate(pred_HOS=predict(HOS_mod,re.form=~0))|>
   left_join(tibble(population_name=c("Methow","Okanogan","Wenatchee"),resid_sd=tail( exp(HOS_mod$fit$par),3)))
 
 
-phos_dat2 |> ggplot(aes(x=hatchery_escapement))+geom_ribbon(aes(ymax=pred_HOS+(1.96*resid_sd),ymin=pred_HOS-(1.96*resid_sd)),fill="gray")+geom_line(aes(y=pred_HOS))+geom_point(aes(y=HOS))+facet_wrap(~population_name,scales="free")+ylab("Hatchery-origin spawners")+xlab("Hatchery escapement")+
+phos_dat2 |> ggplot(aes(x=hatchery_escapement))+geom_ribbon(aes(ymax=pred_HOS+(1.96*resid_sd),ymin=pmax(0,pred_HOS-(1.96*resid_sd))),fill="gray")+geom_line(aes(y=pred_HOS))+geom_point(aes(y=HOS))+facet_wrap(~population_name,scales="free")+ylab("Hatchery-origin spawners")+xlab("Hatchery escapement")+
   scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
   scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
 ```
@@ -1402,7 +1418,7 @@ if(sim_for_model){
     usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
   }
   
-  add_baselines<-TRUE
+  add_baselines<-FALSE
   if(add_baselines){
     sim<-pop_sim()
     sim_list<-list(hcr=seq_HCR(),perf=summarize_sim(sim,HCR="Current MA"))
@@ -1450,11 +1466,12 @@ if(sim_for_model){
     
     
     
-  }
+ 
   
   write_internal<-TRUE
   if(write_internal){
     usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
+  } 
   }
 }
 
@@ -1470,7 +1487,7 @@ As a check on whether the simulation model passes the red face test, I compared 
 
 Note that when considering the outcomes of alternative harvest control rules for the next agreement, we want to compare performance metrics based on simulations. These simulations all assume the same environmental and biological conditions. Comparing to past observations would not be appropriate because those occured under a different set of environmental conditions.
 
-```{r do_sim,cache=TRUE}
+```{r do_sim}
 sim<-pop_sim()
 ```
 
@@ -1508,7 +1525,7 @@ harvest_plot_dat |> ggplot(aes(x = Sector, ymin = `min`, lower = `LQI`, middle =
 ```
 
 
-```{r, fig.cap="Figure. Estimates of 2008-2022 in-river harvest (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
+```{r, fig.cap="Figure. Estimates of 2008-2022 in-river harvest (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area).", fig.width=8}
 plot_harvest_trajectory(harv_traj_dat_fun(sim))
 ```
 
@@ -1577,7 +1594,7 @@ esc_plot_dat |> ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med
 
 
 
-```{r fig.cap="Figure. Estimates of 2008-2022 natural-origin escapement (bars), median of simulated future harvest trajectories (thick black line), random individual simulated trajectory (thin black line), and 95% prediction interval of future harvest (shaded area)."}
+```{r fig.cap="Figure. Estimates of 2008-2022 natural-origin escapement (bars)", fig.width=8}
 
 plot_esc_trajectory( esc_traj_data_fun(sim))
 

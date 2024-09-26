@@ -130,19 +130,6 @@ server <- function(input, output, session) {
   simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
 
-
-
-  # sim2<-HCR_feedback_server("page2",
-  #                           treaty_tiers=c(36250,rep(NA,2)),
-  #                           treaty_rates=c(.1,rep(NA,2)),
-  #                           treaty_scalar=c(NA,1,rep(NA,1)),
-  #                           treaty_offset=c(NA,29000,rep(NA,1)),
-  #                           treaty_share = c(NA,.5,rep(NA,1)),
-  #                           NT_tiers=c(32222,rep(NA,2)),
-  #                           NT_rates=c(.05,rep(NA,2)),
-  #                           NT_scalar=c(NA,1,rep(NA,1)),
-  #                           NT_offset=c(NA,29000,rep(NA,1)),
-  #                           NT_share = c(NA,.5,rep(NA,1)))
   sim3<-Sumsimmer:::HCR_feedback_server("Custom",
                             treaty_tiers=rep(NA,7),
                             treaty_rates=rep(NA,7),
@@ -164,10 +151,7 @@ render_HCR_compare<-function(){
                  "PST" = PST$hcr(),
                  "Custom" = sim3$hcr()
 
-                  )#,
-                 # "Alt 1"=sim2$hcr(),
-                 # "Alt 2"=sim3$hcr()
-  # )
+                  )
 
   hcr_list <- Filter(Negate(is.null), hcr_list)
 
@@ -178,10 +162,7 @@ render_HCR_compare<-function(){
                   simple_ma$sim()[1:8],
                   PST$sim()[1:8],
                   sim3$sim()[1:8]
-  )#,
-  # "Alt 1"=sim2$sim1(),
-  # "Alt 2"=sim3$sim1()
-  # )
+  )
 
   perf_list <- Filter(Negate(is.null), perf_list)
 
@@ -244,56 +225,7 @@ observe({
   render_HCR_compare()
 })
 
-#   observeEvent(input$compareHCR, {
-#
-#     render_HCR_compare()
-# })
-
-
-# render_performance_plot<-function(){
-#
-#   sim_list<-list("Current MA"=sim1$sim(),
-#                  "Alt 1"=sim2$sim(),
-#                  "Alt 2"=sim3$sim()
-#   )
-#
-#   sim_list <- Filter(Negate(is.null), sim_list)
-#
-#
-#   # Check if any of the simulations have been created
-#   if (length(sim_list)==0) {
-#     showNotification("No simulations have been created yet.", type = "error")
-#   }else{
-#     output$compare_perf_metrics<-renderPlot({
-#
-#       p1<-plot_all_fun(sim_list)
-#
-#       p1
-#     })
-#
-#     output$hatchery_perf_metrics<-renderPlot({
-#
-#       p2<-plot_hatchery_quants(sim_list)
-#
-#       p2
-#     })
-#
-#   }
-# }
-#
-#
-# observe({
-#   render_performance_plot()
-# })
 }
-
-
-#   observeEvent(input$comparePerformance, {
-#
-#     render_performance_plot()
-# })
-
-
 
 
 # Run the application

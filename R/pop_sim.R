@@ -251,7 +251,7 @@ pop_sim<-function(index="total",
             S[1,y,i]<-S[1,y,i]*prop_tot2
 
           }
-          S[2:4,y,i]<-NOS[,y,i]+HOS[,y,i]*rowMeans(PNI[,(y-6):(y+3),i])
+          S[2:4,y,i]<-NOS[,y,i]+HOS[,y,i]# *rowMeans(PNI[,(y-6):(y+3),i])
           pHOS[,y,i]<-HOS[,y,i]/(NOS[,y,i]+HOS[,y,i])
           pNOB[,y,i]<-NOB[,y,i]/(NOB[,y,i]+HOB[-1,y,i])
           PNI[,(y+8),i]<- pNOB[,y,i]/( pNOB[,y,i]+ pHOS[,y,i])
