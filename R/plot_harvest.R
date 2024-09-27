@@ -60,9 +60,14 @@ seq_HCR<-function(index="total",
               NT_share,
               "Non-treaty")
 
+if(index=="total"){
+    RMRS<-seq(2000,150000,length.out=n)
+}else{
+  RMRS<-seq(1000,50000,length.out=n)
+}
 
-    RMRS<-seq(500,150000,length.out=n)
     PFMC<-sim_PFMC(RMRS,pfmc_err=0)
+    PFMC_2<-ifelse((RMRS+PFMC)>29000|index=="wild",PFMC,0)
     Treaty<-numeric(n)
 
     if(index=="total"){
@@ -95,17 +100,17 @@ seq_HCR<-function(index="total",
                           NT_offset,
                           NT_share)
 
+      NT_w_PFMC[i]<-((allowed*(RMRS[i]+PFMC_2[i])))/(RMRS[i])
 
-      NT_w_PFMC[i]<-((allowed*(RMRS[i]+PFMC[i])))/(RMRS[i])
-
-      NT[i]<-((allowed*(RMRS[i]+PFMC[i]))-PFMC[i])/(RMRS[i])
+      NT[i]<-((allowed*(RMRS[i]+PFMC_2[i]))-PFMC_2[i])/(RMRS[i])
     }
 
     list(Treaty = Treaty,
          NT = NT,
          NT_w_PFMC = NT_w_PFMC,
          RMRS = RMRS,
-         PFMC = PFMC)
+         PFMC = PFMC_2
+         )
 
   }, error=function(e){
     return(e)
@@ -117,14 +122,18 @@ plot_HCR<-function(HR_seqs,
                    Total_NT=FALSE){
   with(HR_seqs,{
     if(Total_NT){
-      plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT_w_PFMC)*1.15)),xlab="River mouth run size")
+      plot(RMRS,NT_w_PFMC,type="l",lwd=2,ylab="Harvest rate (includes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty+NT_w_PFMC)*1.15)),xlab="River mouth run size")
+      NT_out<-NT_w_PFMC
       abline(0,0,lty=2)
     }else{
-      plot(RMRS,NT,type="l",lwd=2,ylab="Harvest rate (excludes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty,NT)*1.15)),xlab="River mouth run size")
+      plot(RMRS,NT,type="l",lwd=2,ylab="Harvest rate (excludes PFMC for non-treaty)",ylim=c(min(c(Treaty,NT)-.025),max(c(Treaty+NT)*1.15)),xlab="River mouth run size")
+      NT_out<-NT
       abline(0,0,lty=2)
     }
     points(RMRS,Treaty,type="l",col="firebrick4",lwd=2)
-    legend("topleft",c("Treaty","Non-treaty"),lty=1,lwd=2,col=c("firebrick4","black"))
+    points(RMRS,Treaty+NT_out,type="l",col="darkblue",lwd=2)
+
+    legend("topleft",c("Treaty","Non-treaty","Total"),lty=1,lwd=2,col=c("firebrick4","black","darkblue"))
   })
 }
 

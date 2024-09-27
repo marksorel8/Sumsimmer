@@ -275,7 +275,7 @@ esc_dat<-
 
 
 esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> select(year,population_name ,Spawn=NOS,Broodstock=NOBroodStockRemoved) %>%
-  drop_na() |> pivot_longer(c(Spawn,Broodstock),values_to = "NO_Return") %>% ggplot(aes(x=year,y=NO_Return,fill=name))+geom_bar(stat="identity")+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "right")+ylab("Nat. Origin Escapement")+theme_minimal()
+  drop_na() |> pivot_longer(c(Spawn,Broodstock),values_to = "NO_Return") %>% ggplot(aes(x=year,y=NO_Return,fill=name))+geom_bar(stat="identity")+facet_wrap(~population_name)+ylab("Nat. Origin Escapement")+theme(legend.position = "top")
 
 
 long_dat<-esc_dat |> select(spawn_year=year,basin=population_name,NOR,`SG No. Age 2`: `SG No. Age 6`) |> drop_na() |> 
@@ -436,11 +436,11 @@ I explored different assumptions regarding the relative reproductive succes (RRS
 esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=population_name,hatchery=HOS,wild=NOS) |> pivot_longer(c(hatchery,wild),names_to = "Origin",values_to = "Spawners")|> ggplot(aes(x=year,y=Spawners,fill=Origin))+geom_col()+facet_grid(~basin)+theme_minimal()
 ```
 
-```{r PNI_plot, fig.cap="Figure . 10-year running average of the Porportional Natural Influence of hatchery programs through 4 brrod years prior to the return year on the x-axis."}
+<!-- ```{r PNI_plot, fig.cap="Figure . 10-year running average of the Porportional Natural Influence of hatchery programs through 4 brrod years prior to the return year on the x-axis."} -->
 
-esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=population_name,pNI_bar) |>  ggplot(aes(x=year,y=pNI_bar))+geom_col()+facet_grid(~basin)+theme_minimal()+xlab("Return Year")+ylab("10-year PNI")
+<!-- esc_dat |> filter(!is.na(`SG No. Age 4`),year<=2023)|> select(year,basin=population_name,pNI_bar) |>  ggplot(aes(x=year,y=pNI_bar))+geom_col()+facet_grid(~basin)+theme_minimal()+xlab("Return Year")+ylab("10-year PNI") -->
 
-```
+<!-- ``` -->
 
 
 I fit a linear relationship between hatchery smolt releases and hatchery returns. This assumes that there is no density dependent survival after release from the hatchery. The majority of smolts have been released at the yearling lifestage. I counted subyearling releases as 0.5 of a yearling release when calculating the total number of "yearling equivalent" releases to fit the model to. 
@@ -769,8 +769,8 @@ ricker_pred2 |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey
   facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR |> mutate(S=S_tot) ,aes(y=R))+
   ylab("Recruits") +
   xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)+
-    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")+
-    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
+    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
 
 
 
@@ -782,7 +782,7 @@ ricker_pred2 |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey
 
 ```{r  stock_recruit_tab}
 
-tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(alpha,2),Rmax=c(0,round(Rmax,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts. $\\beta$ values shown here are multiplied by 1,000 for ease of viewing.")
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(alpha,2),Rmax=c(0,round(Rmax,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts.")
 
 ```
 

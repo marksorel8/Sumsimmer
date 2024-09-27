@@ -20,6 +20,7 @@ sim_in_river<-function(model_option=1,
                        in_river_err,
                        pfmc_AEQ,
                        RMRS,
+                       inlcude_PFMC_above=29000,
                        coefs,
                        URR , #release rate of unmarked fish handled in non-treaty fisheries
                        release_mort_rate = 0.15, #post release mortality rate
@@ -28,6 +29,8 @@ sim_in_river<-function(model_option=1,
 ){
 
  tot_run_size<-RMRS+pfmc_AEQ
+
+ pfmc_AEQ2<-ifelse(tot_run_size>inlcude_PFMC_above,pfmc_AEQ,0)
 
 if(model_option%in%c(1,3)){
 
@@ -39,7 +42,7 @@ if(model_option%in%c(1,3)){
   Treaty<-exp((log(total_allowed_Treaty)*coefs[1])+in_river_err[1])/(RMRS)
   Treaty<-min(.99,Treaty)
 
-  NT<-((exp((log(total_allowed_NT)*coefs[2])+in_river_err[2])-pfmc_AEQ)/RMRS)
+  NT<-((exp((log(total_allowed_NT)*coefs[2])+in_river_err[2])-pfmc_AEQ2)/RMRS)
   NT<-max(0,NT)
   NT<-min(.99,NT)
 
@@ -48,7 +51,7 @@ allowed_Treaty_HR<-min(.999,(allowed_Treaty_ER*tot_run_size)/(RMRS)) #convert ER
 
   allowed_NT_HR<-
     #subtract PFMC, make sure positive and convert from exploitation rate to harvest rate (i.e. denominator from RMRM+ PFMC to just RMRS)
-    min(.999,(max(allowed_NT_ER-(pfmc_AEQ/(tot_run_size)),.001)*tot_run_size)/(RMRS))
+    min(.999,(max(allowed_NT_ER-(pfmc_AEQ2/(tot_run_size)),.001)*tot_run_size)/(RMRS))
 
 
   #Segmented model of expected actual total harvest mortality as a funciton of allowed).

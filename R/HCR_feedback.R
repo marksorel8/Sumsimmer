@@ -31,7 +31,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               "check box to include the PFMC ocean mortality that is included in non-treaty share. This has no effect on simulations.",
 
               plotOutput(NS(id,"my_plot")),
-              p(tags$b("Harvest control rule figure."), "Allowed in-river harvest rate across different river mouth runs izes (RMRS). The average PFMC AEQ mortality is used to calculate the allowed non-treaty rate. The `Include PFMC` button can be used to include the PFMC mortalities in the harvest rate, although this doesn't make a lot of sense because the denominator in the harvest rates shown here is the River Mouth Run size. Note that the allowed harvest for the non-treaty sector can be nevative when the PFMC AEQ mortalities is greater than the allowed."),
+              p(tags$b("Harvest control rule figure."), "Allowed in-river harvest rate across different river mouth runs izes (RMRS). The average PFMC AEQ mortality is used to calculate the allowed non-treaty rate when the RMRS > 29k. The `Include PFMC` button can be used to include the PFMC mortalities in the harvest rate, although this doesn't make a lot of sense because the denominator in the harvest rates shown here is the River Mouth Run size. Note that the allowed harvest for the non-treaty sector can be nevative when the PFMC AEQ mortalities is greater than the allowed."),
   h3("Simulations plots"),
   "Uncheck box to assume no hatchery-origin spawners",
   checkboxInput(NS(id,"HOS_option"), "Hatchery-origin spawners", value = TRUE),
