@@ -12,8 +12,7 @@ ui <- fluidPage(
   navbarPage("Summer Chinook simulator",
              tabPanel("Welcome",
                       h1("Welcome!"),
-                      h3("This app is for comparing simulated outcomes of harvest control rules for the summer Chinook managment period of the",
-                         tags$a(href="https://critfc.org/wp-content/uploads/2022/05/2018-2027-USvOR.pdf","US v Oregon Mangement Agreement"),
+                      h3("This app is for comparing simulated outcomes of harvest control rules for upper Columbia River summer Chinook"),
                          "."),
                       h3(tags$i(style="color: red;","This app does not represent any agency policy position nor managment decision, has not been endorsed by any agency, and should not be interpreted as such.")),
                       br(),
@@ -22,7 +21,6 @@ ui <- fluidPage(
                         tags$li(tags$i(style="color: blue;","No harvest"), " - A baseline with no terminral harvest"),
                         tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
 
-                        tags$li(tags$i(style="color: blue;","Simplified MA"), "- This is a simplified version of the harvest control rule in the 2018-2029 Managment Agreement. There is a fixed low rate below a river mouth run size of 29,000 and returns above 29,000 are fully allocated in a 50/50 split between treaty and non-treaty fisheries."),
                         tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
                         tags$li(tags$i(style="color: blue;","Custom"), " - This is a blank canvas for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
                       ),
@@ -178,11 +176,11 @@ render_HCR_compare<-function(){
       p2
     })
 
-output$compare_perf_metrics<-renderPlot({
-
-  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1.2,2))
-
-})
+# output$compare_perf_metrics<-renderPlot({
+#
+#   ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1.2,2))
+#
+# })
 #
 plots<-Sumsimmer:::plot_all_fun(perf_list,"No harvest")
 output$compare_perf_metrics<-renderPlot({
