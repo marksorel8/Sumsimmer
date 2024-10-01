@@ -21,6 +21,14 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
   br(),
   p("The", em("run size"), "abundance index for the current harvest control rule is the total river mouth run size plus calendar year PFMC AEQ mortalities. Check this box to change the abundance index to the ",em("wild river mouth run size"), "which is wild escapement devided by one minus the wild terminal harvest rate."),
   checkboxInput(NS(id,"wild_AI"), "Use wild abundance index", value = FALSE),
+  numericInput(
+    NS(id,"pfmc_cutoff"),
+    "Run size above which PFMC AEQ is included in ",
+    value=29000,
+    min = 0,
+    max = 1000000,
+    step = 1000
+  ),
   br(),
               DTOutput(NS(id,"my_datatable")),
               "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
@@ -158,10 +166,11 @@ HCR_feedback_server <- function(id,
 
 
 
-hcr_data_fun<-function(do_notifs=FALSE,index){
+hcr_data_fun<-function(do_notifs=FALSE,index,PFMC_include_point){
   hcr_data<-with(isolate(v$data),
                  Sumsimmer:::seq_HCR(
                    index=index,
+                   pfmc_cutoff=PFMC_include_point,
                    treaty_tiers=treaty_tiers,
                    treaty_rates=treaty_rates,
                    treaty_scalar=treaty_scalar,
@@ -196,7 +205,8 @@ hcr_data_fun<-function(do_notifs=FALSE,index){
   observeEvent(input$go, {
     req(input$go)
     hcr_out(hcr_data_fun(do_notifs=TRUE,
-                         index=ifelse(input$wild_AI,"wild","total")))
+                         index=ifelse(input$wild_AI,"wild","total"),
+                         PFMC_include_point=input$pfmc_cutoff))
 
   })
 

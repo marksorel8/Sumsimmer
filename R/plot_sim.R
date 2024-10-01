@@ -5,14 +5,24 @@ CV<-function(x){(sd(x)/mean(x))*100}
 
 geo_mean<-function(x){exp(mean(log(x)))}
 
-ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975)){
-  data.frame(cbind(
+ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975),add_NO_tot=FALSE){
+
+ df_out<- data.frame(
     apply(apply(x[,yrs,],c(1,3),quantile,qtiles),1:2,fun),
-    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile,qtiles),1,fun))) |>
+    Total=apply(apply(apply(x[,yrs,],2:3,sum),2,quantile,qtiles),1,fun))
+
+  if(add_NO_tot){
+    df_out<-data.frame(df_out,
+                  "Total_natural"=
+                    apply(apply(apply(x[-1,yrs,],2:3,sum),2,quantile,qtiles),1,fun))
+  }
+
+ df_out |>
      t() |> data.frame() |>
     `colnames<-`(c("min","LQI","med","UQI","max"))  |>
       rownames_to_column(rnames)|>
-    mutate(HCR=HCR_name)
+    mutate(HCR=HCR_name) |>
+   drop_na()
 
 }
 
@@ -33,7 +43,7 @@ summarize_sim<-function(sim,yrs=7:31,HCR="X"){
 
   list(
 #Escapement
-Esc=ave_quants(sim$escapement,rnames="Population",HCR_name=HCR),
+Esc=ave_quants(sim$escapement,rnames="Population",HCR_name=HCR,add_NO_tot=TRUE),
 
 Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
 

@@ -13,8 +13,7 @@ ui <- fluidPage(
              tabPanel("Welcome",
                       h1("Welcome!"),
                       h3("This app is for comparing simulated outcomes of harvest control rules for upper Columbia River summer Chinook"),
-                         "."),
-                      h3(tags$i(style="color: red;","This app does not represent any agency policy position nor managment decision, has not been endorsed by any agency, and should not be interpreted as such.")),
+                      h3(tags$i(style="color: red;","This app does not represent agency policy positions nor managment decisiosn, has not been endorsed by any agency, and should not be interpreted as such.")),
                       br(),
                       p("The first 5 tabs define different harvest control rules and the final tab called", tags$i(style="color: blue;","Comparison"), "is for comparing performance metrics of the harvest control rules."),
                       tags$ul(
@@ -36,7 +35,7 @@ ui <- fluidPage(
                       ),
              tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No harvest","No terminal harvest")),
              tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from 2018-2027 Agreement")),
-             tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
+             # tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
              tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
              tabPanel("Custom", Sumsimmer:::HCR_feedback_UI("Custom","")),
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
@@ -125,7 +124,7 @@ server <- function(input, output, session) {
 
   PST<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
 
-  simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
+  # simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
 
   sim3<-Sumsimmer:::HCR_feedback_server("Custom",
@@ -145,7 +144,7 @@ server <- function(input, output, session) {
 render_HCR_compare<-function(){
   hcr_list<-list("No harvest"=no_harv$hcr(),
                   "Current MA"=current$hcr(),
-                 "Simplified MA"=simple_ma$hcr(),
+                 # "Simplified MA"=simple_ma$hcr(),
                  "PST" = PST$hcr(),
                  "Custom" = sim3$hcr()
 
@@ -157,7 +156,7 @@ render_HCR_compare<-function(){
 
   perf_list<-list(no_harv$sim()[1:8],
                   current$sim()[1:8],
-                  simple_ma$sim()[1:8],
+                  # simple_ma$sim()[1:8],
                   PST$sim()[1:8],
                   sim3$sim()[1:8]
   )

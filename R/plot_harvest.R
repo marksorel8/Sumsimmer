@@ -31,6 +31,7 @@ plot_harvest_quants<-function(harvest_quants){
 
 
 seq_HCR<-function(index="total",
+                  pfmc_cutoff=29000,
                   treaty_tiers = c(16000,36250,50000,Inf),
                   treaty_rates = c(.05,.1,NA,NA),
                   treaty_scalar = c(NA,NA,1,.75),
@@ -67,7 +68,7 @@ if(index=="total"){
 }
 
     PFMC<-sim_PFMC(RMRS,pfmc_err=0)
-    PFMC_2<-ifelse((RMRS+PFMC)>29000|index=="wild",PFMC,0)
+    PFMC_2<-ifelse((RMRS+PFMC)<pfmc_cutoff|index=="wild",0,PFMC)
     Treaty<-numeric(n)
 
     if(index=="total"){
@@ -100,9 +101,9 @@ if(index=="total"){
                           NT_offset,
                           NT_share)
 
-      NT_w_PFMC[i]<-((allowed*(RMRS[i]+PFMC_2[i])))/(RMRS[i])
+      NT_w_PFMC[i]<-((allowed*AI[i]))/(RMRS[i])
 
-      NT[i]<-((allowed*(RMRS[i]+PFMC_2[i]))-PFMC_2[i])/(RMRS[i])
+      NT[i]<-((allowed*(AI[i]))-PFMC_2[i])/(RMRS[i])
     }
 
     list(Treaty = Treaty,
