@@ -1,0 +1,63 @@
+---
+title: "Report"
+output:
+  word_document: default
+  html_document: default
+params:
+  hcr_plot: NA
+  harv_plot: NA
+  NOE_plot: NA
+  NOS_plot: NA
+  spawners_plot: NA
+  NOE_ratios_plot: NA
+  RMRS_plot: NA
+  hatch_plot: NA
+  h_surplus: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      fig.width = 7)
+```
+
+
+```{r, fig.cap=" Harvest rates for different sectors and all sectors combined under alternative harvest control rules. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates."}
+(params$hcr_plot)
+```
+
+
+```{r, fig.cap="Box plots of annual harvest. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across years for individual simulations, and then averaged across simulations.  Therefore, the lower end of the bars represent the average across simulations of the 2 years (out of 25) with the lowest harvest. I summarized the results in this way to show what harvest projections were in small run size, average, and large run size years."}
+(params$harv_plot)
+```
+
+```{r, fig.cap="Box plots of  natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across years for individual simulations, and then averaged across simulations.  Therefore, the lower end of the bars represent the average across simulations of the 2 years (out of 25) with the lowest escapement I summarized the results in this way to show what escapement projections were in small run size, average, and large run size years.",fig.width = 7,fig.height=8}
+print(params$NOE_plot)
+```
+
+```{r, fig.cap="Quantile of natural-origin spawners across years of simulations."}
+print(params$NOS_plot)
+```
+
+```{r, fig.cap="Quantile of total spawners across years of simulations."}
+print(params$spawners_plot)
+```
+
+```{r, fig.cap="Ratio of escapement to unfished escapement. Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule."}
+print(params$NOE_ratios_plot)
+```
+
+```{r, fig.cap= "Boxplots show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model." }
+print(params$RMRS_plot)
+```
+
+```{r, fig.cap=" Proportion of hatchery origin spawners (pHOS), proporiton of natural origin broodstock (pNOB) and proportionate natural influence (PNI= pNOB/(pNOB+pHOS)).Quantiles were calculated across years for individual simulations, and then averaged across simulations.The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median.",fig.width = 7,fig.height=8}
+print(params$hatch_plot)
+```
+
+```{r, fig.cap="Quantiles of number of hatchery origin returns that were not harvested nor needed for broodstock."}
+print(params$h_surplus)
+```
+
+
+
+

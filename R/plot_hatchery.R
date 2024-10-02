@@ -83,7 +83,7 @@ hatchery_quants_fun<-function(dat,HCR_name="Current",rnames="River",qtiles=c(.02
 
 
 
-plot_hatchery_quants<-function(hatchery_quants){
+plot_hatchery_quants<-function(hatchery_quants,nr=1){
 
   # hatchery_quants<-do.call(rbind,lapply(names(sim_list),function(x) hatchery_quants_fun(sim_list[[x]],rnames="River",HCR_name=x)))|>
   #   mutate(River=fct_relevel(River,c("Wenatchee","Methow","Okanogan")),
@@ -91,7 +91,7 @@ plot_hatchery_quants<-function(hatchery_quants){
 
 
   hatchery_quants|>
-     ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylim(0,1)+scale_fill_brewer(palette="Dark2")+facet_wrap(~factor(metric,levels=c("pHOS","pNOB","PNI")))+ylab("Proportion")+geom_hline(data=tibble(yint=.67,metric="PNI"),aes(yintercept=yint),linetype="dashed",color="red",linewidth=1)+theme_gray(base_size = 16)+theme(axis.title.x=element_blank(),legend.position = "top")
+     ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylim(0,1)+scale_fill_brewer(palette="Dark2")+facet_wrap(~factor(metric,levels=c("pHOS","pNOB","PNI")),nrow=nr)+ylab("Proportion")+geom_hline(data=tibble(yint=.67,metric="PNI"),aes(yintercept=yint),linetype="dashed",color="red",linewidth=1)+theme_gray(base_size = 16)+theme(axis.title.x=element_blank(),legend.position = "top")
 
 }
 
@@ -107,5 +107,7 @@ hatchery_surplus_quants<-function(sim,yrs=7:31,qtiles=c(.025,.25,.5,.75,.975),HC
 
 plot_hatchery_surplus<-function(surplus_quants){
   surplus_quants |> ggplot(aes(x = 1, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab(ylab)+xlab("")+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank())+
-    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+ylab("Hatchery surplus")
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
+    ylab("Hatchery surplus")+
+    theme(legend.position = "top")
 }

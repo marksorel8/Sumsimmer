@@ -28,7 +28,7 @@ plot_esc_trajectory<-function(esc_traj_dat,esc_dat=internal_data$esc_dat ){
 plot_spawner_quants<-function(NOS_quants,ylab){
   NOS_quants |>
     ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab(ylab)+xlab("")+facet_wrap(~factor(River,levels=c("Wenatchee","Methow","Okanogan","Total")),scales="free",nrow=1)+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank())+
-    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))#+geom_hline(data=tibble(yintercept=c(20000,12143),Population=rep("Total",2),"Escapement\ngoal"=c("USvOR","PST")),aes(yintercept = yintercept,color=`Escapement\ngoal`),linetype = "dashed",lwd=1.5)+scale_color_brewer(palette="Paired")
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+theme(legend.position = "top")#+geom_hline(data=tibble(yintercept=c(20000,12143),Population=rep("Total",2),"Escapement\ngoal"=c("USvOR","PST")),aes(yintercept = yintercept,color=`Escapement\ngoal`),linetype = "dashed",lwd=1.5)+scale_color_brewer(palette="Paired")
 
 
     # ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Natural-origin spawners")+scale_fill_brewer(palette="Dark2")#+geom_hline(yintercept=50,lty=2)
@@ -44,9 +44,9 @@ plot_spawner_quants<-function(NOS_quants,ylab){
 
 
 
-plot_NOE_quants<-function(NOE_quants){
+plot_NOE_quants<-function(NOE_quants,nrw=1){
   NOE_quants |>
-    ggplot(aes(x = Population, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Escapement")+xlab("")+geom_hline(data=tibble(yintercept=c(20000,12143),Population=rep("Total",2),"Escapement\ngoal"=c("2018 USvOR","2019 PST & PFMC")),aes(yintercept = yintercept,color=`Escapement\ngoal`),linetype = "dashed",lwd=1.5)+facet_wrap(~factor(Population,levels=c("Wenatchee","Methow","Okanogan","Total_natural","Hatchery","Total")),scales="free",nrow=1)+scale_color_brewer(palette="Paired")+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank())+guides(fill=guide_legend(nrow=2,byrow=TRUE),color=guide_legend(nrow=2,byrow=TRUE))+
+    ggplot(aes(x = Population, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Escapement")+xlab("")+geom_hline(data=tibble(yintercept=c(20000,12143),Population=rep("Total",2),"Escapement\ngoal"=c("2018 USvOR","2019 PST & PFMC")),aes(yintercept = yintercept,color=`Escapement\ngoal`),linetype = "dashed",lwd=1.5)+facet_wrap(~factor(Population,levels=c("Wenatchee","Methow","Okanogan","Total_natural","Hatchery","Total")),scales="free",nrow=nrw)+scale_color_brewer(palette="Paired")+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank(),legend.position = "top")+guides(fill=guide_legend(nrow=2,byrow=TRUE),color=guide_legend(nrow=2,byrow=TRUE))+
     scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))#+geom_hline(yintercept=50,lty=2)
 
 }
@@ -61,13 +61,13 @@ plot_NOE_ratios<-function(NOE_quants,no_harv="No harvest"){
   ungroup() |>
     mutate(Population = fct_relevel(Population,c("Hatchery","Wenatchee","Methow","Okanogan","Total"))
   )  |>   # Exclude the baseline level itself
-  ggplot(aes(x=Population,y=med))+scale_fill_brewer(palette="Dark2")+geom_bar(aes(fill = HCR),stat = "identity",position = "dodge")+ylab("Escapement relative to no fishing")+theme_gray(base_size = 16)+theme(axis.title.x = element_blank())
+  ggplot(aes(x=Population,y=med))+scale_fill_brewer(palette="Dark2")+geom_bar(aes(fill = HCR),stat = "identity",position = "dodge")+ylab("Escapement relative to no fishing")+theme_gray(base_size = 16)+theme(axis.title.x = element_blank(),legend.position = "top")
 }
 
 
 plot_pop_quants<-function(quants,lab){
   quants |>
-    ggplot(aes(x = Population, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab(lab)+xlab("")+facet_wrap(~factor(Population,levels=c("Hatchery","Wenatchee","Methow","Okanogan","Total")),scales="free",nrow=1)+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank())+
+    ggplot(aes(x = Population, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab(lab)+xlab("")+facet_wrap(~factor(Population,levels=c("Hatchery","Wenatchee","Methow","Okanogan","Total")),scales="free",nrow=1)+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.ticks.x=element_blank(),axis.text.x = element_blank(),legend.position = "top")+
     scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
 }
 

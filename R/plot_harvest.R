@@ -16,7 +16,7 @@ plot_harvest_quants<-function(harvest_quants){
 
   harvest_quants |>
     ggplot(aes(x = Sector, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=HCR))+geom_boxplot(stat="identity")+ylab("Harvest")+scale_fill_brewer(palette="Dark2")+theme_gray(base_size = 16)+theme(axis.title.x = element_blank())+guides(fill=guide_legend(nrow=2,byrow=TRUE))+
-    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
+    scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+theme(legend.position = "top")
 
 }
 
@@ -164,7 +164,7 @@ plot_HCR_compare<-function(seq_list){
            `Harvest rule`=fct_relevel(`Harvest rule`,names(seq_list))) |>
 
     ggplot(aes(x=RMRS,y=`Harvest rate`,color=`Harvest rule`))+geom_line(lwd=2,alpha=.8)+facet_wrap(~sector)+scale_color_brewer(palette="Dark2")+xlab("River Mouth Run Size")+theme_gray(base_size = 16)+geom_hline(aes(yintercept=0),linetype = 2)+ylab("Allowed harvest rate")+
-    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
+    scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+theme(legend.position = "top")
 
 
 }

@@ -102,6 +102,9 @@ plot_all_fun<-function(sim_list,baseline_name){
 list(
   #Escapement
   NOE_plot=plot_NOE_quants(combined_list$Esc),
+  ## escapement in two rows for report
+  NOE_plot_2row=plot_NOE_quants(combined_list$Esc,2),
+
 
   NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
 
@@ -125,6 +128,8 @@ list(
 
   #pHOS, pNOB, PNI
    hatch_plot= plot_hatchery_quants(combined_list$Hatch),
+  hatch_plot_2row= plot_hatchery_quants(combined_list$Hatch,2),
+
 
 h_surplus = plot_hatchery_surplus(combined_list$H_surplus)
 )

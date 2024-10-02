@@ -46,6 +46,10 @@ ui <- fluidPage(
                       "It will take a few second for the plots to load upon starting the app.",
                       "The Harvest and Escapement plots are the main ones to look at. Other plots are included for a more nuanced comparison. Additional metrics could be added.",
                       "The plots will automatically update after a few seconds when a simulation is updated; however, you must press the buttons on the individual harvest-control-rule tabs after making changes for them to be updated here.",
+                      br(),
+       "You can download a report of the results by hitting this button.",
+
+                      downloadButton("Report", "Generate report"),
                       # "Hit this button to plot a comparison of harvest control rules.",
                       # br(),
                       # actionButton("compareHCR", "Update harvest control rule plot"),
@@ -191,11 +195,8 @@ render_HCR_compare<-function(){
   if(length(hcr_list)==0){
     showNotification("please render the harvest control rule plots on all of the individual pages before comparing them here.", type = "error")
   }else{
-
+  p2<-Sumsimmer:::plot_HCR_compare(hcr_list)
     output$compare_HCRs<-renderPlot({
-
-      p2<-Sumsimmer:::plot_HCR_compare(hcr_list)
-
       p2
     })
 
@@ -206,24 +207,30 @@ render_HCR_compare<-function(){
 # })
 #
 plots<-Sumsimmer:::plot_all_fun(perf_list,"No harvest")
+
+compare_perf_metrics<-ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
+
 output$compare_perf_metrics<-renderPlot({
 
-  ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
-
+  compare_perf_metrics
 })
+
+compare_spawners_plot<-ggpubr::ggarrange(plots$NOS_plot,plots$spawners_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1,1))
 
 output$compare_spawners_plot <-renderPlot({
 
-  ggpubr::ggarrange(plots$NOS_plot,plots$spawners_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1,1))
+  compare_spawners_plot
 
 })
 
+extra_perf_plot<-ggpubr::ggarrange(plots$NOE_ratios_plot,plots$RMRS_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1.3,2))
 
 output$extra_perf_plot <-renderPlot({
 
-  ggpubr::ggarrange(plots$NOE_ratios_plot,plots$RMRS_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1.3,2))
+  extra_perf_plot
 
 })
+
 
 output$hatchery_perf_metrics<-renderPlot({
   plots[["hatch_plot"]]
@@ -238,13 +245,58 @@ output$hatchery_surplus<-renderPlot({
 
 
 
-
   }
+
+return(list(
+  # compare_perf_metrics = compare_perf_metrics,
+  # compare_spawners_plot = compare_spawners_plot,
+  # extra_perf_plot = extra_perf_plot,
+  # hatchery_perf_metrics=plots[["hatch_plot"]],
+  # hatchery_surplus = plots[["h_surplus"]],
+  hcr_plot= p2,
+  plots=plots,
+  hcr_list=hcr_list
+))
 }
 
+stored_value <- reactiveVal(NULL)
+
 observe({
-  render_HCR_compare()
+out <-  render_HCR_compare()
+stored_value(out)
 })
+
+
+output$Report <- downloadHandler(
+  # For PDF output, change this to "report.pdf"
+  filename = "Report.docx",
+  content = function(file) {
+    # Copy the report file to a temporary directory before processing it, in
+    # case we don't have write permissions to the current working dir (which
+    # can happen when deployed).
+    tempReport <- file.path(tempdir(), "report.Rmd")
+    file.copy("report.Rmd", tempReport, overwrite = TRUE)
+
+    # Set up parameters to pass to Rmd document
+    params <- list(hcr_plot = stored_value()$hcr_plot,
+                   harv_plot = stored_value()$plots$harv_plot,
+                   NOE_plot = stored_value()$plots$NOE_plot_2row,
+                   NOS_plot = stored_value()$plots$NOS_plot,
+                   spawners_plot = stored_value()$plots$spawners_plot,
+                   NOE_ratios_plot = stored_value()$plots$NOE_ratios_plot,
+                   RMRS_plot = stored_value()$plots$RMRS_plot,
+                   hatch_plot = stored_value()$plots$hatch_plot_2row,
+                   h_surplus = stored_value()$plots$h_surplus)
+
+    # Knit the document, passing in the `params` list, and eval it in a
+    # child of the global environment (this isolates the code in the document
+    # from the code in this app).
+    rmarkdown::render(tempReport, output_file = file,
+                      params = params,
+                      envir = new.env(parent = globalenv())
+    )
+  }
+)
 
 }
 
