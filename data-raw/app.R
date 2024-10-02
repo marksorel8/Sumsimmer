@@ -13,7 +13,7 @@ ui <- fluidPage(
              tabPanel("Welcome",
                       h1("Welcome!"),
                       h3("This app is for comparing simulated outcomes of harvest control rules for upper Columbia River summer Chinook"),
-                      h3(tags$i(style="color: red;","This app does not represent agency policy positions nor managment decisiosn, has not been endorsed by any agency, and should not be interpreted as such.")),
+                      h3(tags$i(style="color: red;","This app does not represent agency policy positions nor managment decisions, has not been endorsed by any agency, and should not be interpreted as such.")),
                       br(),
                       p("The first 5 tabs define different harvest control rules and the final tab called", tags$i(style="color: blue;","Comparison"), "is for comparing performance metrics of the harvest control rules."),
                       tags$ul(
@@ -21,10 +21,10 @@ ui <- fluidPage(
                         tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
 
                         tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
-                        tags$li(tags$i(style="color: blue;","Custom"), " - This is a blank canvas for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
+                        tags$li(tags$i(style="color: blue;","Custom 1 & 2"), " - These are blank canvases for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
                       ),
 
-                      "The harvest control rule in the `no harvest` tab is not editable, but all the other ones are, in case you want to tweak them. Double click on a cell to edit it's values. The description of how the harvest control rules are defined based on the values in the table is repeated on each tab.",
+                      "The harvest control rule in the `no harvest` tab is not editable, but all the other ones are, in case you want to tweak them. Double click on a cell to edit it's values. ",
                       br(),
                       br(),
                       "To update the results after modifying a harvest control rule, hit the `Update harvest control rule plot` and `Update simulation` buttons. It will take a few seconds (about 10 on my laptop) for the simulation to run. The `Comparison` tab will automatically update.",
@@ -33,11 +33,12 @@ ui <- fluidPage(
                       "Each tab will take a second to load when first opened, and the `Comparison` tab will take several seconds."
 
                       ),
-             tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No harvest","No terminal harvest")),
-             tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current MA","Harvest control rule from 2018-2027 Agreement")),
+             tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No_harvest","No terminal harvest")),
+             tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current_MA","Harvest control rule from 2018-2027 Agreement")),
              # tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
              tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
-             tabPanel("Custom", Sumsimmer:::HCR_feedback_UI("Custom","")),
+             tabPanel("Custom 1", Sumsimmer:::HCR_feedback_UI("Custom_1","")),
+             tabPanel("Custom 2", Sumsimmer:::HCR_feedback_UI("Custom_2","")),
               # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
              # tabPanel("Alt 2", HCR_feedback_UI("page3","Alternative harvest control rule # 2")),
              tabPanel("Comparison",
@@ -107,27 +108,30 @@ ui <- fluidPage(
 
 # Main server
 server <- function(input, output, session) {
-  no_harv<-Sumsimmer:::HCR_feedback_server("No harvest",
-                               editable=FALSE,
-                               treaty_tiers=NA,
-                                 treaty_rates=0,
-                                 treaty_scalar=NA,
-                                 treaty_offset=NA,
-                                 treaty_share=NA,
-                               NT_tiers=NA,
-                                 NT_rates=0,
-                                 NT_scalar=NA,
-                                 NT_offset=NA,
-                                 NT_share=NA)
+  # no_harv<-Sumsimmer:::HCR_feedback_server(id="No harvest",
+  #                              editable=FALSE,
+  #                              treaty_tiers=NA,
+  #                                treaty_rates=0,
+  #                                treaty_scalar=NA,
+  #                                treaty_offset=NA,
+  #                                treaty_share=NA,
+  #                              NT_tiers=NA,
+  #                                NT_rates=0,
+  #                                NT_scalar=NA,
+  #                                NT_offset=NA,
+  #                                NT_share=NA,
+  #                              pfmc_cutoff=100000)
+  no_harv<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="No_harvest",Sumsimmer:::internal_data$`No harvest`$perf$HCR,editable=TRUE)))
 
-  current<-Sumsimmer:::HCR_feedback_server("Current MA",editable=TRUE)
+  current<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Current_MA",Sumsimmer:::internal_data$`Current MA`$perf$HCR,editable=TRUE)))
+    # Sumsimmer:::HCR_feedback_server(id="Current MA",editable=TRUE, pfmc_cutoff=29000)
 
   PST<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
 
   # simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
 
-  sim3<-Sumsimmer:::HCR_feedback_server("Custom",
+  sim3<-Sumsimmer:::HCR_feedback_server(id="Custom_1",
                             treaty_tiers=rep(NA,7),
                             treaty_rates=rep(NA,7),
                             treaty_scalar=rep(NA,7),
@@ -138,7 +142,25 @@ server <- function(input, output, session) {
                             NT_scalar=rep(NA,7),
                             NT_offset=rep(NA,7),
                             NT_share = rep(NA,7),
-                            editable=TRUE)
+                            pfmc_cutoff=0,
+                            editable=TRUE,
+                            custom=TRUE)
+
+  sim4<-Sumsimmer:::HCR_feedback_server("Custom_2",
+                                        treaty_tiers=rep(NA,7),
+                                        treaty_rates=rep(NA,7),
+                                        treaty_scalar=rep(NA,7),
+                                        treaty_offset=rep(NA,7),
+                                        treaty_share = rep(NA,7),
+                                        NT_tiers=rep(NA,7),
+                                        NT_rates=rep(NA,7),
+                                        NT_scalar=rep(NA,7),
+                                        NT_offset=rep(NA,7),
+                                        NT_share = rep(NA,7),
+                                        pfmc_cutoff=0,
+                                        editable=TRUE,
+                                        custom=TRUE)
+
   #Combine data from all pages and render a combined plot
 
 render_HCR_compare<-function(){
@@ -146,7 +168,8 @@ render_HCR_compare<-function(){
                   "Current MA"=current$hcr(),
                  # "Simplified MA"=simple_ma$hcr(),
                  "PST" = PST$hcr(),
-                 "Custom" = sim3$hcr()
+                 "Custom 1" = sim3$hcr(),
+                 "Custom 2" = sim4$hcr()
 
                   )
 
@@ -158,7 +181,8 @@ render_HCR_compare<-function(){
                   current$sim()[1:8],
                   # simple_ma$sim()[1:8],
                   PST$sim()[1:8],
-                  sim3$sim()[1:8]
+                  sim3$sim()[1:8],
+                  sim4$sim()[1:8]
   )
 
   perf_list <- Filter(Negate(is.null), perf_list)

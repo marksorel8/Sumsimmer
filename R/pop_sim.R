@@ -33,13 +33,14 @@
 #' @param NT_scalar same as above but for non-treaty
 #' @param NT_offset same as above but for non-treaty
 #' @param NT_share same as above but for non-treaty
+#' @param PFMC_include_above the run size above which PFMC AEQ mortality is included in the Non-treaty share.
 #'
 #' @return returns a list object with results of the simulation and the also includes the hatchery control rule used.
 #' @export
 #'
 #' @examples
 #'
-#'# the PAcific salmon treaty harvest control rule is
+#'# the pacific salmon treaty harvest control rule is
 #'# 85% of the 2009-2015 average harvest when escapment
 #'# goal is not met
 #'
@@ -64,12 +65,6 @@
 #'
 #' ## do simulation
 #' PST_sim<-do.call(pop_sim,PST_HCR)
-
-
-
-
-
-
 pop_sim<-function(index="total",
                   n_years=25,
                   start_year=2018,
@@ -100,7 +95,8 @@ pop_sim<-function(index="total",
                   NT_rates=c(100,200,.05,.06,.07,NA,NA),
                   NT_scalar=c(rep(NA,5),1,.75),
                   NT_offset=c(rep(NA,5),29000,16500),
-                  NT_share=c(rep(NA,5),.5,.5)
+                  NT_share=c(rep(NA,5),.5,.5),
+                  PFMC_include_above=29000
 ){
 
 
@@ -211,7 +207,7 @@ pop_sim<-function(index="total",
                                         allowed_NT_ER=NT_allowed_ER,
                                         pfmc_AEQ= PFMC[y,i],
                                         RMRS=RMRS,
-                                        inlcude_PFMC_above=ifelse(index=="total",29000,0),
+                                        inlcude_PFMC_above=ifelse(index=="total",PFMC_include_above,0),
                                         in_river_err=in_river_err[,y,i],
                                         mark_rate=Mark_rate,
                                         MS_fisheries_matrices=MS_matrices,
@@ -306,7 +302,8 @@ pop_sim<-function(index="total",
                  NT_rates =NT_rates,
                  NT_scalar =NT_scalar,
                  NT_offset =NT_offset,
-                 NT_share =NT_share)
+                 NT_share =NT_share,
+                 pfmc_cutoff=PFMC_include_above)
     )
   }, error=function(e){
     return(e)

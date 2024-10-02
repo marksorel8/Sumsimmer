@@ -1421,10 +1421,12 @@ if(sim_for_model){
   add_baselines<-FALSE
   if(add_baselines){
     sim<-pop_sim()
-    sim_list<-list(hcr=seq_HCR(),perf=summarize_sim(sim,HCR="Current MA"))
+    sim_list<-list(perf=summarize_sim(sim,HCR="Current MA"))#hcr=seq_HCR(),
     
-    internal_data$`Current MA`<-sim_list
-    internal_data$`No harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="No harvest"),hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0))
+    internal_data$`Current_MA`<-sim_list
+    
+    
+    internal_data$`No_harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,treaty_scalar=NA,treaty_offset=NA,treaty_share=NA,NT_tiers=NA,NT_rates=0,NT_scalar=NA,NT_offset=NA,NT_share=NA,PFMC_include_above=1000000),HCR="No harvest"))#,hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0,PFMC_include_above=1000000))
     
     #PST
     ## 85% of avg 09-15
@@ -1440,31 +1442,33 @@ if(sim_for_model){
                    NT_rates=c(floor((ave_harv/2)*100)/100,rep(NA,2)),
                    NT_scalar=c(NA,1,rep(NA,1)),
                    NT_offset=c(NA,12143,rep(NA,1)),
-                   NT_share = c(NA,.5,rep(NA,1)))
+                   NT_share = c(NA,.5,rep(NA,1)),
+                   PFMC_include_above=0)
     
     
-    internal_data$`PST` <-list(perf=summarize_sim(do.call(pop_sim,PST_HCR),HCR="PST"),hcr=do.call(seq_HCR,PST_HCR))
+    internal_data$`PST` <-list(perf=summarize_sim(do.call(pop_sim,PST_HCR),HCR="PST"))#,hcr=do.call(seq_HCR,PST_HCR))
     
     
-    simplified_MA<-list(
-      treaty_tiers=c(36250,rep(NA,2)),
-      treaty_rates=c(.1,rep(NA,2)),
-      treaty_scalar=c(NA,1,rep(NA,1)),
-      treaty_offset=c(NA,29000,rep(NA,1)),
-      treaty_share = c(NA,.5,rep(NA,1)),
-      NT_tiers=c(36250,rep(NA,2)),
-      NT_rates=c(.1,rep(NA,2)),
-      NT_scalar=c(NA,1,rep(NA,1)),
-      NT_offset=c(NA,29000,rep(NA,1)),
-      NT_share = c(NA,.5,rep(NA,1)))
-    
-    internal_data$`Simplified MA` <-list(perf=Sumsimmer:::summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"),hcr=do.call(Sumsimmer:::seq_HCR,simplified_MA))
-    
-    
-    
-    internal_data$`No harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="No harvest"),hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0))
+    # simplified_MA<-list(
+    #   treaty_tiers=c(36250,rep(NA,2)),
+    #   treaty_rates=c(.1,rep(NA,2)),
+    #   treaty_scalar=c(NA,1,rep(NA,1)),
+    #   treaty_offset=c(NA,29000,rep(NA,1)),
+    #   treaty_share = c(NA,.5,rep(NA,1)),
+    #   NT_tiers=c(36250,rep(NA,2)),
+    #   NT_rates=c(.1,rep(NA,2)),
+    #   NT_scalar=c(NA,1,rep(NA,1)),
+    #   NT_offset=c(NA,29000,rep(NA,1)),
+    #   NT_share = c(NA,.5,rep(NA,1)),
+    #   PFMC_include_above=29000)
+    # 
+    # internal_data$`Simplified MA` <-list(perf=Sumsimmer:::summarize_sim(do.call(pop_sim,simplified_MA),HCR="Simplified MA"))#,hcr=do.call(Sumsimmer:::seq_HCR,simplified_MA))
     
     
+    
+    # internal_data$`No harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="No_harvest"),hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0))
+
+
     
  
   

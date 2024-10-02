@@ -9,7 +9,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
 
   # Show plot
   mainPanel(  h3("Harvest control rule definition"),
-  "The current harvest control rule specifies fixed rates in some lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
+  "The current harvest control rule specifies fixed rates numbers or rates in lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
               $$(scalar * run size - offset) * share$$",
 
 
@@ -20,15 +20,13 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
               p(em("share"), "= if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset."),
   br(),
   p("The", em("run size"), "abundance index for the current harvest control rule is the total river mouth run size plus calendar year PFMC AEQ mortalities. Check this box to change the abundance index to the ",em("wild river mouth run size"), "which is wild escapement devided by one minus the wild terminal harvest rate."),
-  checkboxInput(NS(id,"wild_AI"), "Use wild abundance index", value = FALSE),
-  numericInput(
-    NS(id,"pfmc_cutoff"),
-    "Run size above which PFMC AEQ is included in ",
-    value=29000,
-    min = 0,
-    max = 1000000,
-    step = 1000
+    numericInput(
+    NS(id,"pfmc_cutoff_id"),
+    "Run size above which PFMC AEQ is included in the Non-treaty allocation",
+    value=10
   ),
+  checkboxInput(NS(id,"wild_AI"), "Use wild-only abundance index", value = FALSE),
+
   br(),
               DTOutput(NS(id,"my_datatable")),
               "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
@@ -100,9 +98,14 @@ HCR_feedback_server <- function(id,
                                 NT_scalar=c(rep(NA,5),1,.75),
                                 NT_offset=c(rep(NA,5),29000,16500),
                                 NT_share=c(rep(NA,5),.5,.5),
-                                editable=TRUE){
+                                pfmc_cutoff,
+                                editable=TRUE,
+                                custom=FALSE){
 
   moduleServer(id, function(input, output, session) {
+
+    # Update the default value for PFMC cutoff
+      updateNumericInput(session, "pfmc_cutoff_id", value = pfmc_cutoff)
 
   #initialize a blank dataframe
   v <- reactiveValues(data = {
@@ -196,17 +199,39 @@ hcr_data_fun<-function(do_notifs=FALSE,index,PFMC_include_point){
 
 
   # Create a reactive value to store the simulation outputs
-  hcr_out <- reactiveVal({
-    Sumsimmer:::internal_data[[id]]$hcr
-  }
+hcr_out <- reactiveVal(NULL)
+
+# Update hcr_out based on input changes
+if(!custom){
+observeEvent({
+  input$wild_AI
+}, {
+  hcr_out(
+    hcr_data_fun(
+      do_notifs = TRUE,
+      index = ifelse(input$wild_AI, "wild", "total"),
+      PFMC_include_point = pfmc_cutoff
+    )
   )
+}, once = TRUE)
+}
+
+#
+#   hcr_out <- reactiveVal({
+#     hcr_data_fun(do_notifs=TRUE,
+#                  index=ifelse(input$wild_AI,"wild","total"),
+#                  PFMC_include_point=input$pfmc_cutoff_id)
+#     # Sumsimmer:::internal_data[[id]]$hcr
+#   }
+#   )
+
 
   # Observe the button click event to call the function and store its output
   observeEvent(input$go, {
     req(input$go)
     hcr_out(hcr_data_fun(do_notifs=TRUE,
                          index=ifelse(input$wild_AI,"wild","total"),
-                         PFMC_include_point=input$pfmc_cutoff))
+                         PFMC_include_point=input$pfmc_cutoff_id))
 
   })
 
