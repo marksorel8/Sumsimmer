@@ -1,5 +1,6 @@
 library(shiny)
 library(DT)
+library(rmarkdown)
 library(tidyverse)
 if (!requireNamespace("Sumsimmer", quietly = TRUE)) {
   # Install the package from GitHub if it is not installed
@@ -296,8 +297,8 @@ sim_params<-as_tibble(do.call(rbind, lapply(params_list,as.data.frame)))|>
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "report.Rmd")
-      file.copy("report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "Report.Rmd")
+      file.copy("Report.Rmd", tempReport, overwrite = TRUE)
 
       # Set up parameters to pass to Rmd document
       params <- list(sim_params=stored_value()$sim_params,
