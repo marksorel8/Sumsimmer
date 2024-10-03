@@ -240,14 +240,13 @@ observeEvent({
     req(hcr_out())
     Sumsimmer:::plot_HCR(hcr_out(),
              input$total_NT
-
     )
 
   })
 
 
 
-  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE,index){
+  sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE,index,PFMC_include_point){
         newData <-  with(isolate(v$data),
                      pop_sim(
                        index=index,
@@ -264,7 +263,8 @@ observeEvent({
                        in_river_harvest_model_option = harv_mod,
                        HOS_model=HOS_model,
                        NT_Unmarked_release_rate=URR,
-                       implementation_error_scalar=IE
+                       implementation_error_scalar=IE,
+                       PFMC_include_above=PFMC_include_point
                      )
     )
 
@@ -297,7 +297,8 @@ observeEvent({
                      HOS_model=ifelse(input$HOS_option,"HOE","zero"),
                      URR=input$URR,
                      IE=input$IE,
-                     index=ifelse(input$wild_AI,"wild","total")
+                     index=ifelse(input$wild_AI,"wild","total"),
+                     PFMC_include_point=input$pfmc_cutoff_id
                      ))
 
 
@@ -320,8 +321,22 @@ output$sim1_harv <- renderPlot({
 
 })
 
+ params_list<-reactiveVal(NULL)
+
+   observe(
+     params_list(list(
+    harv_mod=input$option2,
+    HOS_model=ifelse(input$HOS_option,"HOE","zero"),
+    URR=input$URR,
+    IE=input$IE
+  ))
+)
+
+
+
   return(list(sim=sim1,
-              hcr = hcr_out))
+              hcr = hcr_out,
+              params=params_list))
 
 })
 }

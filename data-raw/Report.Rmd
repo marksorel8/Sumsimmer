@@ -1,9 +1,13 @@
 ---
 title: "Report"
+date: "`r Sys.Date()`"
 output:
   word_document: default
   html_document: default
 params:
+  sim_params: NA
+  tbl_T: NA
+  tbl_NT: NA
   hcr_plot: NA
   harv_plot: NA
   NOE_plot: NA
@@ -21,7 +25,24 @@ knitr::opts_chunk$set(echo = FALSE,
 ```
 
 
-```{r, fig.cap=" Harvest rates for different sectors and all sectors combined under alternative harvest control rules. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates."}
+### Parameters used in sumulations
+
+  *Harv_mod* is the choice for model of allowed vs. realized harvest. The "log-log" model assumes that the average harvest will be less than the allowed, the "broken-stick" model assumes that in-river harvest is not responsive (due to management error) at lower allowed harvest rates, and the "average" model assumes that harvest will be equal to allowed on average
+  
+  *HOS_mod* indicates wheather hatchery-origin spawners were included. "HOE" indicates that they were included and "zero" indicated that they were not
+  
+  *URR* is the proportion of unmarked fish captured in the non-treaty fisheries that are released.
+  
+  *IE* is a scalar for implementation error in harvest (i.e., due to forecast and managment error). The defaults are 20% for treaty and 0.15% for non-treaty with the default model, and 21% for treaty and .18% for non-treaty with the broken hockey stick model. The scalar is multiplied by those default values.
+  
+```{r}
+knitr::kable(params$sim_params)
+```
+
+
+### simulation results
+
+```{r, fig.cap=" Harvest rates for different sectors and all sectors combined under alternative harvest control rules. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is at average rates.",fig.width = 7,fig.height = 8}
 (params$hcr_plot)
 ```
 
@@ -58,6 +79,37 @@ print(params$hatch_plot)
 print(params$h_surplus)
 ```
 
+## Harvest control rule definitions
 
+The current harvest control rule specifies fixed rates numbers or rates in lower abundance tiers, and in higher abundance tiers the allowable catch is calculated as:
+              $$(scalar * run size - offset) * share$$
+
+
+- *tiers* = the run size below which the rates in the row are applied.
+- *rate* = if a value is entered in the rate column, that is the harvest rate for the tier. If the value is greater than 1, it is assumed to be a total allowable catch rather than a rate.
+- *scalar* = if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multiplied by the run size.
+- *offset* = if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is subtracted from the scaled run size.
+- *share* = if the allowable catch is a function of the run size, as in the two highest tiers of the current rule, this number is multipled by the scales run size less the offset.
+
+
+The abundance index for the current harvest control rule is the total river mouth run size plus calendar year PFMC AEQ mortalities. If the value in the index column in the tables below is "wild" then that harvest control rule was based on an index representing wild abundance at the river mouth.
+
+
+THe current harvest control rules includes PFMC AEQ morts in the non-treaty share at run size >29,000. There is a column in the tables below that specifies teh run size above which PFMC AEQ mortalities were included in the Non-treaty share. 
+
+
+### Non-treaty
+
+```{r}
+knitr::kable(params$tbl_NT,caption = "Non-treaty harvest control rule definitions")
+```
+
+
+
+### Treaty
+
+```{r}
+knitr::kable(params$tbl_T,caption = "Treaty harvest control rule definitions")
+```
 
 

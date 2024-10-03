@@ -33,7 +33,7 @@ plot_harvest_quants<-function(harvest_quants){
 seq_HCR<-function(index="total",
                   pfmc_cutoff=29000,
                   treaty_tiers = c(16000,36250,50000,Inf),
-                  treaty_rates = c(.05,.1,NA,NA),
+                  treaty_rates = c(.05,.1,NA,NA,),
                   treaty_scalar = c(NA,NA,1,.75),
                   treaty_offset = c(NA,NA,29000,16500),
                   treaty_share = c(NA,NA,.5,.5),
@@ -44,6 +44,24 @@ seq_HCR<-function(index="total",
                   NT_share = c(rep(NA,5),.5,.5),
                   n = 200
 ){
+
+  sum_tab<-data.frame(
+    index = index,
+    pfmc_cutoff =pfmc_cutoff,
+    treaty_tiers = c(treaty_tiers,rep(NA,20-length(treaty_tiers))),
+    treaty_rates = c(treaty_rates,rep(NA,20-length(treaty_rates))),
+    treaty_scalar = c(treaty_scalar,rep(NA,20-length(treaty_scalar))),
+    treaty_offset = c(treaty_offset,rep(NA,20-length(treaty_offset))),
+    treaty_share = c(treaty_share,rep(NA,20-length(treaty_share))),
+    NT_tiers = c(NT_tiers,rep(NA,20-length(NT_tiers))),
+    NT_rates = c(NT_rates,rep(NA,20-length(NT_rates))),
+    NT_scalar = c(NT_scalar,rep(NA,20-length(NT_scalar))),
+    NT_offset = c(NT_offset,rep(NA,20-length(NT_offset))),
+    NT_share = c(NT_share,rep(NA,20-length(NT_share)))
+  )
+
+
+
   tryCatch({
     check_HCR(treaty_tiers,
               treaty_rates,
@@ -61,11 +79,11 @@ seq_HCR<-function(index="total",
               NT_share,
               "Non-treaty")
 
-if(index=="total"){
-    RMRS<-seq(2000,150000,length.out=n)
-}else{
-  RMRS<-seq(1000,50000,length.out=n)
-}
+    if(index=="total"){
+      RMRS<-seq(2000,150000,length.out=n)
+    }else{
+      RMRS<-seq(1000,50000,length.out=n)
+    }
 
     PFMC<-sim_PFMC(RMRS,pfmc_err=0)
     PFMC_2<-ifelse((RMRS+PFMC)<pfmc_cutoff|index=="wild",0,PFMC)
@@ -106,12 +124,14 @@ if(index=="total"){
       NT[i]<-((allowed*(AI[i]))-PFMC_2[i])/(RMRS[i])
     }
 
+
     list(Treaty = Treaty,
          NT = NT,
          NT_w_PFMC = NT_w_PFMC,
          RMRS = RMRS,
-         PFMC = PFMC_2
-         )
+         PFMC = PFMC_2,
+         sum_tab=sum_tab
+    )
 
   }, error=function(e){
     return(e)
@@ -139,9 +159,46 @@ plot_HCR<-function(HR_seqs,
 }
 
 plot_HCR_compare<-function(seq_list){
-  tbl <- as_tibble(do.call(rbind, lapply(seq_list, as.data.frame)))
-  tbl |>
-    mutate(`Harvest rule` = rep(names(seq_list),each=length(seq_list[[1]][[1]])))%>%
+
+  tbl <- as_tibble(do.call(rbind, lapply(seq_list,as.data.frame)))|>
+    mutate(`Harvest rule` = rep(names(seq_list),each =length(seq_list[[1]][[1]])))
+
+  tbl2 <- tbl |> select(`Harvest rule`,
+                        index = sum_tab.index,
+                        pfmc_cutoff = sum_tab.pfmc_cutoff,
+                        tiers = sum_tab.NT_tiers,
+                        rates = sum_tab.NT_rates,
+                        scalar = sum_tab.NT_scalar,
+                        offset = sum_tab.NT_offset,
+                        share = sum_tab.NT_share
+  )|>
+    distinct() |>
+    filter(!(is.na(tiers)&
+             is.na(rates)&
+             is.na(scalar)&
+             is.na(offset)&
+             is.na(share)))
+
+  tbl3 <- tbl |> select(`Harvest rule`,
+                        index = sum_tab.index,
+                        pfmc_cutoff = sum_tab.pfmc_cutoff,
+                        tiers = sum_tab.treaty_tiers,
+                        rates = sum_tab.treaty_rates,
+                        scalar = sum_tab.treaty_scalar,
+                        offset = sum_tab.treaty_offset,
+                        share = sum_tab.treaty_share,
+                        NT_tiers = sum_tab.NT_tiers
+  )|>
+    distinct()|>
+    filter(!(is.na(tiers)&
+               is.na(rates)&
+               is.na(scalar)&
+               is.na(offset)&
+               is.na(share)))
+
+
+
+  plot<-tbl %>%
     select(`Harvest rule`, everything())%>%
     mutate(total_in_river=Treaty+NT,
            total_w_PFMC=Treaty+NT_w_PFMC,
@@ -166,7 +223,9 @@ plot_HCR_compare<-function(seq_list){
     ggplot(aes(x=RMRS,y=`Harvest rate`,color=`Harvest rule`))+geom_line(lwd=2,alpha=.8)+facet_wrap(~sector)+scale_color_brewer(palette="Dark2")+xlab("River Mouth Run Size")+theme_gray(base_size = 16)+geom_hline(aes(yintercept=0),linetype = 2)+ylab("Allowed harvest rate")+
     scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+theme(legend.position = "top")
 
-
+  list(tbl2=tbl2,
+       tbl3=tbl3,
+       plot=plot)
 }
 
 #plot_HCR()
