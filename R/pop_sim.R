@@ -73,6 +73,8 @@ pop_sim<-function(index="total",
                   init_PNI=internal_data$init_PNI,
                   MREER_matrix=internal_data$MREER_out[,,],
                   age_prop_array=internal_data$age_props[,,,],
+                  alpha=internal_data$alphas,
+                  Rmax=c(1000000,internal_data$Rmax),
                   SR_err=internal_data$SR_err[,,],
                   HOS_model="HOE",
                   HOS_err=internal_data$HOS_err[,,],
@@ -255,7 +257,9 @@ pop_sim<-function(index="total",
         }
 
 
-        recruits[,y,i]<-Ricker_fun(S[,y,i],SR_err[,y,i])
+        recruits[,y,i]<-Ricker_fun(S[,y,i],SR_err[,y,i],
+                                   alpha = alpha,
+                                   Rmax = Rmax)
 
         #apportion to ages
         age_recruits<- recruits[,y,i]*t(age_prop_array[,,y,i]) # populations (rows) by ages (columns)

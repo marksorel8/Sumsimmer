@@ -2,9 +2,9 @@
 
 Ricker_fun<-function(S,
                      err,
-                     alpha=internal_data$alpha,
+                     alpha,
                      # beta=c(0,internal_data$beta)
-                     Rmax=c(1000000,internal_data$Rmax)
+                     Rmax
                      )
                      {
 
