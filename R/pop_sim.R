@@ -154,7 +154,7 @@ pop_sim<-function(index="total",
 
     S<-adult_return<-returns<-HOB<-recruits<-terminal_NT<-terminal_treaty<-escapement<-array(0,dim=c(4,n_years+12,n_iter),dimnames=list(pop=c("Hatchery","Methow","Okanogan","Wenatchee"),years=seq(from=start_year,by=1,length.out=n_years+12),iter=1:n_iter)) # returns will not be complete until year 7 and Spawners and recruits will be 0 in the last 6 years
 
-    # initialise spawners and smolts in first size years
+    # initialise spawners and smolts in first six years
     S[,1:6,] <- t(init_S)
     S[1,-c(1:6,(n_years+(7:12))),] <- smolts[1:(n_years),1:n_iter] # expected smolt releases if broodstock are sufficient. reduced proportionally within population simulations if not enough fish available for broodstocks
 

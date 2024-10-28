@@ -106,7 +106,7 @@ list(
   NOE_plot_2row=plot_NOE_quants(combined_list$Esc,2),
 
 
-  NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
+  # NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
 
 
 

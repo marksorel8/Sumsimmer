@@ -29,6 +29,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
                   column(4,checkboxInput(NS(id,"wild_AI"), "Use wild-only abundance index", value = FALSE))),
 
                 br(),
+
                 DTOutput(NS(id,"my_datatable")),
                 "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
                 br(),
@@ -165,6 +166,9 @@ HCR_feedback_server <- function(id,
 
   moduleServer(id, function(input, output, session) {
 
+
+
+
     # Update the default value for PFMC cutoff
     updateNumericInput(session, "pfmc_cutoff_id", value = pfmc_cutoff)
 
@@ -244,7 +248,7 @@ HCR_feedback_server <- function(id,
                        NT_rates=NT_rates,
                        NT_scalar=NT_scalar,
                        NT_offset=NT_offset,
-                       NT_share=NT_share
+                       NT_share=NT_share,
                      )
       )
 
