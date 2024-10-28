@@ -13,7 +13,7 @@ params:
   NOE_plot: NA
   NOS_plot: NA
   spawners_plot: NA
-  NOE_ratios_plot: NA
+  # NOE_ratios_plot: NA
   RMRS_plot: NA
   hatch_plot: NA
   h_surplus: NA
@@ -63,9 +63,9 @@ print(params$NOS_plot)
 print(params$spawners_plot)
 ```
 
-```{r, fig.cap="Ratio of escapement to unfished escapement. Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule."}
-print(params$NOE_ratios_plot)
-```
+<!-- ```{r, fig.cap="Ratio of escapement to unfished escapement. Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule."} -->
+<!-- print(params$NOE_ratios_plot) -->
+<!-- ``` -->
 
 ```{r, fig.cap= "Boxplots show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model." }
 print(params$RMRS_plot)

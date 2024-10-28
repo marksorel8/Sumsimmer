@@ -21,7 +21,7 @@ ui <- fluidPage(
                         tags$li(tags$i(style="color: blue;","No harvest"), " - A baseline with no terminral harvest"),
                         tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
 
-                        tags$li(tags$i(style="color: blue;","PST"), " - The harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
+                        tags$li(tags$i(style="color: blue;","PST"), " -  Approximates the harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
                         tags$li(tags$i(style="color: blue;","Custom 1 & 2"), " - These are blank canvases for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
                       ),
 
@@ -36,8 +36,10 @@ ui <- fluidPage(
              ),
              tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No_harvest","No terminal harvest")),
              tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current_MA","Harvest control rule from 2018-2027 Agreement")),
+             # tabPanel("Current MA2", Sumsimmer:::HCR_feedback_UI("Current_MA2","Harvest control rule from 2018-2027 Agreement")),
              # tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
-             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Approximate harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             # tabPanel("PST2", Sumsimmer:::HCR_feedback_UI("PST2","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
              tabPanel("Custom 1", Sumsimmer:::HCR_feedback_UI("Custom_1","")),
              tabPanel("Custom 2", Sumsimmer:::HCR_feedback_UI("Custom_2","")),
              # tabPanel("Alt 1", HCR_feedback_UI("page2","Alternative harvest control rule # 1")),
@@ -88,7 +90,9 @@ ui <- fluidPage(
 
 
                       plotOutput("extra_perf_plot"),
-                      p(tags$b("Ratio of escapement to unfished escapement, and river mouth run size."), " Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule. Boxplots in the right panel show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model."),
+                      p(tags$b(#"Ratio of escapement to unfished escapement, and
+                        "River mouth run size."), #" Bars in the left panel show the ratio of geometric mean escapement between a given harvest control rule and a no-terminal-fishing control rule. Boxplots in the right panel
+                        "Boxplots show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model."),
                       # p(style="text-align:center",
                       #   h4("Spawners plots")),
                       # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
@@ -126,12 +130,19 @@ server <- function(input, output, session) {
   #                                NT_offset=NA,
   #                                NT_share=NA,
   #                              pfmc_cutoff=100000)
+
+
+
   no_harv<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="No_harvest",Sumsimmer:::internal_data$`No harvest`$perf$HCR,editable=TRUE)))
 
   current<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Current_MA",Sumsimmer:::internal_data$`Current MA`$perf$HCR,editable=TRUE)))
+
+  # current2<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Current_MA2",Sumsimmer:::internal_data$`Current MA`$perf$HCR,editable=TRUE)))
   # Sumsimmer:::HCR_feedback_server(id="Current MA",editable=TRUE, pfmc_cutoff=29000)
 
   PST<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
+
+  # PST2<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST2",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
 
   # simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
@@ -171,8 +182,10 @@ server <- function(input, output, session) {
   render_HCR_compare<-function(){
     hcr_list<-list("No harvest"=no_harv$hcr(),
                    "Current MA"=current$hcr(),
+                   # "Current MA2"=current2$hcr(),
                    # "Simplified MA"=simple_ma$hcr(),
                    "PST" = PST$hcr(),
+                   # "PST2" = PST2$hcr(),
                    "Custom 1" = sim3$hcr(),
                    "Custom 2" = sim4$hcr()
     )
@@ -183,8 +196,10 @@ server <- function(input, output, session) {
 
     perf_list<-list(no_harv$sim()[1:8],
                     current$sim()[1:8],
+                    # current2$sim()[1:8],
                     # simple_ma$sim()[1:8],
                     PST$sim()[1:8],
+                    # PST2$sim()[1:8],
                     sim3$sim()[1:8],
                     sim4$sim()[1:8]
     )
@@ -226,7 +241,8 @@ server <- function(input, output, session) {
 
       })
 
-      extra_perf_plot<-ggpubr::ggarrange(plots$NOE_ratios_plot,plots$RMRS_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1.3,2))
+      extra_perf_plot<-ggpubr::ggarrange(#plots$NOE_ratios_plot,
+                                         plots$RMRS_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1.3,2))
 
       output$extra_perf_plot <-renderPlot({
 
@@ -248,8 +264,10 @@ server <- function(input, output, session) {
 
       params_list <- list("No harvest"=no_harv$params(),
                           "Current MA"=current$params(),
+                          # "Current MA2"=current2$params(),
                           # "Simplified MA"=simple_ma$hcr(),
                           "PST" = PST$params(),
+                          # "PST2" = PST2$params(),
                           "Custom 1" = sim3$params(),
                           "Custom 2" = sim4$params()
       )
@@ -309,7 +327,7 @@ sim_params<-as_tibble(do.call(rbind, lapply(params_list,as.data.frame)))|>
                      NOE_plot = stored_value()$plots$NOE_plot_2row,
                      NOS_plot = stored_value()$plots$NOS_plot,
                      spawners_plot = stored_value()$plots$spawners_plot,
-                     NOE_ratios_plot = stored_value()$plots$NOE_ratios_plot,
+                     # NOE_ratios_plot = stored_value()$plots$NOE_ratios_plot,
                      RMRS_plot = stored_value()$plots$RMRS_plot,
                      hatch_plot = stored_value()$plots$hatch_plot_2row,
                      h_surplus = stored_value()$plots$h_surplus)

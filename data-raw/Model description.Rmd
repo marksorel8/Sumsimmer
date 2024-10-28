@@ -419,7 +419,7 @@ To simulate the system I needed modules to simulate the following processes:
 
 I fit Ricker spawner-recruit relationships for each natural population.
 $$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text{spawners}_y}{e*\text{Rmax}}+\varepsilon_y\right)$$
-where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. I assumed that all populations had the same $\alpha$ but allowed $\text{Rmax}$ to differ among populations. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
+where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
 
 
 I explored different assumptions regarding the relative reproductive succes (RRS) of hatchery-origin spawners (e.g., fitting a common RRS or unique RRS  for each population) and found data support (based on AIC) for a common RRS =1.0. Thus hatchery origin spawners were modeled as contributing eqally to recruitment as natural-origin spawners. Interestingly, in models where each basin had a unique RRS, it was high in the Methow and Wenatchee and low in the Okanogan. Thus the lower productivity parameter in the Okanogan (Table 1) might actually be due to lower reproductive contribution of hatchery-origin spawners.  
@@ -620,16 +620,24 @@ library(RTMB)
 n_yrs<-diff(range(all_SR$brood_year))+1
 n_pops<-4
 
-SR_TMB_dat<-make_TMB_data(all_SR,S_dummy)
+SR_TMB_dat<-make_TMB_data(all_SR |> filter(brood_year>=1997),S_dummy)
 ##parameters
 params<-list(
-  alpha=log(c(10,rep(2,3))),
+  alpha_h=log(10),
+  alpha=log(c(rep(2,3))),
   Rmax=rep(log(50000),3),
   log_sigma=rep(-1,4),
   cors=rep(.2,6),
   err=matrix(-1,n_yrs+1,4),
+  # S_hat=(SR_TMB_dat$NOS+SR_TMB_dat$HOS)*.9,
+  # R_hat=SR_TMB_dat$R*.9,
   # log_R=0
   logit_rho=rep(0,4)#,
+  # alpha_mu=log(2),
+  # alpha_sd=log(.5),
+  #   Rmax_mu=log(20000),
+  # Rmax_sd=log(1)
+  
   # logit_RRS=rep(2,3)
   # mu_RRS=0,
   # sigma_RRS=0
@@ -650,9 +658,9 @@ f<-function(parms){
   
   
   # alpha_vec<-exp(c(alpha[1],rep(alpha[2],3)))
-  alpha_vec<-exp(alpha)
+  alpha_vec<-exp(c(alpha_h,alpha))
   alpha_vec2<-(X[,1:4]%*%alpha_vec)
-  alpha_vec3<-alpha_vec2*S
+  alpha_vec3<-alpha_vec2*S#_hat
   
   
   Rmax_vec<-c(1000000,exp(Rmax))
@@ -696,6 +704,14 @@ f<-function(parms){
   nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
   
   nll <- nll -sum(dnorm(logit_rho,-1,2,log=TRUE))
+  # 
+  # 
+  nll <- nll -sum(dnorm(alpha,alpha_mu,exp(alpha_sd),log=TRUE))
+  nll <- nll -sum(dnorm(Rmax,Rmax_mu,exp(Rmax_sd),log=TRUE))
+
+  
+   # nll <- nll -sum(dnorm(log(S_hat),log(S),.1,log=TRUE))
+      # nll <- nll -sum(dnorm(log(R_hat),log(R),.1,log=TRUE))
   # nll <- nll -sum(dnorm(logit_RRS,0,1,log=TRUE))
     # nll <- nll -sum(dnorm(logit_RRS,mu_RRS,exp(sigma_RRS),log=TRUE))
     # nll <- nll  -sum(dexp(exp(sigma_RRS),1,log=TRUE))
@@ -707,7 +723,7 @@ f<-function(parms){
 f(params) #test objective function 
 
 #cosntruct model object
-obj <- MakeADFun(f, params,random=c("err"))
+obj <- MakeADFun(f, params,random=c("err","alpha","Rmax"))#,"S_hat","R_hat"
 
 #optimize
 fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
@@ -723,22 +739,30 @@ par_list<-obj$env$parList(par=obj$env$last.par.best)
 # (par_list$mu_RRS)
 alpha<-exp(par_list$alpha)
 Rmax<- exp(par_list$Rmax)
-beta<-alpha[2]*exp(-1)/Rmax
+beta<-alpha*exp(-1)/Rmax
 marg_sd<-exp(par_list$log_sigma)
 rho<-plogis(par_list$logit_rho)
 us<-unstructured(4)
 rick_cor<-us$corr(par_list$cors)
 
 
-Smsy <-(1-W(exp(1-log(alpha[2]))))/beta
+Smsy <-(1-W(exp(1-log(alpha))))/beta
+sum(Smsy)
 # Smsy
 # fit$AIC
+
+
+
+
+
+
+
 
 ```
 
 
 
-```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' observations. Vertical dashed line is at Smsy, the number of spawners for maximum sustainable yield."}
+```{r plot_SR, fig.cap= "Figure. Stock-recruit relationships with 95% prediction intervals and past years' escapement estimates Vertical dashed line is at Smsy, the number of spawners for maximum sustainable yield."}
 ricker_pred<-SR_TMB_dat$test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S_tot),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
   left_join(
@@ -924,7 +948,7 @@ sim_mod$marss$fixed$x0[,,1]<-sim_mod$states[,dim(sim_mod$states)[2]]
 
 ```
 
-```{r age_sim_fig,fig.cap="Figure. One random simulated time series of recruit age proportions for brood years 2018-2067.The years through 2017 are the observed age proportions."}
+```{r age_sim_fig,fig.cap="Figure. One random simulated time series of recruit age proportions for brood years 2018-2067.The years through 2017 are estimated age proportions for those years."}
 
 test<-MARSS::MARSSsimulate(sim_mod,tSteps = 50,1)$sim.data
 
@@ -997,7 +1021,7 @@ pfmc_mod_fit<-optim(c(c(.06),0),pfmc_mod_fun)
 RMRS<-seq(1,150000,by=10000)
 ```
 
-We model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error. On average from 2010-2021, the PFMC AEQ mortalities were `r round(pfmc_mod_fit$par[1]*100,1)`% of the RMRS, with `r round(exp(pfmc_mod_fit$par[2])*100)`% average inter-annual variability.
+I model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error. On average from 2010-2021, the PFMC AEQ mortalities were `r round(pfmc_mod_fit$par[1]*100,1)`% of the RMRS, with `r round(exp(pfmc_mod_fit$par[2])*100)`% average inter-annual variability.
 
 
 ```{r , fig.cap="Figure. PFMC AEQ mortalities vs. river mouth run size. The line and shaded area represent the mean and 95% prediction intervals. The points represent observations (from TAC run-reconstruction files) from 2010--2021."}
@@ -1010,11 +1034,13 @@ tibble(RMRS=RMRS,fit=pfmc_mod_fit$par[1]*RMRS) |> mutate(
 
 #### In-river harvest
 
-I implemented two different options for simulating in-river harvest  as a function of what is allowed. 
+I implemented three different options for simulating in-river harvest  as a function of what is allowed. 
 
 1. The default model (top row of plots below) assumes that total harvest has a linear relationship with allowed harvest in log space. Both the allowed and the realized include the PFMC AEQ mortalities. The 2019 fishery was removed when fitting this model due its outsized effect on the residual error standard deviation. 
 
 2. Since 2008, both sectors have been more likely to exceed their allowable take when it is small. The most dramatic example of this was the 2019 non-Treaty in-river fishery. Not fully understanding whether this will be a persistent pattern that goes into the future, I developed an alternative model (bottom row of figure below) where the average realized harvest rate is constant below a certain threshold of allowed harvest. This model would reflect a world where harvest is not responsive to what is allowed below a certain threshold.
+
+3. Finally, one can specify to have the harvest fluctuate around the allowed (i.e., exceeds allowed about half the years) with logrnomal error.
 
 ```{r in_river_harv, fig.cap="Figure . Relationships between alllowed and realized harvest. Blue lines are the 1:1, red lines are the mean relationship, grey shaded areas span 95% prediction intervals, and points are estimates from 2008-2022. The pink diamond points represent 2019. The top row represents the default model used for simulation, where there is a log-log relationship between allowed and realized total harvest (including PFMC AEQ ocean morts). The second row is an alternative model where there is a segmented relationship between the allowed and realized in-river harvest rate (excluding PFMC)."}
 pfmc_morts_2<-pfmc_morts |> dplyr::select(`Allowed Treaty or NT Harvest`,`PFMC NT Harvest Total`,`Total In-river NT`,`Total Treaty`,`Total NT`,RMRS=`River Mouth Run Size`,Year) |> pivot_longer(c(`Total Treaty`,`Total In-river NT`),values_to = "In_river_harvest",names_to = "Sector") |>
@@ -1113,15 +1139,15 @@ The expected number of fish handled $n^\text{Handle}$ that results in $n^\text{D
 
 As fish are killed in this manner, the mark rate changes, because marked fish are being killed at a higher rate than unmarked fish. Therefore, the new mark rate of the run ${p^\text{mark total*}}$ must be updated as mortalities accrue, 
 $$p^{\text{Mark total*}}=\frac{N*p^\text{Mark total}-n^\text{Tot dead marked}}{N-(n^\text{Tot dead marked}+n^\text{Tot dead unmarked})}$$
-where $N$ is the number of fish at large prior to fishing $p^\text{mark total}$ is mark rate prior to fishing, and $n^\text{Tot dead marked}$ is the total number of marked fish mortalities. The new mark rate must then be used in the equations to calculate marked and unmarked mortalities for a given number of dead fish. The fishing mortality rate on marked ($HR^\text{marked}=n^\text{Tot dead marked}/ (N*p^\text{Mark total})$) and unmarked ($HR^\text{unmarked}=n^\text{Tot dead unmarked}/ \left(N*(1-p^\text{Mark total})\right)$) fish for a given number of total mortalities is thus calculated recursively using the above equations. I updated the mark rate of the fish at large after every 0.1% impact. 
+where $N$ is the number of fish at large prior to fishing, $p^\text{mark total}$ is mark rate prior to fishing, and $n^\text{Tot dead marked}$ is the total number of marked fish mortalities. The new mark rate must then be used in the equations to calculate marked and unmarked mortalities for a given number of dead fish. The fishing mortality rate on marked -- $HR^\text{marked}=n^\text{Tot dead marked}/ (N*p^\text{Mark total})$ -- and unmarked -- $HR^\text{unmarked}=n^\text{Tot dead unmarked}/ \left(N*(1-p^\text{Mark total})\right)$ -- fish for a given number of total mortalities is thus calculated recursively using the above equations. I updated the mark rate of the fish at large after every 0.1% impact. 
 
 
-The fishing mortality on natural-origin fish is the fishing mortality on unmarked fish and the fishing mortality on hatchery fish is the weighted average of the marked and unmarked harvest rates, where the weights are determined by the mark rate of the hatchery stock.
+The fishing mortality on natural-origin fish is the fishing mortality on unmarked fish.  The fishing mortality on hatchery fish is the weighted average of the marked and unmarked harvest rates, where the weights are determined by the mark rate of the hatchery stock.
 
 $$HR^\text{Hatchery}=p^\text{Mark hatchery}*HR^\text{marked}+(1-p^\text{Mark hatchery})*HR^\text{unmarked}$$
 
 
-I assumed that the proportion of handled unmarked fish that will be released ($p^\text{UM release}$) in non-Treaty fisheries would be the average 2020--2023 rate (`r round(URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR),2)`)
+I assumed that the proportion of handled unmarked fish that will be released ($p^\text{UM release}$) in non-Treaty fisheries would be the average 2020--2023 rate (`r round(URR |> filter(Year>=2021) |> summarize(URR=mean(URR)) |> pull(URR),2)`), although this parameter can be varied in the model.
 
 ```{r, fig.cap="Figure . Proportion of unmarked fish handled in all non-Treaty fisheries that were released, by year."}
 
@@ -1141,13 +1167,13 @@ I assumed that the mark rate of hatchery fish would be the average mark rate of 
 
 ### Broodstock collection
 
-I assume that the Methow and Wenatchee integrated programs will collect their target natural-origin broodstock, with 10% error, unless that constitues >30% of the total natural-origin escapement to that tributary. In that case, 30% of the natural-origin escapement is collected, with 10% error. The escapement goals for the Wenatchee is 310 total adults and for the Methow is 122. 
+I assumed that the Methow and Wenatchee integrated programs will collect their target natural-origin broodstock, with 10% error, unless that constitutes >30% of the total natural-origin escapement to that tributary. In that case, 30% of the natural-origin escapement is collected, with 10% error. The escapement goals for the Wenatchee is 310 total adults and for the Methow is 122. 
 
 The Okanogan program has more frequently collected less than their natural-origin broodstock target of 656 adults, so I implemented a positive relationship between natural-origin escapement and natural-origin broodstock collection up to the target.
 
 
 
-```{r broodstock_removal}
+```{r broodstock_removal, fig.cap="Natural-origin broodstock collection vs. natural-origin escapement by basin."}
 
 
 esc_dat %>% filter(year>=2012)|> dplyr::select(year,population_name ,Broodstock=NOBroodStockRemoved,NOR) %>%
@@ -1163,7 +1189,7 @@ Ok_bs_mod<-(lm(log(NOBroodStockRemoved)~log(NOR)-1,
 
 ### Hatchery-origin spawners
 
-The number of hatchery-origin spawners in each population in each year was simulated as a linear function of hatchery escapement with normal error (truncated so that hatchery-origin spawners could not be <0). Each population had a unique intercept for hatchery origin spawners and a common coefficient for the effect of log-transformed hatchery-origin escapement on hatchery-origin spawners. The thinking behind log-transforming hatchery escapement is that at very high hatchery escapement, efforts would be made to keep lots of hatchery fish off of spawning grounds (e.g., with weirs or directed fisheries). There is also data support for log transforming that covariate.
+The number of hatchery-origin spawners in each population in each year was simulated as a log-linear function of hatchery escapement with normal error (truncated so that hatchery-origin spawners could not be <0). Each population had a unique intercept for hatchery origin spawners and a common coefficient for the effect of log-transformed hatchery-origin escapement on hatchery-origin spawners. The thinking behind log-transforming hatchery escapement is that at very high hatchery escapement, efforts would be made to keep lots of hatchery fish off of spawning grounds (e.g., with weirs or directed fisheries). There is also data support for log transforming the covariate.
 
 
 ```{r HOS, fig.cap="Figure. Number of hatchery origin spawners (HOS) vs hatchery escapement. The line represent the mean relationship, the shaded area is a 95% prediction interval, and points represent observations from 2010-2022."}
@@ -1487,9 +1513,9 @@ if(sim_for_model){
 
 # Historical vs. simulation plots
 
-As a check on whether the simulation model passes the red face test, I compared the 25 year simulations using the harvest control control rule, to observations from 2008-2022, when the current harvest control rules has been in effect. I wouldn't expect the simulations to match the past observations perfectly, because the past 15 years won't necessarily reflect the average state of the system. In other words, the productivity over the last 15 years (e.g, due to ocean conditions) could have been above or below average, whereas the simulations should reflect the average.
+As a check on whether the simulation model passes the red face test, I compared the results of 25 year simulations using the current harvest control rule, to observations from 2008-2022, when the current harvest control rules was been in effect. I wouldn't expect the simulations to match the past observations perfectly, because the past 15 years won't necessarily reflect the average state of the system. In other words, the productivity over the last 15 years (e.g, due to ocean conditions) could have been above or below average, whereas the simulations should reflect the average.
 
-Note that when considering the outcomes of alternative harvest control rules for the next agreement, we want to compare performance metrics based on simulations. These simulations all assume the same environmental and biological conditions. Comparing to past observations would not be appropriate because those occured under a different set of environmental conditions.
+Note that when considering the outcomes of alternative harvest control rules, we want to compare performance metrics across simulations, rather than comparing them to historical estimates. That is because simulations all assume the same environmental and biological conditions. Comparing to estimates from the past would not be appropriate because those occurred under a different set of environmental conditions.
 
 ```{r do_sim}
 sim<-pop_sim()
