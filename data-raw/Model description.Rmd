@@ -250,7 +250,7 @@ esc_dat<-
   ) %>% arrange(population_name,year) %>% ungroup %>% mutate(population_name=stringi::stri_extract_first_words(population_name)) |>
   #add auxiliary okanogan broodstock removal data from Andrea
   left_join(ok_dat |> select(year=`Spawn Year`,NOBroodStockRemoved2=NO_broodstock_removed ) |> mutate(population_name="Okanogan")) |> 
-  #prior to 2012, the estimate of brodstock collection for the Methow include both Methow and Okanogan (collecitona tWells Dam). Goin to apportion the removals based on natural_origin spawning escapement.
+  #prior to 2012, the estimate of brodstock collection for the Methow include both Methow and Okanogan (colleciton atWells Dam). Goin to apportion the removals based on natural_origin spawning escapement.
   
   mutate(pop_group=ifelse(population_name=="Wenatchee","Wenatchee","OkMet")) |> 
   group_by(year,pop_group) |> 
@@ -299,6 +299,11 @@ long_dat |> ungroup() |>  group_by(brood_year,age) |> summarise(n=length(NO_rive
   filter(n==3) |> pivot_wider(names_from = age,values_from = NO_river_mouth) |>
   write_csv("NO_river_mouth.csv")
 
+
+esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> group_by(year) |> summarise(NOR_river_mouth=sum(NOR_river_mouth),n=n()) |> filter(n==3) |> ggplot(aes(x=year,y=NOR_river_mouth))+geom_point()+geom_line()+ylim(
+  0,40000)
+
+long_dat |> filter(age>3) |> group_by(spawn_year,basin) |> summarize(NOR=sum(NO_returns)) |> ungroup() |> ggplot(aes(x=spawn_year,y=NOR,color=basin))+geom_point()+geom_line()
 ```
 
 
@@ -506,7 +511,7 @@ $$
 \varepsilon_y=\phi \varepsilon_{y-1}+\sigma x_i, \quad x_y \sim N(0, \Sigma)
 \end{gathered}
 $$
-where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=1-\sqrt{\phi^2}$. The annual increments were assumed to follow a multivariate normal distribution with an unstructured covariance matrix. Thus, when simulating future recruitment from this model, I accounted for how recruitment is correlated from year to year and among populations within years.
+where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=\sqrt{1-\phi^2}$. The annual increments were assumed to follow a multivariate normal distribution with an unstructured covariance matrix. Thus, when simulating future recruitment from this model, I accounted for how recruitment is correlated from year to year and among populations within years.
 
 
 
@@ -528,11 +533,12 @@ hatch_recruits<-returns |> select(year,Age,brood_year = BroodYear,riv_mouth,hatc
 #combine hatchery and wild recruits per spawner/smolt 
 
 SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,PHOS,NOS,HOS,pNI_bar) |> right_join(
-  long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |> filter(n==5,brood_year<=2017)
-) |> 
+  long_dat |> group_by(basin,brood_year) |> summarise(NO_recruits=sum(NO_recruits),n=n()) |>
+    filter(n==5,brood_year<=2017)
+) #|> 
   # get rid of some outliers
-  filter(!(basin=="Methow"&NO_recruits>9000),
-         !(basin=="Wenatchee"&NO_recruits>40000))
+  # filter(!(basin=="Methow"&NO_recruits>9000),
+  #        !(basin=="Wenatchee"&NO_recruits>40000))
 
 #|> 
 # mutate(rps=NO_recruits/total_spawners,
@@ -544,15 +550,13 @@ SR_dat<-esc_dat |> select(brood_year=year,basin=population_name,total_spawners,P
 # SR_dat |> ggplot(aes(x=total_spawners,y=NO_recruits,color=basin))+geom_point()
 # SR_dat |> ggplot(aes(x=total_spawners,y=NO_recruits,color=PHOS))+geom_point()+facet_wrap(~basin)
 
-
-
 all_SR<-  
   SR_dat |> 
-  mutate(S_PNI=NOS+HOS*pNI_bar,
+  mutate(S_RRS=NOS+HOS*.8,
          S_no=NOS,
          S_ho=HOS,
          S_dummy=1) |> 
-  select(basin,brood_year,S_tot=total_spawners,S_no,S_ho, S_PNI ,R=NO_recruits,PHOS,S_dummy,pNI_bar) |> 
+  select(basin,brood_year,S_tot=total_spawners,S_no,S_ho, S_RRS ,R=NO_recruits,PHOS,S_dummy,pNI_bar) |> 
   bind_rows(hatch_recruits |> 
               group_by(brood_year) |> 
               summarize(n=n(),hatch_recruits=sum(hatch_recruits)) |> drop_na() |> 
@@ -564,12 +568,12 @@ all_SR<-
                      PHOS=1,
                      S_tot=releases2,
                      S_no=releases2,
-                     S_PNI=releases2,
+                     S_RRS=releases2,
                      S_ho=0,
                      S_dummy=1,
                      pNI_bar=0) |> 
-              select(basin,brood_year,S_tot,S_no,S_ho, S_PNI,R=hatch_recruits,PHOS,S_dummy,pNI_bar) |> 
-              filter(R<max(R,na.rm=T))
+              select(basin,brood_year,S_tot,S_no,S_ho, S_RRS,R=hatch_recruits,PHOS,S_dummy,pNI_bar)# |> 
+              # filter(R<max(R,na.rm=T))
   ) |> 
   drop_na() 
 
@@ -607,7 +611,7 @@ make_TMB_data<-function(dat,spawners){
     NOS=dat$S_no,
     HOS=dat$S_ho,
     pNI_bar=dat$pNI_bar,
-    S_PNI=dat$S_PNI,
+    S_RRS=dat$S_RRS,
     test_mod_dat=test_mod_dat,
     pop_index=pop_index
   )
@@ -620,16 +624,41 @@ library(RTMB)
 n_yrs<-diff(range(all_SR$brood_year))+1
 n_pops<-4
 
-SR_TMB_dat<-make_TMB_data(all_SR |> filter(brood_year>=1997),S_dummy)
+SR_TMB_dat<-make_TMB_data(all_SR #|> filter(brood_year>=1997)
+                          ,S_dummy)#
+
+
+SR_TMB_dat2=list(
+S=
+all_SR |> filter(brood_year>=1997) |> 
+  # mutate(S_tot=S_no+.8*S_ho) |> 
+  select(brood_year,S_RRS,basin) |> 
+  pivot_wider(names_from = basin,values_from = S_RRS) |> arrange((brood_year))|> arrange((brood_year)) |> 
+  select(-brood_year) |> as.matrix() |> t(),
+R=
+
+all_SR |> filter(brood_year>=1997) |> 
+  select(brood_year,R,basin) |> 
+  pivot_wider(names_from = basin,values_from = R)|> arrange((brood_year)) |> 
+  select(-brood_year) |> as.matrix() |> t()
+)
+
+
+SR_TMB_dat2$S[is.na(SR_TMB_dat2$S)]<-100
+
 ##parameters
 params<-list(
   alpha_h=log(10),
   alpha=log(c(rep(2,3))),
-  Rmax=rep(log(50000),3),
+  # Rmax=rep(log(50000),3),
   log_sigma=rep(-1,4),
+  # obs_sd=log(.1),
   cors=rep(.2,6),
-  err=matrix(-1,n_yrs+1,4),
+  missing_R=rep(5,sum(is.na(SR_TMB_dat2$R))),
+  test=0,
+  # err=matrix(-1,n_yrs+1,4),
   # S_hat=(SR_TMB_dat$NOS+SR_TMB_dat$HOS)*.9,
+  S_hat = SR_TMB_dat2$S+50,
   # R_hat=SR_TMB_dat$R*.9,
   # log_R=0
   logit_rho=rep(0,4)#,
@@ -643,6 +672,88 @@ params<-list(
   # sigma_RRS=0
 )
 
+
+
+f<-function(parms){
+  RTMB::getAll(SR_TMB_dat2, parms, warn=FALSE)
+  # par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
+  
+  
+  # alpha_vec<-exp(c(alpha[1],rep(alpha[2],3)))
+  alpha_vec<-exp(c(alpha,alpha_h))
+  alpha_vec3<-alpha_vec*S_hat
+  
+  
+  # Rmax_vec2<-c(exp(Rmax),1000000)
+
+  pred<-alpha_vec3#*exp(-alpha_vec3/(exp(1)*Rmax_vec2))
+  # pred<-alpha_vec3/(1+alpha_vec3/Rmax_vec2) # Beverton-Holt
+
+
+  
+  
+  ## Initialize joint negative log likelihood
+  nll <- 0
+  us<-unstructured(4)
+    rho<-plogis(logit_rho)
+  adj<-sqrt(1-rho^2) # scalar from marginal to innovation error standard deviations
+  sigma<-exp(log_sigma) #transformed marginal standard deviations
+  
+  R2<-matrix(NA,nrow=nrow(R),ncol=ncol(R))
+  cnt=1
+  for(i in 1:nrow(R)){
+    for(j in 1:ncol(R)){
+      if(is.na(R[i,j])){
+        R2[i,j] <- exp(missing_R[cnt])
+        cnt<-cnt+1
+      }else{
+        R2[i,j] <- R[i,j]
+      }
+    }
+  }
+  
+  err<-matrix(log(R2/pred),nrow=nrow(R),ncol=ncol(R))
+  err2<-matrix(nrow=nrow(err),ncol=ncol(err))
+  err2[,1]<-err[,1]
+  for(i in 2:ncol(err2)){
+    err2[,i]<-(err[,i] - rho*err[,i-1])/adj
+  }
+  REPORT(err2)
+  
+  
+  
+  
+  nll <- nll -sum(dmvnorm(t(err2),Sigma=us$corr(cors),scale=sigma,log=TRUE))
+  
+  nll <- nll -sum(dnorm(logit_rho,0,1,log=TRUE))
+  nll <- nll -sum(dexp(sigma,5,log=TRUE))#-sum(log_sigma)
+  # 
+  # 
+  # nll <- nll -sum(dnorm(alpha,alpha_mu,exp(alpha_sd),log=TRUE))
+  # nll <- nll -sum(dnorm(Rmax,Rmax_mu,exp(Rmax_sd),log=TRUE))
+
+  
+   nll <- nll -sum(dnorm(log(S_hat),log(S),.1,log=TRUE))
+    # nll <- nll -sum(dnorm(exp(obs_sd),0,.05,log=TRUE))-obs_sd
+      # nll <- nll -sum(dnorm(log(R_hat),log(R),.1,log=TRUE))
+  # nll <- nll -sum(dnorm(logit_RRS,0,1,log=TRUE))
+    # nll <- nll -sum(dnorm(logit_RRS,mu_RRS,exp(sigma_RRS),log=TRUE))
+    # nll <- nll  -sum(dexp(exp(sigma_RRS),1,log=TRUE))
+   #  
+   nll <- nll -sum(dnorm(alpha,1,0.7,log=TRUE))
+      nll <- nll -sum(dnorm(Rmax,10.82,exp(test),log=TRUE))
+      nll <- nll -sum(dexp(exp(test),1,log=TRUE))
+  nll
+}
+
+f(params) #test objective function 
+
+#cosntruct model object
+obj <- MakeADFun(f, params,random=c("missing_R","S_hat","alpha"))#,"R_hat""S_hat","Rmax"
+
+#optimize
+fit<-TMBhelper::fit_tmb(obj,newtonsteps =2,getJointPrecision  =TRUE)
+
 ##data
 # dat<-list(
 #   lrps=test_mod_dat$lrps,
@@ -655,90 +766,95 @@ f<-function(parms){
   RTMB::getAll(SR_TMB_dat, parms, warn=FALSE)
   # par_vec<-c(alpha[1],rep(alpha[2],3),0,beta) #alphas and betas
   S<-HOS+NOS
-  
-  
+
+
   # alpha_vec<-exp(c(alpha[1],rep(alpha[2],3)))
   alpha_vec<-exp(c(alpha_h,alpha))
   alpha_vec2<-(X[,1:4]%*%alpha_vec)
   alpha_vec3<-alpha_vec2*S#_hat
-  
-  
+
+
   Rmax_vec<-c(1000000,exp(Rmax))
   Rmax_vec2<-(X[,5:8]%*%Rmax_vec)
-  
-  
+
+
   # x2<-matrix(0,nrow(X),ncol(X))
   # x2[,1:4]<-X[,1:4]
   # S<-(NOS+(HOS*.8))
   # for(i in 5:8){
   # x2[,i]<-X[,i]*S
   # }
-  
+
   # pred<-X%*%par_vec #linear predictor
-  
+  #pred<-alpha_vec3
   pred<-alpha_vec3*exp(-alpha_vec3/(exp(1)*Rmax_vec2))
   # pred<-alpha_vec3/(1+alpha_vec3/Rmax_vec2) # Beverton-Holt
-  
-  #   
+
+  #
   #   alpha*Esc*exp(-alpha*Esc/(A*exp(1)*Rmax))
-  
-  
+
+
   rho<-plogis(logit_rho)
   adj<-sqrt(1-rho^2) # scalar from marginal to innovation error standard deviations
   sigma<-exp(log_sigma) #transformed marginal standard deviations
-  
+
   err2<-matrix(nrow=nrow(err)-1,ncol=ncol(err))
   err2[1,]<-rho*err[1,]+adj*err[2,]
   for(i in 2:nrow(err2)){
     err2[i,]<-rho*err2[i-1,]+adj*err[i+1,]
   }
   REPORT(err2)
-  
-  
+
+
   pred2<-pred*exp((err2)[err_ind])
   ## Initialize joint negative log likelihood
   nll <- 0
   nll <- nll -sum(dnorm(log(R),log(pred2),.0001,log=TRUE))
   us<-unstructured(4)
-  
-  nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
-  
-  nll <- nll -sum(dnorm(logit_rho,-1,2,log=TRUE))
-  # 
-  # 
-  nll <- nll -sum(dnorm(alpha,alpha_mu,exp(alpha_sd),log=TRUE))
-  nll <- nll -sum(dnorm(Rmax,Rmax_mu,exp(Rmax_sd),log=TRUE))
 
-  
+  nll <- nll -sum(dmvnorm(err,Sigma=us$corr(cors),scale=sigma,log=TRUE))
+
+  nll <- nll -sum(dnorm(logit_rho,-1,1,log=TRUE))
+  nll <- nll -sum(dexp(sigma,5,log=TRUE))
+  #
+  #
+  # nll <- nll -sum(dnorm(alpha,alpha_mu,exp(alpha_sd),log=TRUE))
+  # nll <- nll -sum(dnorm(Rmax,Rmax_mu,exp(Rmax_sd),log=TRUE))
+
+
    # nll <- nll -sum(dnorm(log(S_hat),log(S),.1,log=TRUE))
       # nll <- nll -sum(dnorm(log(R_hat),log(R),.1,log=TRUE))
   # nll <- nll -sum(dnorm(logit_RRS,0,1,log=TRUE))
     # nll <- nll -sum(dnorm(logit_RRS,mu_RRS,exp(sigma_RRS),log=TRUE))
     # nll <- nll  -sum(dexp(exp(sigma_RRS),1,log=TRUE))
-    
-    
+   #
+   # nll <- nll -sum(dnorm(alpha,1,0.7,log=TRUE))
+      # nll <- nll -sum(dnorm(Rmax,11,.25),log=TRUE)
+      # nll <- nll -sum(dexp(exp(test),10,log=TRUE))
   nll
 }
 
-f(params) #test objective function 
-
-#cosntruct model object
-obj <- MakeADFun(f, params,random=c("err","alpha","Rmax"))#,"S_hat","R_hat"
-
-#optimize
-fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
+# f(params) #test objective function
+# 
+# #cosntruct model object
+# obj <- MakeADFun(f, params,random=c("err"))#,"R_hat","S_hat"
+# 
+# #optimize
+# fit<-TMBhelper::fit_tmb(obj,newtonsteps =2)
 
 fit$AIC
 
 fit_rep<-obj$report(par=obj$env$last.par.best)
 #fitted paramter values
 par_list<-obj$env$parList(par=obj$env$last.par.best)
-
+var_list<-obj$env$parList(par=diag(fit$SD$cov.fixed))
 # plogis(par_list$logit_RRS)
 # exp(par_list$sigma_RRS)
 # (par_list$mu_RRS)
-alpha<-exp(par_list$alpha)
-Rmax<- exp(par_list$Rmax)
+exp(par_list$test)
+alpha<-exp(c(par_list$alpha,par_list$alpha_h))
+Rmax<- c(exp(par_list$Rmax),1000000)
+names(alpha)<-names(Rmax)<-rownames(SR_TMB_dat2$S)
 beta<-alpha*exp(-1)/Rmax
 marg_sd<-exp(par_list$log_sigma)
 rho<-plogis(par_list$logit_rho)
@@ -747,12 +863,19 @@ rick_cor<-us$corr(par_list$cors)
 
 
 Smsy <-(1-W(exp(1-log(alpha))))/beta
-sum(Smsy)
+# Smsy <-Rmax*sqrt(1/alpha)-(Rmax/alpha) # beverton holt
+sum(Smsy[1:3])
 # Smsy
 # fit$AIC
 
 
+bias_correction<-.5*(marg_sd^2)
+Sumsimmer:::internal_data$alphas
+Sumsimmer:::internal_data$Rmax
 
+covar_mat<-solve(fit$SD$jointPrecision)
+
+sim_SR_par<-mvtnorm::rmvnorm(500,obj$env$last.par.best,as.matrix(covar_mat))
 
 
 
@@ -766,21 +889,24 @@ sum(Smsy)
 ricker_pred<-SR_TMB_dat$test_mod_dat %>% group_by(basin,const,mu_rps,sd_rps,mu_s,sd_s,wild) %>% reframe(S=seq(0,max(max(S_tot),4000)*1.5,length.out=50)) %>%
   mutate(year_fac=factor(3000)) |> 
   left_join(
-    tibble(basin=c("Hatchery","Methow","Okanogan","Wenatchee"),
+    tibble(basin=c("Wenatchee","Methow","Okanogan","Hatchery"),
            marg_sd=marg_sd)
   ) |> 
-  ungroup()
+  ungroup() |> 
+    mutate(basin= fct_relevel(basin,rownames(SR_TMB_dat2$S)))
 
 
 
 
 ricker_pred2 <-ricker_pred |> 
-  mutate(
+  mutate(,  
     alpha_vec=model.matrix(const~basin-1,data=ricker_pred)%*%c(alpha),
-    Rmax_vec=model.matrix(const~basin-1,data=ricker_pred)%*%c(1000000,Rmax)) |> 
+    # Rmax_vecpar_list=model.matrix(const~basin-1,data=ricker_pred)%*%c(Rmax)
+    ) |> 
   rowwise() |> 
   mutate(
-    recruits=alpha_vec*S*exp((-alpha_vec*S)/(exp(1)*Rmax_vec)),
+    recruits=alpha_vec*S,#*exp((-alpha_vec*S)/(exp(1)*Rmax_vec)),
+    # recruits=alpha_vec*S/(1+alpha_vec*S/Rmax_vec),
     lcl=exp(log(recruits)-1.96*marg_sd),
     ucl=exp(log(recruits)+1.96*marg_sd)
   )
@@ -790,9 +916,10 @@ ricker_pred2 <-ricker_pred |>
 
 ##plot spawners vs recruits (more years will be available if estimate age comp through IPM)
 ricker_pred2 |> ggplot(aes(x=S))+geom_ribbon(aes(ymax = ucl,ymin=lcl),fill="grey")+
-  facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR |> mutate(S=S_tot) ,aes(y=R))+
+  facet_wrap(~basin,scales="free")+ geom_line(aes(y=recruits),color="blue",lwd=1.25)+geom_point(data=all_SR |> filter(brood_year>=1997) |> mutate(S=S_RRS) ,aes(y=R))+
+  # geom_point(data=all_SR |> filter(brood_year>=1997) |> ungroup() |>  mutate(S=par_list$S_hat) ,aes(y=R),col="red")+
   ylab("Recruits") +
-  xlab("Spawners or 1,000 hatchery smolts released")+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)+
+  xlab("Spawners or 1,000 hatchery smolts released")#+theme_minimal()+geom_vline(data=tibble(Smsy=c(Smsy),basin=c("Methow","Okanogan","Wenatchee")),aes(xintercept=Smsy),linetype = 2)+
     scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+
     scale_x_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
 
@@ -1305,7 +1432,7 @@ if(sim_for_model){
     innovation_sd<-marg_sd*sqrt(1-rho^2)
     ##  process error
     proc_err<-array(NA,dim=list(pops=4,years=n_years,sims=n_sims))
-    proc_err[,1,]<-t1*rho + marg_sd*err[,1,]
+    proc_err[,1,]<-t1*rho + innovation_sd*err[,1,]
     for (i in 2:n_years){
       proc_err[,i,]<-proc_err[,i-1,]*rho + innovation_sd*err[,i,]
     }
