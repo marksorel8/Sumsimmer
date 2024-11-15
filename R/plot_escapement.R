@@ -52,6 +52,15 @@ plot_NOE_quants<-function(NOE_quants,nrw=1){
 }
 
 
+
+plot_MAT<-function(MAT){
+  MAT |>  mutate(Population = fct_relevel(Population,c("Hatchery","Wenatchee","Methow","Okanogan","NO_total"))
+  )  |>   # Exclude the baseline level itself
+    ggplot(aes(x=Population,y=p_MA))+scale_fill_brewer(palette="Dark2")+geom_bar(aes(fill = HCR),stat = "identity",position = "dodge")+ylab("Prob > min abund")+theme_gray(base_size = 16)+theme(axis.title.x = element_blank(),legend.position = "top")
+}
+
+
+
 plot_NOE_ratios<-function(NOE_quants,no_harv="No harvest"){
 # Calculate ratios
   NOE_quants %>%

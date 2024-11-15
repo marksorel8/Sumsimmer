@@ -5,7 +5,7 @@ CV<-function(x){(sd(x)/mean(x))*100}
 
 geo_mean<-function(x){exp(mean(log(x)))}
 
-ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975),add_NO_tot=FALSE){
+ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
 
  df_out<- data.frame(
     apply(apply(x[,yrs,],c(1,3),quantile,qtiles),1:2,fun),
@@ -26,18 +26,36 @@ ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(
 
 }
 
-quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(.025,.25,.5,.75,.975)){
-  data.frame(cbind(
+quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
+  df_out<- data.frame(cbind(
     apply(apply(x[,yrs,],c(1,3),fun),1,quantile,qtiles),
-    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun),qtiles)))|>
+    Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun),qtiles)))
+
+  if(add_NO_tot){
+    df_out<-data.frame(df_out,
+                       "Total_natural"=
+                         apply(apply(x[-1,yrs,],c(1,3),fun),1,quantile,qtiles))
+  }
+
+  df_out|>
     t() |> data.frame() |>
     `colnames<-`(c("min","LQI","med","UQI","max")) |>
     rownames_to_column(rnames)|>
     mutate(HCR=HCR_name)
 }
 
+min_abund_func<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,MAT=c(1000,2000,1000)){
+  data.frame(p_MA=c(
+    apply(apply(x[-1,yrs,],c(1,3),fun)>=MAT,1,mean),
+    NO_total= mean(apply(apply(x[-1,yrs,],c(1,3),fun),2,sum)>=sum(MAT))))|>
+    # t() |> data.frame() |>
+    rownames_to_column(rnames)|>
+    mutate(HCR=HCR_name)
+}
 
-summarize_sim<-function(sim,yrs=7:31,HCR="X"){
+
+
+summarize_sim<-function(sim,yrs=7:31,HCR="X",MAT=c(1000,2000,1000)){
  esc_t<- esc_traj_data_fun(sim)
   harv_t<- harv_traj_dat_fun(sim)
 
@@ -45,7 +63,10 @@ summarize_sim<-function(sim,yrs=7:31,HCR="X"){
 #Escapement
 Esc=ave_quants(sim$escapement,rnames="Population",HCR_name=HCR,add_NO_tot=TRUE),
 
-Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
+# Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
+
+MAT=min_abund_func(sim$escapement,rnames="Population",HCR_name=HCR,MAT=MAT),
+
 
 #NOS
 NOS=ave_quants(sim$NOS,rnames="River",HCR_name=HCR),
@@ -79,6 +100,7 @@ HCR=sim$HCR
 # sim$NOS[,7:31,] |> apply(c(1,3),zoo::rollmean,k=5) |> apply(2:3,function(x){min(x)<100}) |> apply(1,mean)
 
 
+
 plot_all_fun<-function(sim_list,baseline_name){
 
   # sim<-pop_sim()
@@ -108,7 +130,7 @@ list(
 
   # NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
 
-
+  MAT_plot=plot_MAT(combined_list$MAT),
 
   #NOS
   NOS_plot=plot_spawner_quants(combined_list$NOS,ylab="Natural-origin spawners"),

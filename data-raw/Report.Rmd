@@ -67,6 +67,11 @@ print(params$spawners_plot)
 <!-- print(params$NOE_ratios_plot) -->
 <!-- ``` -->
 
+```{r, fig.cap="Proportionof simulations in which the geometric mean natural origin escapement (spawners + broodstock) over 25 years was greater than the minimum abundance threshold of 1000 for the Methow and Wenatchee and 2000 for the Okanogan.."}
+print(params$MAT_plot)
+```
+
+
 ```{r, fig.cap= "Boxplots show quantiles of River Mouth Run sizes. Note, the river mouth run size can increase with some harvest due to overcompensation (i.e., decreasing productivty at higher spawner abundances) in the Ricker model." }
 print(params$RMRS_plot)
 ```

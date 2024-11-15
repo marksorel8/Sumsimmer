@@ -73,9 +73,11 @@ pop_sim<-function(index="total",
                   init_PNI=internal_data$init_PNI,
                   MREER_matrix=internal_data$MREER_out[,,],
                   age_prop_array=internal_data$age_props[,,,],
+                  SR_fun=Ricker_fun,
                   alpha=internal_data$alphas,
-                  Rmax=c(1000000,internal_data$Rmax),
+                  Rmax=internal_data$Rmax,
                   SR_err=internal_data$SR_err[,,],
+                  RRS=0.8,
                   HOS_model="HOE",
                   HOS_err=internal_data$HOS_err[,,],
                   NOB_err=internal_data$NOB_err[,,],
@@ -250,16 +252,16 @@ pop_sim<-function(index="total",
             S[1,y,i]<-S[1,y,i]*prop_tot2
 
           }
-          S[2:4,y,i]<-NOS[,y,i]+HOS[,y,i]# *rowMeans(PNI[,(y-6):(y+3),i])
-          pHOS[,y,i]<-HOS[,y,i]/(NOS[,y,i]+HOS[,y,i])
+          S[2:4,y,i]<-NOS[,y,i]+HOS[,y,i]*RRS# *rowMeans(PNI[,(y-6):(y+3),i])
+          pHOS[,y,i]<-HOS[,y,i]*RRS/(NOS[,y,i]+HOS[,y,i]*RRS)
           pNOB[,y,i]<-NOB[,y,i]/(NOB[,y,i]+HOB[-1,y,i])
           PNI[,(y+8),i]<- pNOB[,y,i]/( pNOB[,y,i]+ pHOS[,y,i])
         }
 
 
-        recruits[,y,i]<-Ricker_fun(S[,y,i],SR_err[,y,i],
-                                   alpha = alpha,
-                                   Rmax = Rmax)
+        recruits[,y,i]<-SR_fun(S[,y,i],SR_err[,y,i],
+                                   alpha = alpha[i,],
+                                   Rmax = c(1000000,Rmax[i,]))
 
         #apportion to ages
         age_recruits<- recruits[,y,i]*t(age_prop_array[,,y,i]) # populations (rows) by ages (columns)
