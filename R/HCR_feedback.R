@@ -1,4 +1,4 @@
-HCR_feedback_UI <- function(id,title= "Harvest control rule"){
+HCR_feedback_UI <- function(id,title= "Harvest control rule",wen_alph=reactive(3)){
 
   fluidPage(
 
@@ -133,9 +133,6 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule"){
                 "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
                 br(),
                 actionButton(NS(id,"dosim1"),label = "Update simulation"),
-
-
-
                 plotOutput(NS(id,"sim1_harv")),
                 p(tags$b("Harvest figure."), " Grey bars represent historical data. Gray shaded area represent the 95% prediction interval (i.e., from the 2.5% to 97.5% quantiles across 500 simulated population trajectories. The thick black line is the median across the 500 simulations, and the thin black line is one of the 500 simulations, included to show the interannual variability of individual simulations."),
 
@@ -161,16 +158,63 @@ HCR_feedback_server <- function(id,
                                 NT_offset=c(rep(NA,5),29000,16500),
                                 NT_share=c(rep(NA,5),.5,.5),
                                 pfmc_cutoff,
+                                # Wen_alpha=reactive(),
+                                # Met_alpha=reactive(),
+                                # Ok_alpha=reactive(),
+                                # Hatch_alpha=reactive(),
+                                # Wen_Rmax=reactive(),
+                                # Met_Rmax=reactive(),
+                                # Okan_Rmax=reactive(),
+                                # Hatch_Rmax=reactive(),
+                                update=reactive(),
                                 editable=TRUE,
                                 custom=FALSE){
+
+
 
   moduleServer(id, function(input, output, session) {
 
 
-
-
     # Update the default value for PFMC cutoff
     updateNumericInput(session, "pfmc_cutoff_id", value = pfmc_cutoff)
+
+#
+#     observeEvent(update(),
+#                  {
+#       updateNumericInput(session, "Wen_alpha", value = Wen_alpha())
+#       updateNumericInput(session, "Met_alpha", value = Met_alpha())
+#       updateNumericInput(session, "Ok_alpha", value = Ok_alpha())
+#       updateNumericInput(session, "Hatch_alpha", value = Hatch_alpha())
+#       updateNumericInput(session, "Wen_Rmax", value = Wen_Rmax())
+#       updateNumericInput(session, "Met_Rmax", value = Met_Rmax())
+#       updateNumericInput(session, "Ok_Rmax", value = Okan_Rmax())
+#       updateNumericInput(session, "Hatch_Rmax", value = Hatch_Rmax())
+#
+#
+#       sim1( sim_data(do_notifs=TRUE,
+#                      harv_mod=input$option2,
+#                      HOS_model=ifelse(input$HOS_option,"HOE","zero"),
+#                      URR=input$URR,
+#                      IE=input$IE,
+#                      index=ifelse(input$wild_AI,"wild","total"),
+#                      PFMC_include_point=input$pfmc_cutoff_id,
+#                      alpha=c(Hatch_alpha(),
+#                              Met_alpha(),
+#                              Ok_alpha(),
+#                              Wen_alpha()
+#                      ),
+#                      Rmax= c(Hatch_Rmax(),
+#                              Met_Rmax(),
+#                              Okan_Rmax(),
+#                              Wen_Rmax()
+#                      )
+#       ))
+#
+#
+#
+#     })
+
+
 
     #initialize a blank dataframe
     v <- reactiveValues(data = {
@@ -311,7 +355,7 @@ HCR_feedback_server <- function(id,
 
 
 
-    sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE,index,PFMC_include_point,alpha,Rmax
+    sim_data<-function(do_notifs=FALSE,harv_mod,HOS_model,URR,IE,index,PFMC_include_point#,alpha,Rmax
     ){
       newData <-  with(isolate(v$data),
                        pop_sim(
@@ -330,9 +374,9 @@ HCR_feedback_server <- function(id,
                          HOS_model=HOS_model,
                          NT_Unmarked_release_rate=URR,
                          implementation_error_scalar=IE,
-                         PFMC_include_above=PFMC_include_point,
-                         alpha =alpha,
-                         Rmax =Rmax
+                         PFMC_include_above=PFMC_include_point#,
+                         # alpha =alpha,
+                         # Rmax =Rmax
                        )
       )
 
@@ -366,17 +410,17 @@ HCR_feedback_server <- function(id,
                      URR=input$URR,
                      IE=input$IE,
                      index=ifelse(input$wild_AI,"wild","total"),
-                     PFMC_include_point=input$pfmc_cutoff_id,
-                     alpha=c(input$Hatch_alpha,
-                             input$Met_alpha,
-                             input$Ok_alpha,
-                             input$Wen_alpha
-                     ),
-                     Rmax= c(input$Hatch_Rmax,
-                             input$Met_Rmax,
-                             input$Ok_Rmax,
-                             input$Wen_Rmax
-                     )
+                     PFMC_include_point=input$pfmc_cutoff_id#,
+                     # alpha=c(input$Hatch_alpha,
+                     #         input$Met_alpha,
+                     #         input$Ok_alpha,
+                     #         input$Wen_alpha
+                     # ),
+                     # Rmax= c(input$Hatch_Rmax,
+                     #         input$Met_Rmax,
+                     #         input$Ok_Rmax,
+                     #         input$Wen_Rmax
+                     # )
       ))
 
 
