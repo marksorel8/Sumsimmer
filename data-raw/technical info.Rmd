@@ -1,0 +1,69 @@
+---
+title: "technical info"
+author: "Mark Sorel"
+date: "2024-11-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+tac_RR<-readxl::read_xlsx(here::here("data-raw/data/SummerChinook.xlsx"))
+
+pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalRunSize",skip=2,n_max = 45) 
+
+pfmc_morts |> filter(Year>=2008)|> ggplot(aes(x=Year,y = `River Mouth Run Size`/1000))+geom_col()+theme(axis.title.x =element_blank() )+ylab ("River mouth run size (1000 adults)")+geom_hline(aes(yintercept = 29),lty=2,col="firebrick",lwd=1.5)#+geom_vline(xintercept = 2007.5,lty=2,col="darkblue",lwd=1.5)
+
+
+
+
+
+
+
+```
+
+```{r}
+# pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalHarvestRates",skip=2,n_max = 45)
+pfmc_HRs<-pfmc_morts |> mutate(`Treaty_In river`=`Total Treaty`/`River Mouth Run Size`,
+                     `Non treaty_In river`=`Total In-river NT`/`River Mouth Run Size`,
+                     `Non treaty_Ocean`=`PFMC NT Ocean Impacts`/`River Mouth Run Size`,
+                     `Allowed`=`Allowed Treaty or NT Harvest`/`River Mouth Run Size`,
+                     ) |>
+   select(Year,`Allowed`:`Treaty_In river`) |> 
+  drop_na() |> 
+  pivot_longer(contains("In river"),names_to = "Sector",values_to = "ER") |> 
+  separate_wider_delim(Sector,"_",names=c("Sector","Area"))
+
+
+pfmc_HRs_2<-pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non treaty_Ocean`, Allowed),
+                   Over=ER>Allowed,
+                   ER_within=ifelse(Over,Allowed,ER),
+                   difference= abs(Allowed-ER)) |> 
+  select(Year,Sector,Over,ER_within,difference) |> 
+  pivot_longer(c(ER_within,difference),names_to = "Category",values_to="ER") |> 
+  mutate(Cat=case_when(Category=="ER_within"~"Harvest within limit",
+                       Category=="difference"&Over~"Harvest above limit",
+                       TRUE~"Unharvested within limit"),
+         `  `=fct_relevel(Cat,c("Unharvested within limit","Harvest above limit","Harvest within limit")))
+
+pfmc_HRs_2 |> 
+  ggplot(aes(x=Year,y=ER*100,fill=`  `))+geom_col()+facet_wrap(~Sector,nrow=2)+
+      scale_fill_manual(values=c("darkgrey","firebrick","darkblue"))+theme(axis.title.x =element_blank() ,legend.position = "top")+ylab ("In-river harvest rate %")
+
+
+#Average allowed in river since 2008
+pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non treaty_Ocean`, Allowed)) |> group_by(Sector) |> summarize(mean(Allowed))
+
+#Average in river harvest since 2008
+pfmc_HRs |> group_by(Sector) |> summarize(mean(ER))
+
+
+```
+
+
+```{r}
+
+```
+
