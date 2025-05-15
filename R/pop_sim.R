@@ -174,13 +174,13 @@ pop_sim<-function(index="total",
           RMRS<- sum(adult_return[,y,i]) #adult river mouth run size
           wild_RMRS<-sum(adult_return[-1,y,i]) #wild adult river mouth run size
           PFMC[y,i]<-sim_PFMC(RMRS,pfmc_err[y,i]) # PFMC AEQ ocean morts (needed to implement HCR)
-          # wild_PFMC<-PFMC[y,i]*(wild_RMRS/RMRS)
+          wild_PFMC<-PFMC[y,i]*(wild_RMRS/RMRS)
 
           if(index=="total"){
             AI<-RMRS+PFMC[y,i]
           }else{
             if(index=="wild"){
-            AI<-wild_RMRS#+wild_PFMC[y,i]
+            AI<-wild_RMRS+wild_PFMC
             }
           }
 
@@ -299,7 +299,8 @@ pop_sim<-function(index="total",
       terminal_NT = terminal_NT,
       terminal_treaty = terminal_treaty,
       PFMC = PFMC,
-      HCR = list(treaty_tiers =treaty_tiers,
+      HCR = list(index=index,
+                 treaty_tiers =treaty_tiers,
                  treaty_rates =treaty_rates,
                  treaty_scalar =treaty_scalar,
                  treaty_offset =treaty_offset,

@@ -133,7 +133,7 @@ make_marked_um_hrs_fun<-function(
 
   phi<-(URR*release_mort_rate)+(1-URR) #unmarked retention plus release mortalities
   N<-1000
-  marked_out<-unmarked_out<-matrix(NA,100,N)
+  marked_out<-unmarked_out<-matrix(NA,100,N,dimnames = list(MR=1:100,HR=(1:N)/N))
 
   for(i in 1:100){
     MR<-MR2<-i/100

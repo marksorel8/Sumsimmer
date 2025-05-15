@@ -10,7 +10,7 @@ Ricker_fun<-function(S,
 
   alpha_vec<-alpha*S
   recruits<-alpha_vec*exp((-alpha_vec/(exp(1)*Rmax))+err)
-  recruits[S<50]<-recruits[S<50]*.25
+  recruits[S<10]<-recruits[S<10]*.1
 
   recruits
 

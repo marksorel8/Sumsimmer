@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
 ```
 
 ```{r}
@@ -14,15 +15,41 @@ tac_RR<-readxl::read_xlsx(here::here("data-raw/data/SummerChinook.xlsx"))
 
 pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalRunSize",skip=2,n_max = 45) 
 
-pfmc_morts |> filter(Year>=2008)|> ggplot(aes(x=Year,y = `River Mouth Run Size`/1000))+geom_col()+theme(axis.title.x =element_blank() )+ylab ("River mouth run size (1000 adults)")+geom_hline(aes(yintercept = 29),lty=2,col="firebrick",lwd=1.5)#+geom_vline(xintercept = 2007.5,lty=2,col="darkblue",lwd=1.5)
+yr_cutoff<-2000
 
 
+RMRS<-pfmc_morts |> filter(Year>=yr_cutoff)|> ggplot(aes(x=Year,y = `River Mouth Run Size`))+geom_col()+theme(axis.title.x =element_blank(),text = element_text(size=14) )+ylab ("River mouth \nrun size")+scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))+geom_hline(aes(yintercept = 29000),lty=2,col="firebrick",lwd=1.5)#+geom_vline(xintercept = 2007.5,lty=2,col="darkblue",lwd=1.5)
+ggsave("RMRS.png")
+
+Nat_or_br<-Sumsimmer:::internal_data$esc_dat |> filter(population_name!="Hatchery",year>=yr_cutoff) |> ungroup() |>  mutate(Population=fct_relevel(as.factor(population_name),c("Okanogan","Methow","Wenatchee")))|> ggplot(aes(x=year,y=NOR/1000,fill =Population))+geom_col()+theme(axis.title.x =element_blank() ,text = element_text(size=14))+ylab ("Natural escapement\n (1,000 fish)")+scale_fill_manual(values=c("#7BAEA0", "#386276", "#3A4332"))
+
+ 
+prop_NO<- pfmc_morts |> select(Year,`River Mouth Run Size`) |> left_join(
+   Sumsimmer:::internal_data$esc_dat |> filter(population_name!="Hatchery") |> select(Year=year,NOR) |> 
+     group_by(Year) |> summarise(NOR=sum(NOR)),
+ )|> filter(Year>=yr_cutoff) |> mutate(prop_NOR=NOR/`River Mouth Run Size`) |> 
+   ggplot(aes(x=Year,y=prop_NOR))+geom_line(,lwd=2)+theme(axis.title.x =element_blank() ,text = element_text(size=14))+ylab ("Natural /\n River Mouth")
+ 
 
 
+ggpubr::ggarrange(RMRS,Nat_or_br,prop_NO,nrow=3,common.legend = TRUE, legend = "right",heights=c(1,1,.5),align="v")
 
 
+esc_dat |> filter(population_name!="Hatchery",year>=yr_cutoff) |> ungroup() |>  mutate(Population=fct_relevel(as.factor(population_name),c("Okanogan","Methow","Wenatchee")))|> ggplot(aes(x=year,y=NOR/1000))+geom_col()+facet_wrap(~population_name)+scale_fill_brewer(palette="Dark2")+theme(axis.title.x =element_blank() ,text = element_text(size=18))+ylab ("Natural-origin escapement\n (1,000 fish)")#+geom_hline(aes(yintercept=2))
+
+ggsave("nat_or_escp.png")
+
+
+NO_ratio_dat<-Sumsimmer:::internal_data$esc_dat |> mutate(NO_esc=NOS+NOBroodStockRemoved) |> select(year,population_name,NO_esc) |> filter(population_name!="Hatchery") |> group_by(year) |> summarize(NO_esc=sum(NO_esc),n=n()) |> 
+  left_join(pfmc_morts |> select(year=Year,RMRS=`River Mouth Run Size`,OA=`PFMC Ocean Abundance`)) |> mutate(OA_NO_ratio=OA/NO_esc, RMRS_NO_ratio=RMRS/NO_esc) 
+
+NO_ratio_dat |> filter(year>=2008) |> ggplot(aes(x=year,y=OA_NO_ratio))+geom_col()+ylab("Natoral origin escapement /\n Ocean Abundance")
+
+NO_ratio_dat |> filter(between(year,2000,2023)) |> summarize(mean(RMRS_NO_ratio))
 
 ```
+
+
 
 ```{r}
 # pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalHarvestRates",skip=2,n_max = 45)
@@ -50,7 +77,7 @@ pfmc_HRs_2<-pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non 
 
 pfmc_HRs_2 |> 
   ggplot(aes(x=Year,y=ER*100,fill=`  `))+geom_col()+facet_wrap(~Sector,nrow=2)+
-      scale_fill_manual(values=c("darkgrey","firebrick","darkblue"))+theme(axis.title.x =element_blank() ,legend.position = "top")+ylab ("In-river harvest rate %")
+      scale_fill_manual(values=c("darkgrey","firebrick","darkblue"))+theme(axis.title.x =element_blank() ,legend.position = "top")+ylab ("In-river harvest rate %")+theme(legend.position = "right")
 
 
 #Average allowed in river since 2008
@@ -60,10 +87,206 @@ pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non treaty_Ocean
 pfmc_HRs |> group_by(Sector) |> summarize(mean(ER))
 
 
+
+
+
+
+
+ggsave("harvest.png")
+```
+
+
+
+```{r}
+pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalHarvestRates",skip=2,n_max = 45) |> 
+# pfmc_HRs<-pfmc_morts |>
+  mutate(`Treaty_In river`=`Total Treaty`,
+                     `Non treaty_In river`=`Total In-river NT`,
+                     `Non treaty_Ocean`=`PFMC NT Ocean Impacts`,
+                     `Allowed`=`Allowed Treaty or NT Harvest Rate`,
+                     ) |>
+   select(Year,`Allowed`:`Treaty_In river`) |>
+  drop_na() |>
+  pivot_longer(contains("In river"),names_to = "Sector",values_to = "ER") |>
+  separate_wider_delim(Sector,"_",names=c("Sector","Area"))
+
+
+pfmc_HRs_2<-pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non treaty_Ocean`, Allowed),
+                   Over=ER>Allowed,
+                   ER_within=ifelse(Over,Allowed,ER),
+                   difference= abs(Allowed-ER)) |> 
+  select(Year,Sector,Over,ER_within,difference) |> 
+  pivot_longer(c(ER_within,difference),names_to = "Category",values_to="ER") |> 
+  mutate(Cat=case_when(Category=="ER_within"~"Harvest within limit",
+                       Category=="difference"&Over~"Harvest above limit",
+                       TRUE~"Unharvested within limit"),
+         `  `=fct_relevel(Cat,c("Unharvested within limit","Harvest above limit","Harvest within limit")))
+
+harvest<-pfmc_HRs_2 |> 
+  ggplot(aes(x=Year,y=ER*100,fill=`  `))+geom_col()+facet_wrap(~Sector,nrow=2)+
+      scale_fill_manual(values=c("darkgrey","firebrick","darkblue"))+theme(axis.title.x =element_blank() ,legend.position = "top")+ylab ("In-river exploitation %")+theme(legend.position = "right",axis.title.x =element_blank() ,text = element_text(size=18))
+
+RMRS<-pfmc_morts |> filter(Year>=2008)|> ggplot(aes(x=Year,y = `River Mouth Run Size`))+geom_col()+theme(axis.title.x =element_blank(),text = element_text(size=18) )+ylab ("River mouth run size")+scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3))
+
+
+ggpubr::ggarrange(harvest,RMRS,nrow=2,common.legend = TRUE, legend = "top",heights=c(1,.5),align="v")
+
+
+#Average allowed in river since 2008
+pfmc_HRs |> mutate(Allowed=ifelse(Sector=="Non treaty",Allowed-`Non treaty_Ocean`, Allowed)) |> group_by(Sector) |> summarize(mean(Allowed))
+
+#Average in river harvest since 2008
+pfmc_HRs |> group_by(Sector) |> summarize(mean(ER))
+
+pfmc_morts |> filter(Year>=2008)|> summarise(mean(`River Mouth Run Size`),
+                                             min(`River Mouth Run Size`),
+                                             max(`River Mouth Run Size`))
+  
+ggsave("harvest2.png")
+
+
+pfmc_HRs<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  101023.xlsx"),sheet="TotalHarvestRates",skip=2,n_max = 45)
+
+
+df<-pfmc_HRs |> filter(Year>=2008) |> select(Year,RMRS=`River Mouth Run Size`,`PFMC NT Ocean Impacts`,`PFMC Ocean Abundance`) |> 
+  left_join(
+    long_dat |> group_by(spawn_year) |> summarise(wild_AI=sum(NO_river_mouth)) |> rename(Year=spawn_year)
+  ) |> 
+  mutate(wild_AI=wild_AI/(1-`PFMC NT Ocean Impacts`)) |> 
+    expand_grid(HCR=c("Current_MA","Fixed_20%","New_AB_tot","New_AB_nat")) |> mutate(allowed_ER=NA)
+
+  
+  
+for (i in 1 : nrow(df)){
+  
+  
+  if(df$HCR[i]=="New_AB_nat"){
+      ER<-allowed_ER(df$wild_AI[i],
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_tiers,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_rates,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_scalar,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_offset,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_share
+               )
+  }else{
+  
+  
+  ER<-allowed_ER(df$`PFMC Ocean Abundance`[i],
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_tiers,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_rates,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_scalar,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_offset,
+               internal_data[[df$HCR[i]]]$perf$HCR$treaty_share
+               )
+  }
+  df[i,"allowed_ER"]<-  ER
+    
+
+ }
+  
+
+  compare_HCR<-df |> 
+    mutate(HCR=case_when(HCR=="Current_MA"~"Current MA",
+                         HCR== "Fixed_20%" ~ "1) Fixed 40%",
+                         HCR=="New_AB_nat" ~ "2a) New abundance based w/ natural index",
+                         TRUE~"2b) New abundance based w/ total index"),
+           HCR=fct_relevel(HCR,c("Current MA","1) Fixed 40%","2a) New abundance based w/ natural index","2b) New abundance based w/ total index"))) |> 
+    
+    
+    ggplot(aes(x=Year,y=allowed_ER*100,fill=HCR))+geom_bar(position = "dodge", stat = "identity")+ylab("Allowed exploitation %")+theme(axis.title.x =element_blank(),text = element_text(size=17))+scale_fill_manual(values =RColorBrewer::brewer.pal(8,"Dark2")[c(-1)])
+  
+  
+  
+ggpubr::ggarrange(compare_HCR,RMRS,nrow=2,common.legend = TRUE, legend = "top",heights=c(1,.6),align="v")
+
+ggsave("Compare_HCR_years.png")
+
+
+
+df |> 
+    mutate(HCR=case_when(HCR=="Current_MA"~"Current MA",
+                         HCR== "Fixed_20%" ~ "1) Fixed 40%",
+                         HCR=="New_AB_nat" ~ "2a) New AB w/ natural index",
+                         TRUE~"2b) New AB w/ total index"),
+           HCR=fct_relevel(HCR,c("Current MA","1) Fixed 40%","2a) New AB w/ natural index","2b) New AB w/ total index")),
+           allowed_ER=(round(allowed_ER*100,1)),
+           across(c(RMRS,`PFMC Ocean Abundance`,wild_AI),round),
+            `PFMC NT Ocean Impacts`=round(`PFMC NT Ocean Impacts`*100,1)) |> pivot_wider(names_from = HCR,values_from = allowed_ER) |> write_csv("compare_past_years_ER.csv")
+```
+
+
+
+```{r}
+#SMYS
+Sumsimmer:::internal_data$Smsy |> tail(-1) |> sum()
+
+
+
 ```
 
 
 ```{r}
+pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  091824.xlsx"),sheet="TotalRunSize",skip=2,n_max = 46) |> filter(Year>=2008) #|> filter(`SUS Ocean Abundance`<max(`SUS Ocean Abundance`)) 
 
+a<-pfmc_morts |> filter(Year>=2008) |> ggplot(aes(x=`SUS Ocean Abundance`,y=`PFMC NT Ocean Impacts`))+geom_point()+geom_smooth(method="lm")+ylab("PFMC NT (fish)") +scale_y_continuous(labels = scales::unit_format(suffix="K",scale = .001))+scale_x_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))
+
+b<-pfmc_morts |> filter(Year>=2018) |> mutate(`PFMC NT Ocean Impact`=`PFMC NT Ocean Impacts`/`SUS Ocean Abundance`) |>  ggplot(aes(x=`SUS Ocean Abundance`,y=`PFMC NT Ocean Impact`))+geom_point()+geom_smooth(method="lm")  +scale_y_continuous(labels = scales::unit_format(suffix="%",scale = 100))+scale_x_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))+ylab("PFMC NT")
+
+
+c<-pfmc_morts |> filter(Year>=2008) |>   ggplot(aes(x=Year,y=`PFMC NT Ocean Impacts`))+geom_col()+ylab("PFMC NT (fish)") +scale_y_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))
+
+d<-pfmc_morts |> filter(Year>=2008) |> mutate(`PFMC NT Ocean Impact`=`PFMC NT Ocean Impacts`/`SUS Ocean Abundance`) |>  ggplot(aes(x=Year,y=`PFMC NT Ocean Impact`))+geom_col()+scale_y_continuous(labels = scales::unit_format(suffix="%",scale = 100))+theme(text = element_text(size=14))+ylab("PFMC NT")
+
+
+library(cowplot)
+combined <- plot_grid(
+  a,b,c,d,
+  ncol = 2,
+  align = "v",
+  axis = "lr"
+)
+
+library(patchwork)
+
+plot_grid(b, d, a, c,
+          nrow = 2, align = 'hv', axis = 'tblr')
+
+
+
+(b + d) /
+(a + c)  +
+  plot_layout(guides = "collect")
+
+ggsave("PFMC.png")
 ```
 
+```{r}
+pfmc_morts<-readxl::read_xlsx(here::here("data-raw/data/New Summer Chinook Reconstruction  091824.xlsx"),sheet="TotalRunSize",skip=2,n_max = 46) |> filter(Year>=2008) |>
+  mutate(HR=`PFMC NT Ocean Impacts`/`SUS Ocean Abundance`,
+         HR3yr=zoo::rollmean(HR,k=5,fill=NA,align="right"),
+         N3yr=zoo::rollmean(`PFMC NT Ocean Impacts`,k=5,fill=NA,align="right"),
+         S3yr=zoo::rollmean(`SUS Ocean Abundance`,k=5,fill=NA,align="right"),
+         test=N3yr/S3yr)  #|> filter(`SUS Ocean Abundance`<max(`SUS Ocean Abundance`)) 
+
+a<-pfmc_morts |> filter(Year>=2008) |> ggplot(aes(x=`SUS Ocean Abundance`,y=N3yr))+geom_point()+geom_smooth(method="lm")+ylab("5-yr PFMC NT (fish)") +scale_y_continuous(labels = scales::unit_format(suffix="K",scale = .001))+scale_x_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))
+
+b<-pfmc_morts |> filter(Year>=2018) |>  ggplot(aes(x=`SUS Ocean Abundance`,y=test))+geom_point()+geom_smooth(method="lm")  +scale_y_continuous(labels = scales::unit_format(suffix="%",scale = 100))+scale_x_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))+ylab("5-yr PFMC NT")
+
+
+c<-pfmc_morts |> filter(Year>=2008) |>   ggplot(aes(x=Year,y=N3yr))+geom_col()+ylab("5-yr PFMC NT (fish)") +scale_y_continuous(labels = scales::unit_format(suffix="K",scale = .001))+theme(text = element_text(size=14))
+
+d<-pfmc_morts |> filter(Year>=2008) |>  ggplot(aes(x=Year,y=test))+geom_col()+scale_y_continuous(labels = scales::unit_format(suffix="%",scale = 100))+theme(text = element_text(size=14))+ylab("5-yr PFMC NT")
+
+
+
+library(patchwork)
+
+
+
+
+(b + d) /
+(a + c)  +
+  plot_layout(guides = "collect")
+
+ggsave("PFMC_5yr.png")
+```

@@ -532,9 +532,9 @@ test_mod_dat<-all_SR |> group_by(basin) |>
          wild=ifelse(basin=="Hatchery",0,1),
          S=ifelse(basin=="Hatchery",0,S))
 
-test_mod<-glmmTMB::glmmTMB(lrps~basin-1+S:basin +ar1(year_fac+0|const)+diag(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
-
-test_mod<-glmmTMB::glmmTMB(lrps~wild+S:basin +us(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+# test_mod<-glmmTMB::glmmTMB(lrps~basin-1+S:basin +ar1(year_fac+0|const)+diag(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
+# 
+# test_mod<-glmmTMB::glmmTMB(lrps~wild+S:basin +us(basin+0|year_fac),data=test_mod_dat,dispformula = ~0)
 
 
 ## begin TMB ricker model
@@ -1373,6 +1373,16 @@ esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |>  dplyr::sele
 
 
 
+esc_dat %>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |>  dplyr::select(year,population_name ,PHOS,HOS,NOS) %>% left_join((returns |> group_by(year) |> summarize(hatch_return=sum(hatchery))) |> 
+  drop_na())|> 
+  drop_na()  %>% ggplot(aes(x=hatch_return,y=HOS))+geom_point()+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+geom_smooth(method="lm")
+
+phos_dat |>  dplyr::select(year,population_name ,PHOS,HOS,NOS) %>% left_join((returns |> group_by(year) |> summarize(hatch_return=sum(hatchery))) |> 
+  drop_na())|> 
+  drop_na()  %>% ggplot(aes(x=(NOS),y=log(HOS)))+geom_point()+facet_wrap(~population_name,scales="free_x")+theme(legend.position = "top")+geom_smooth(method="lm",formula="y~x")
+
+
+
 phos_dat<-esc_dat%>% filter(!is.na(`SG No. Age 4`)) |> filter(year>=2010) |> mutate(logit_phos=qlogis(PHOS)) |> left_join((returns |> group_by(year) |> summarize(hatch_return=sum(hatchery))) |> 
   drop_na())|> 
   group_by(population_name) |> 
@@ -1398,6 +1408,14 @@ summary(pHOS_mod)
 AIC(pHOS_mod)
 
 
+
+pHOS_mod<-glmmTMB::glmmTMB(log(HOS)~population_name+(log(NOS))-1+(population_name+0|year_fac),data=phos_dat,dispformula = ~0)
+summary(pHOS_mod)
+AIC(pHOS_mod)
+
+
+
+
 # pdat<-expand.grid(population_name=c("Methow","Okanogan","Wenatchee"),NOS=seq(100,10000,250),hatch_return=seq(5000,150000,by=10000),year_fac=as.factor(3000))
 
 
@@ -1411,11 +1429,12 @@ phos_dat |>
   dplyr::select(population_name, NOS = value_sequence) |> expand_grid(hatchery_escapement=seq(5000,150000,by=20000),year_fac=as.factor(3000))
 
 pred<-predict(pHOS_mod,newdata = pdat)
-pdat<-pdat |> mutate(pred=plogis(pred)) 
 
+pdat<-pdat |> mutate(pred=exp(pred)) 
 
+pdat |> ggplot(aes(y=pred,x=NOS))+geom_line(lwd=2)+facet_wrap(~population_name,scales="free_x")+ylab("Predicted pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat,aes(x=NOS,y=HOS))
 
-
+# pdat<-pdat |> mutate(pred=plogis(pred)) 
 pdat |> mutate(hatchery_escapement=as.factor(hatchery_escapement))|> ggplot(aes(y=pred,x=NOS,color=hatchery_escapement))+geom_line(lwd=2)+facet_wrap(~population_name,scales="free_x")+scale_color_discrete(type=blues9[-1])+ylab("Predicted pHOS")+xlab("Natural origin spawners")+geom_point(data=phos_dat,aes(x=NOS,y=PHOS,color=year_fac))
 #note different scales
 

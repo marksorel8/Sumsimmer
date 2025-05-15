@@ -21,7 +21,7 @@ ui <- fluidPage(
                         tags$li(tags$i(style="color: blue;","No harvest"), " - A baseline with no terminral harvest"),
                         tags$li(tags$i(style="color: blue;","Current MA"), " - The harvest control rule defined on page 29 and in table A2 of the 2018-2029 Management Agreement."),
 
-                        tags$li(tags$i(style="color: blue;","PST"), " -  Approximates the harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
+                        # tags$li(tags$i(style="color: blue;","PST"), " -  Approximates the harvest control rule defined in Annex IV Chapter 3 of the"  ,tags$a(href="https://www.psc.org/wp-admin/admin-ajax.php?juwpfisadmin=false&action=wpfd&task=file.download&wpfd_category_id=45&wpfd_file_id=2337&token=&preview=1","Pacific Salmon Treaty"),". This rule is based on an escapement goal of 12,143 with fishing at 85% of the 2009-2015 average rate in years when the escapement goal is not achieved."),
                         tags$li(tags$i(style="color: blue;","Custom 1 & 2"), " - These are blank canvases for trying whatever you like. Maybe try a tiered approach with a couple of different fixed exploitation rates at different river mouth run sizes? Or whatever you want...")
                       ),
 
@@ -115,11 +115,14 @@ ui <- fluidPage(
                       ),
                       br(),
                       actionButton("update", "update!")),
-             tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No_harvest","No terminal harvest")),
+             # tabPanel("No harvest", Sumsimmer:::HCR_feedback_UI("No_harvest","No terminal harvest")),
              tabPanel("Current MA", Sumsimmer:::HCR_feedback_UI("Current_MA","Harvest control rule from 2018-2027 Agreement")),
+             # tabPanel("1) Fixed 20%", Sumsimmer:::HCR_feedback_UI("Fixed_20%","Fixed ER or 20%")),
+             tabPanel("2a) New abundance based w/ natural index", Sumsimmer:::HCR_feedback_UI("New_AB_nat","New abundance based harvest control rule")),
+             tabPanel("2b) New abundance based w/ total index", Sumsimmer:::HCR_feedback_UI("New_AB_tot","New abundance based harvest control rule")),
              # tabPanel("Current MA2", Sumsimmer:::HCR_feedback_UI("Current_MA2","Harvest control rule from 2018-2027 Agreement")),
              # tabPanel("Simplified MA", Sumsimmer:::HCR_feedback_UI("Simplified MA","Simplified version of the rule from 2018-2027 Agreement")),
-             tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Approximate harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
+             # tabPanel("PST", Sumsimmer:::HCR_feedback_UI("PST","Approximate harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
              # tabPanel("PST2", Sumsimmer:::HCR_feedback_UI("PST2","Harvest control rule from Annex IV Chapter 3 of Pacific Salmon Treaty. Also used in Pacific Fishery Mangment Council")),
              tabPanel("Custom 1", Sumsimmer:::HCR_feedback_UI("Custom_1","")),
              tabPanel("Custom 2", Sumsimmer:::HCR_feedback_UI("Custom_2","")),
@@ -148,8 +151,11 @@ ui <- fluidPage(
                       # p(style="text-align:center",
                       #   h2("Harvest and escapement")),
                       # actionButton("comparePerformance", "Render/update performance metrics comparison plot"),
-                      # br(),
-
+                      br(),
+                      plotOutput("harvest_metrics"),
+                      br(),
+                      p(tags$b("Harvest and escapement figure."), " The left panel shows box plots of annual harvest and the right 4 panels show boxplots of natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across years for individual simulations, and then averaged across simulations.  Therefore, the lower end of the bars represent the average across simulations of the 2 years (out of 25) with the lowest harvest. I summarized the results in this way to show what harvest and escapement projections were in small run size, average, and large run size years."),
+                      plotOutput("hcr_past_year",height = "1200px"),
                       br(),
                       plotOutput("compare_perf_metrics"),
                       p(tags$b("Harvest and escapement figure."), " The left panel shows box plots of annual harvest and the right 4 panels show boxplots of natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across years for individual simulations, and then averaged across simulations.  Therefore, the lower end of the bars represent the average across simulations of the 2 years (out of 25) with the lowest harvest. I summarized the results in this way to show what harvest and escapement projections were in small run size, average, and large run size years."),
@@ -229,8 +235,38 @@ server <- function(input, output, session) {
 
 
 
-  no_harv<-reactiveVal(do.call(Sumsimmer:::HCR_feedback_server,(c(id="No_harvest",
+  no_harv<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="No_harvest",
                                                                   Sumsimmer:::internal_data$`No_harvest`$perf$HCR,
+                                                                  editable=FALSE#,
+                                                                  # Wen_alpha=reactive(input$Wen_alpha_global),
+                                                                  # Met_alpha=reactive(input$Met_alpha_global),
+                                                                  # Ok_alpha=reactive(input$Ok_alpha_global),
+                                                                  # Hatch_alpha=reactive(input$Hatch_alpha_global),
+                                                                  # Wen_Rmax=reactive(input$Wen_Rmax_global),
+                                                                  # Met_Rmax=reactive(input$Met_Rmax_global),
+                                                                  # Okan_Rmax=reactive(input$Okan_Rmax_global),
+                                                                  # Hatch_Rmax=reactive(input$Hatch_Rmax_global),
+                                                                  # update=reactive(input$update)
+                                                                  )))
+
+
+
+  # Fixed_20<-reactiveVal(do.call(Sumsimmer:::HCR_feedback_server,(c(id="Fixed_20%",
+  #                                                             Sumsimmer:::internal_data$`Fixed_20%`$perf$HCR,
+  #                                                             editable=TRUE,
+  #                                                             # Wen_alpha=reactive(input$Wen_alpha_global),
+  #                                                             # Met_alpha=reactive(input$Met_alpha_global),
+  #                                                             # Ok_alpha=reactive(input$Ok_alpha_global),
+  #                                                             # Hatch_alpha=reactive(input$Hatch_alpha_global),
+  #                                                             # Wen_Rmax=reactive(input$Wen_Rmax_global),
+  #                                                             # Met_Rmax=reactive(input$Met_Rmax_global),
+  #                                                             # Okan_Rmax=reactive(input$Okan_Rmax_global),
+  #                                                             # Hatch_Rmax=reactive(input$Hatch_Rmax_global),
+  #                                                             update=reactive(input$update)))))
+
+
+  New_AB_nat<-reactiveVal(do.call(Sumsimmer:::HCR_feedback_server,(c(id="New_AB_nat",
+                                                                  Sumsimmer:::internal_data$`New_AB_nat`$perf$HCR,
                                                                   editable=TRUE,
                                                                   # Wen_alpha=reactive(input$Wen_alpha_global),
                                                                   # Met_alpha=reactive(input$Met_alpha_global),
@@ -242,28 +278,24 @@ server <- function(input, output, session) {
                                                                   # Hatch_Rmax=reactive(input$Hatch_Rmax_global),
                                                                   update=reactive(input$update)))))
 
+  New_AB_tot<-reactiveVal(do.call(Sumsimmer:::HCR_feedback_server,(c(id="New_AB_tot",
+                                                                 Sumsimmer:::internal_data$`New_AB_tot`$perf$HCR,
+                                                                 editable=TRUE,
+                                                                 # Wen_alpha=reactive(input$Wen_alpha_global),
+                                                                 # Met_alpha=reactive(input$Met_alpha_global),
+                                                                 # Ok_alpha=reactive(input$Ok_alpha_global),
+                                                                 # Hatch_alpha=reactive(input$Hatch_alpha_global),
+                                                                 # Wen_Rmax=reactive(input$Wen_Rmax_global),
+                                                                 # Met_Rmax=reactive(input$Met_Rmax_global),
+                                                                 # Okan_Rmax=reactive(input$Okan_Rmax_global),
+                                                                 # Hatch_Rmax=reactive(input$Hatch_Rmax_global),
+                                                                 update=reactive(input$update)))))
 
-  # current2<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Current_MA2",Sumsimmer:::internal_data$`Current MA`$perf$HCR,editable=TRUE)))
-  # Sumsimmer:::HCR_feedback_server(id="Current MA",editable=TRUE, pfmc_cutoff=29000)
 
-  PST<-reactiveVal(do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST",
-                                                              Sumsimmer:::internal_data$`PST`$perf$HCR,
-                                                              editable=TRUE,
-                                                              # Wen_alpha=reactive(input$Wen_alpha_global),
-                                                              # Met_alpha=reactive(input$Met_alpha_global),
-                                                              # Ok_alpha=reactive(input$Ok_alpha_global),
-                                                              # Hatch_alpha=reactive(input$Hatch_alpha_global),
-                                                              # Wen_Rmax=reactive(input$Wen_Rmax_global),
-                                                              # Met_Rmax=reactive(input$Met_Rmax_global),
-                                                              # Okan_Rmax=reactive(input$Okan_Rmax_global),
-                                                              # Hatch_Rmax=reactive(input$Hatch_Rmax_global),
-                                                              update=reactive(input$update)))))
-  # PST2<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="PST2",Sumsimmer:::internal_data$`PST`$perf$HCR,editable=TRUE)))
-
-  # simple_ma<-do.call(Sumsimmer:::HCR_feedback_server,(c(id="Simplified MA",Sumsimmer:::internal_data$`Simplified MA`$perf$HCR,editable=TRUE)))
 
 
   sim3<-reactiveVal(Sumsimmer:::HCR_feedback_server(id="Custom_1",
+                                                    index="total",
                                         treaty_tiers=rep(NA,7),
                                         treaty_rates=rep(NA,7),
                                         treaty_scalar=rep(NA,7),
@@ -288,6 +320,7 @@ server <- function(input, output, session) {
                                         update=reactive(input$update)))
 
   sim4<-reactiveVal(Sumsimmer:::HCR_feedback_server("Custom_2",
+                                                    index="total",
                                         treaty_tiers=rep(NA,7),
                                         treaty_rates=rep(NA,7),
                                         treaty_scalar=rep(NA,7),
@@ -313,28 +346,50 @@ server <- function(input, output, session) {
 
   #Combine data from all pages and render a combined plot
   render_HCR_compare<-function(){
-    hcr_list<-list("No harvest"=no_harv()$hcr(),
-                   "Current MA"=current()$hcr(),
+    hcr_list<-list("No harvest"=no_harv$hcr()$hcr_data,
+                   "Current MA"=current()$hcr()$hcr_data,
+                   # "Fixed_20%"=Fixed_20()$hcr()$hcr_data,
+                   "New_AB_nat"=New_AB_nat()$hcr()$hcr_data,
+                   "New_AB_tot"=New_AB_tot()$hcr()$hcr_data,
                    # "Current MA2"=current2$hcr(),
                    # "Simplified MA"=simple_ma$hcr(),
-                   "PST" = PST()$hcr(),
+                   # "PST" = PST()$hcr(),
                    # "PST2" = PST2$hcr(),
-                   "Custom 1" = sim3()$hcr(),
-                   "Custom 2" = sim4()$hcr()
+                   "Custom 1" = sim3()$hcr()$hcr_data,
+                   "Custom 2" = sim4()$hcr()$hcr_data
     )
 
     hcr_list <- Filter(Negate(is.null), hcr_list)
 
 
+    hcr_list_simple<-list("Current MA"=current()$hcr()$hcr,
+                   # "Fixed_20%"=Fixed_20()$hcr()$hcr,
+                   "New_AB_nat"=New_AB_nat()$hcr()$hcr,
+                   "New_AB_tot"=New_AB_tot()$hcr()$hcr,
+                   # "Current MA2"=current2$hcr(),
+                   # "Simplified MA"=simple_ma$hcr(),
+                   # "PST" = PST()$hcr(),
+                   # "PST2" = PST2$hcr(),
+                   "Custom 1" = sim3()$hcr()$hcr,
+                   "Custom 2" = sim4()$hcr()$hcr
+    )
 
-    perf_list<-list(no_harv()$sim()[1:8],
-                    current()$sim()[1:8],
+    hcr_list_simple <- Filter(Negate(is.null), hcr_list_simple)
+
+
+
+
+    perf_list<-list(no_harv$sim()[1:12],
+                    current()$sim()[1:12],
+                    # Fixed_20()$sim()[1:12],
+                    New_AB_nat()$sim()[1:12],
+                    New_AB_tot()$sim()[1:12],
                     # current2$sim()[1:8],
                     # simple_ma$sim()[1:8],
-                    PST()$sim()[1:8],
+                    # PST()$sim()[1:8],
                     # PST2$sim()[1:8],
-                    sim3()$sim()[1:8],
-                    sim4()$sim()[1:8]
+                    sim3()$sim()[1:12],
+                    sim4()$sim()[1:12]
     )
 
 
@@ -346,7 +401,8 @@ server <- function(input, output, session) {
     if(length(hcr_list)==0){
       showNotification("please render the harvest control rule plots on all of the individual pages before comparing them here.", type = "error")
     }else{
-      p2<-Sumsimmer:::plot_HCR_compare(hcr_list)
+      p2<-Sumsimmer:::plot_HCR_compare(hcr_list,colors=c( "#EFC519", "#831285", "#CC7810", "#C886E8", "#3E6E94" ))
+
       output$compare_HCRs<-renderPlot({
         p2
       })
@@ -357,9 +413,26 @@ server <- function(input, output, session) {
       #
       # })
       #
-      plots<-Sumsimmer:::plot_all_fun(perf_list,"No harvest")
 
-      compare_perf_metrics<-ggpubr::ggarrange(plots$harv_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
+      hcr_past_year<-Sumsimmer:::plot_past_harvest(hcr_list_simple,colors_vec = c( "#EFC519", "#831285", "#CC7810", "#C886E8", "#3E6E94" ))
+
+      output$hcr_past_year<-renderPlot({
+        hcr_past_year$plot
+      })
+
+
+      plots<-Sumsimmer:::plot_all_fun(perf_list,"No harvest",colors_vec=c("#B51829", "#EFC519", "#831285", "#CC7810", "#C886E8", "#3E6E94" ))
+
+
+      harvest_metrics<-ggpubr::ggarrange(plots$Mean_harv_plot,plots$Low_harv_plot,nrow=1,common.legend = TRUE, legend = "top",widths=c(1,1))
+
+      output$harvest_metrics<-renderPlot({
+
+        harvest_metrics
+      })
+
+
+      compare_perf_metrics<-ggpubr::ggarrange(plots$QET_plot,plots$NOE_plot,nrow=1,common.legend = FALSE, legend = "top",widths=c(1,2))
 
       output$compare_perf_metrics<-renderPlot({
 
@@ -395,11 +468,14 @@ server <- function(input, output, session) {
       })
 
 
-      params_list <- list("No harvest"=no_harv()$params(),
+      params_list <- list("No harvest"=no_harv$params(),
                           "Current MA"=current()$params(),
+                          # "Fixed_20%"=Fixed_20()$params(),
+                          "New_AB_nat"=New_AB_nat()$params(),
+                          "New_AB_tot"=New_AB_tot()$params(),
                           # "Current MA2"=current2$params(),
                           # "Simplified MA"=simple_ma$hcr(),
-                          "PST" = PST()$params(),
+                          # "PST" = PST()$params(),
                           # "PST2" = PST2$params(),
                           "Custom 1" = sim3()$params(),
                           "Custom 2" = sim4()$params()
@@ -408,8 +484,8 @@ server <- function(input, output, session) {
 
 
 sim_params<-as_tibble(do.call(rbind, lapply(params_list,as.data.frame)))|>
-  mutate(`Harvest rule` = rep(names(params_list),each =length(params_list[[1]][[1]])),.before=harv_mod) |>
-  filter(`Harvest rule`%in%names(hcr_list)) |>
+  # mutate(`Harvest rule` = rep(names(params_list),each =length(params_list[[1]][[1]])),.before=harv_mod) |>
+  # filter(`Harvest rule`%in%names(hcr_list)) |>
   mutate(harv_mod=case_when(harv_mod==1~"Log-log",
                             harv_mod==2~"Broken stick",
                             harv_mod==3~"Average"))
@@ -421,6 +497,7 @@ sim_params<-as_tibble(do.call(rbind, lapply(params_list,as.data.frame)))|>
         # hatchery_perf_metrics=plots[["hatch_plot"]],
         # hatchery_surplus = plots[["h_surplus"]],
         hcr_plot= p2$plot,
+        hcr_past_year=hcr_past_year$plot,
         tbl_NT=p2$tbl2,
         tbl_T=p2$tbl3,
         plots=plots,
@@ -428,7 +505,6 @@ sim_params<-as_tibble(do.call(rbind, lapply(params_list,as.data.frame)))|>
       ))
 
     }
-
 
   }
 

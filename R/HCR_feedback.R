@@ -31,7 +31,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule",wen_alph=reactive(3
                 br(),
 
                 DTOutput(NS(id,"my_datatable")),
-                "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 6.3% of the river mouth run size (the average rate since 2008).",
+                "Hit this button to refresh the plot after changing the harvest control rule. The denominator in the rates shown is the river mouth run size, which is different from what is used to calculate allowable impacts in the the current Agreement. River mouth run size plus PFMC non-treaty AEQ mortalities is used as the denominator in the current Agreement. The plots assume that PFMC AEQ non-treary mortality is 8.2% of the river mouth run size.",
                 br(),
                 h3("Harvest control rule plot"),
                 actionButton(NS(id,"go"),label = "Update harvest control rule plot"),
@@ -70,64 +70,64 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule",wen_alph=reactive(3
                   step = .01
                 ),
                 br(),
-                h3(p("Ricker ",em("\u03B1"), "parameter values")),
-                fluidRow(
-                  column(3,numericInput(
-                    NS(id,"Wen_alpha"),
-                    "Wenatchee",
-                    value=round(internal_data$alphas[4],3),
-                    min = .01,
-                    max = 25,
-                    step = .01
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Met_alpha"),
-                    "Methow",
-                    value=round(internal_data$alphas[2],3),
-                    min = .01,
-                    max = 25,
-                    step = .01
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Ok_alpha"),
-                    "Okanogan",
-                    value=round(internal_data$alphas[3],3),
-                    min = .01,
-                    max = 25,
-                    step = .01
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Hatch_alpha"),
-                    "Hatchery",
-                    value=round(internal_data$alphas[1],3),
-                    min = .01,
-                    max = 100,
-                    step = .01
-                  ))
-                ),
-                h3(p("Ricker ",em("Rmax"), "parameter values")),
-                fluidRow(
-                  column(3,numericInput(
-                    NS(id,"Wen_Rmax"),
-                    "Wenatchee",
-                    value=round(internal_data$Rmax[3],3)
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Met_Rmax"),
-                    "Methow",
-                    value=round(internal_data$Rmax[1],3)
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Ok_Rmax"),
-                    "Okanogan",
-                    value=round(internal_data$Rmax[2],3)
-                  )),
-                  column(3,numericInput(
-                    NS(id,"Hatch_Rmax"),
-                    "Hatchery",
-                    value=1000000
-                  ))
-                ),
+                # h3(p("Ricker ",em("\u03B1"), "parameter values")),
+                # fluidRow(
+                #   column(3,numericInput(
+                #     NS(id,"Wen_alpha"),
+                #     "Wenatchee",
+                #     value=round(internal_data$alphas[4],3),
+                #     min = .01,
+                #     max = 25,
+                #     step = .01
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Met_alpha"),
+                #     "Methow",
+                #     value=round(internal_data$alphas[2],3),
+                #     min = .01,
+                #     max = 25,
+                #     step = .01
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Ok_alpha"),
+                #     "Okanogan",
+                #     value=round(internal_data$alphas[3],3),
+                #     min = .01,
+                #     max = 25,
+                #     step = .01
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Hatch_alpha"),
+                #     "Hatchery",
+                #     value=round(internal_data$alphas[1],3),
+                #     min = .01,
+                #     max = 100,
+                #     step = .01
+                #   ))
+                # ),
+                # h3(p("Ricker ",em("Rmax"), "parameter values")),
+                # fluidRow(
+                #   column(3,numericInput(
+                #     NS(id,"Wen_Rmax"),
+                #     "Wenatchee",
+                #     value=round(internal_data$Rmax[3],3)
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Met_Rmax"),
+                #     "Methow",
+                #     value=round(internal_data$Rmax[1],3)
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Ok_Rmax"),
+                #     "Okanogan",
+                #     value=round(internal_data$Rmax[2],3)
+                #   )),
+                #   column(3,numericInput(
+                #     NS(id,"Hatch_Rmax"),
+                #     "Hatchery",
+                #     value=1000000
+                #   ))
+                # ),
 
 
                 "Hit this button to run the population simulation and plot escapement and harvest after changing the harvest control rule. This will take several seconds.",
@@ -147,6 +147,7 @@ HCR_feedback_UI <- function(id,title= "Harvest control rule",wen_alph=reactive(3
 
 
 HCR_feedback_server <- function(id,
+                                index,
                                 treaty_tiers=c(16000,36250,50000,Inf,rep(NA,3)),
                                 treaty_rates=c(.05,.1,NA,NA,rep(NA,3)),
                                 treaty_scalar=c(NA,NA,1,.75,rep(NA,3)),
@@ -177,6 +178,8 @@ HCR_feedback_server <- function(id,
 
     # Update the default value for PFMC cutoff
     updateNumericInput(session, "pfmc_cutoff_id", value = pfmc_cutoff)
+
+    updateCheckboxInput(session, "wild_AI", value = ifelse(index=="total",FALSE,TRUE))
 
 #
 #     observeEvent(update(),
@@ -278,10 +281,10 @@ HCR_feedback_server <- function(id,
 
 
 
-    hcr_data_fun<-function(do_notifs=FALSE,index,PFMC_include_point){
+    hcr_data_fun<-function(do_notifs=FALSE,index_type,PFMC_include_point){
       hcr_data<-with(isolate(v$data),
                      Sumsimmer:::seq_HCR(
-                       index=index,
+                       index=index_type,
                        pfmc_cutoff=PFMC_include_point,
                        treaty_tiers=treaty_tiers,
                        treaty_rates=treaty_rates,
@@ -292,15 +295,36 @@ HCR_feedback_server <- function(id,
                        NT_rates=NT_rates,
                        NT_scalar=NT_scalar,
                        NT_offset=NT_offset,
-                       NT_share=NT_share,
+                       NT_share=NT_share
                      )
       )
+
+      hcr<-with(isolate(v$data),
+                list(
+                  index=index_type,
+                  pfmc_cutoff=PFMC_include_point,
+                  treaty_tiers=treaty_tiers,
+                  treaty_rates=treaty_rates,
+                  treaty_scalar=treaty_scalar,
+                  treaty_offset=treaty_offset,
+                  treaty_share=treaty_share,
+                  NT_tiers=NT_tiers,
+                  NT_rates=NT_rates,
+                  NT_scalar=NT_scalar,
+                  NT_offset=NT_offset,
+                  NT_share=NT_share
+                )
+      )
+
 
       if(inherits(hcr_data, "error")){
         if(do_notifs)showNotification(hcr_data$message, type = "error")
         NULL
       }else{
-        hcr_data
+        list(
+        hcr_data=hcr_data,
+        hcr=hcr
+        )
       }
     }
 
@@ -312,17 +336,15 @@ HCR_feedback_server <- function(id,
 
     # Update hcr_out based on input changes
     if(!custom){
-      observeEvent({
-        input$wild_AI
-      }, {
+      observe({
         hcr_out(
           hcr_data_fun(
             do_notifs = TRUE,
-            index = ifelse(input$wild_AI, "wild", "total"),
+            index_type = index,
             PFMC_include_point = pfmc_cutoff
           )
         )
-      }, once = TRUE)
+      })
     }
 
     #
@@ -339,7 +361,7 @@ HCR_feedback_server <- function(id,
     observeEvent(input$go, {
       req(input$go)
       hcr_out(hcr_data_fun(do_notifs=TRUE,
-                           index=ifelse(input$wild_AI,"wild","total"),
+                           index_type=index,
                            PFMC_include_point=input$pfmc_cutoff_id))
 
     })
@@ -347,7 +369,7 @@ HCR_feedback_server <- function(id,
     #render plot
     output$my_plot <- renderPlot({
       req(hcr_out())
-      Sumsimmer:::plot_HCR(hcr_out(),
+      Sumsimmer:::plot_HCR(hcr_out()$hcr_data,
                            input$total_NT
       )
 
@@ -396,7 +418,7 @@ HCR_feedback_server <- function(id,
 
     # Create a reactive value to store the simulation outputs
     sim1 <- reactiveVal(
-      Sumsimmer:::internal_data[[id]]$perf
+        Sumsimmer:::internal_data[[id]]$perf
     )
 
 
@@ -411,16 +433,7 @@ HCR_feedback_server <- function(id,
                      IE=input$IE,
                      index=ifelse(input$wild_AI,"wild","total"),
                      PFMC_include_point=input$pfmc_cutoff_id#,
-                     # alpha=c(input$Hatch_alpha,
-                     #         input$Met_alpha,
-                     #         input$Ok_alpha,
-                     #         input$Wen_alpha
-                     # ),
-                     # Rmax= c(input$Hatch_Rmax,
-                     #         input$Met_Rmax,
-                     #         input$Ok_Rmax,
-                     #         input$Wen_Rmax
-                     # )
+
       ))
 
 

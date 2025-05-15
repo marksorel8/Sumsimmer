@@ -3,7 +3,7 @@
 CV<-function(x){(sd(x)/mean(x))*100}
 
 
-geo_mean<-function(x){exp(mean(log(x)))}
+geo_mean<-function(x){exp(mean(log(x+1)))-1}
 
 ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
 
@@ -55,6 +55,16 @@ min_abund_func<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,MAT=c
 
 
 
+#QET
+QET_fun<-function(x,rnames="Population",HCR_name="Current",QET=50){
+x[,7:31,] |> apply(c(1,3),\(x)zoo::rollmean(x,k=4)) |> apply(2:3,\(x)min(x)<=QET) |> apply(1,mean) |> as.data.frame() |> `colnames<-`("pQET") |>
+    rownames_to_column(rnames)|>
+    mutate(HCR=HCR_name)
+}
+
+
+
+
 summarize_sim<-function(sim,yrs=7:31,HCR="X",MAT=c(1000,2000,1000)){
  esc_t<- esc_traj_data_fun(sim)
   harv_t<- harv_traj_dat_fun(sim)
@@ -63,9 +73,11 @@ summarize_sim<-function(sim,yrs=7:31,HCR="X",MAT=c(1000,2000,1000)){
 #Escapement
 Esc=ave_quants(sim$escapement,rnames="Population",HCR_name=HCR,add_NO_tot=TRUE),
 
-# Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
+Esc_mean=quants_of_ave(sim$escapement,rnames="Population",HCR_name=HCR),
 
 MAT=min_abund_func(sim$escapement,rnames="Population",HCR_name=HCR,MAT=MAT),
+
+QET=QET_fun(sim$escapement,rnames="Population",HCR_name=HCR,QET=50),
 
 
 #NOS
@@ -80,6 +92,11 @@ S=ave_quants(sim$S,rnames="River",HCR_name=HCR),
 
 #Harvest
 Harv=harvest_quants_fun(sim,HCR_name=HCR),
+
+Mean_harv=mean_harvest_quants_fun(sim,HCR_name=HCR),
+
+Low_harv=low_harvest_quants_fun(sim,HCR_name=HCR),
+
 
 #pHOS, pNOB, PNI
 Hatch=hatchery_quants_fun(sim,HCR),
@@ -101,7 +118,7 @@ HCR=sim$HCR
 
 
 
-plot_all_fun<-function(sim_list,baseline_name){
+plot_all_fun<-function(sim_list,baseline_name,guide_rows=2,colors_vec){
 
   # sim<-pop_sim()
   # sim2<-pop_sim(,NT_scalar=c(rep(NA,5),1,1),treaty_scalar=c(NA,NA,1,1,rep(NA,3)))
@@ -123,37 +140,42 @@ plot_all_fun<-function(sim_list,baseline_name){
   #
 list(
   #Escapement
-  NOE_plot=plot_NOE_quants(combined_list$Esc),
+  NOE_plot=plot_NOE_quants(combined_list$Esc_mean,colors_vec = colors_vec),
   ## escapement in two rows for report
-  NOE_plot_2row=plot_NOE_quants(combined_list$Esc,2),
+  NOE_plot_2row=plot_NOE_quants(combined_list$Esc_mean,2,colors_vec = colors_vec),
 
 
   # NOE_ratios_plot=plot_NOE_ratios(combined_list$Esc_mean,baseline_name),
 
-  MAT_plot=plot_MAT(combined_list$MAT),
+  MAT_plot=plot_MAT(combined_list$MAT,colors_vec = colors_vec),
+
+  QET_plot=plot_QET(combined_list$QET,colors_vec = colors_vec),
 
   #NOS
-  NOS_plot=plot_spawner_quants(combined_list$NOS,ylab="Natural-origin spawners"),
+  NOS_plot=plot_spawner_quants(combined_list$NOS,ylab="Natural-origin spawners",colors_vec = colors_vec),
 
 
 
   #RMRS
-  RMRS_plot=plot_pop_quants(combined_list$RMRS,"River mouth return"),
+  RMRS_plot=plot_pop_quants(combined_list$RMRS,"River mouth return",colors_vec = colors_vec),
 
   #S
-  spawners_plot=plot_spawner_quants(combined_list$NOS,ylab="Total spawners (Hatchery + Wild)"),
+  spawners_plot=plot_spawner_quants(combined_list$NOS,ylab="Total spawners (Hatchery + Wild)",colors_vec = colors_vec),
 
 
   #Harvest
-  harv_plot=plot_harvest_quants(combined_list$Harv),
+  harv_plot=plot_harvest_quants(combined_list$Harv,guide_rows=guide_rows,colors_vec = colors_vec[-1]),
+  Mean_harv_plot=plot_mean_harvest_quants(combined_list$Mean_harv,guide_rows=guide_rows,colors_vec = colors_vec[-1]),
+  Low_harv_plot=plot_low_harvest_quants(combined_list$Low_harv,guide_rows=guide_rows,colors_vec = colors_vec[-1]),
 
 
   #pHOS, pNOB, PNI
-   hatch_plot= plot_hatchery_quants(combined_list$Hatch),
-  hatch_plot_2row= plot_hatchery_quants(combined_list$Hatch,2),
+   hatch_plot= plot_hatchery_quants(combined_list$Hatch,colors_vec = colors_vec),
+  hatch_plot_2row= plot_hatchery_quants(combined_list$Hatch,2,colors_vec = colors_vec),
 
 
-h_surplus = plot_hatchery_surplus(combined_list$H_surplus)
+h_surplus = plot_hatchery_surplus(combined_list$H_surplus,colors_vec = colors_vec),
+combined_list=combined_list
 )
 }
 
