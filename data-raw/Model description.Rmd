@@ -17,8 +17,9 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   scipen=999,
-  cache.extra = 4,
-  fig.width = 7
+  cache.extra = 5,
+  fig.width = 8,
+  fig.height = 5.5
 )
 library(tidyverse)
 
@@ -36,7 +37,7 @@ internal_data<-list()
 
 # Overview
 
-This document describes my process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River. That simulation model can be accessed [here](https://marksorel.shinyapps.io/Summer_Chinook_simulator/). Underlying code can be accessed [here](https://github.com/marksorel8/Sumsimmer).
+This document describes the process of developing a simulation model for the purpose of informing decisions about harvest management strategies for the Summer Chinook management stock in the Columbia River. That simulation model can be accessed [here](https://marksorel.shinyapps.io/Summer_Chinook_simulator/). Underlying code can be accessed [here](https://github.com/marksorel8/Sumsimmer).
 
 Broadly, the simulation is built around Ricker stock-recruit models for the three primary natural populations (Wenatchee, Methow, and Okanogan), and a single stock-recruit model for the production of all hatchery-origin fish that return during the summer Chinook managment period. The model has several other components including, return ages of fish, ocean harvest, terminal harvest, hatchery-origin spawning, and hatchery broodstock collection. 
 
@@ -294,33 +295,33 @@ long_dat<-esc_dat |> select(spawn_year=year,basin=population_name,NOR,`SG No. Ag
 
 
 #write a file of the no returns to river mouth to use to evaluate the ability to forecast that
-write.csv(long_dat,"long_dat.csv")
-long_dat |> ungroup() |>  group_by(brood_year,age) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth))|> 
-  pivot_wider(names_from = age,values_from = NO_river_mouth) |>
-  write_csv("NO_river_mouth.csv")
-
-long_dat |> ungroup() |>  group_by(brood_year,age,basin) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth))|> 
-  pivot_wider(names_from = age,values_from = NO_river_mouth) |>
-  write_csv("NO_river_mouth_by_stock.csv")
-
-esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> group_by(year) |> summarise(NOR_river_mouth=sum(NOR_river_mouth),n=n()) |> filter(n==3) |> 
-  write.csv("NO_river_mouth_no_age.csv")
-
-esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> select(year,population_name,NOR_river_mouth) |> 
-  write.csv("NO_river_mouth_no_age_by_stock.csv")
-
-esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> group_by(year) |> summarise(NOR_river_mouth=sum(NOR_river_mouth),n=n()) |> filter(n==3) |> ggplot(aes(x=year,y=NOR_river_mouth))+geom_point()+geom_line()+ylim(
-  0,40000)
-
-long_dat |> filter(age>3) |> group_by(spawn_year,basin) |> summarize(NOR=sum(NO_returns)) |> ungroup() |> ggplot(aes(x=spawn_year,y=NOR,color=basin))+geom_point()+geom_line()
-
-long_dat |> filter(age>3) |> group_by(spawn_year) |> summarize(NOR=sum(NO_returns),n=n()) |> ungroup() |> filter(n>=8) |> ggplot(aes(x=spawn_year,y=NOR))+geom_point()+geom_line()
-
-
-plotting_past_year_df<-pfmc_HRs |> filter(Year>=2008) |> select(Year,RMRS=`River Mouth Run Size`,`PFMC NT Ocean Impacts`,`PFMC Ocean Abundance`) |> 
+# write.csv(long_dat,"long_dat.csv")
+# long_dat |> ungroup() |>  group_by(brood_year,age) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth))|> 
+#   pivot_wider(names_from = age,values_from = NO_river_mouth) |>
+#   write_csv("NO_river_mouth.csv")
+# 
+# long_dat |> ungroup() |>  group_by(brood_year,age,basin) |> summarise(n=length(NO_river_mouth),NO_river_mouth=sum(NO_river_mouth))|> 
+#   pivot_wider(names_from = age,values_from = NO_river_mouth) |>
+#   write_csv("NO_river_mouth_by_stock.csv")
+# 
+# esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> group_by(year) |> summarise(NOR_river_mouth=sum(NOR_river_mouth),n=n()) |> filter(n==3) |> 
+#   write.csv("NO_river_mouth_no_age.csv")
+# 
+# esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> select(year,population_name,NOR_river_mouth) |> 
+#   write.csv("NO_river_mouth_no_age_by_stock.csv")
+# 
+# esc_dat |> left_join(term_ER,by=c("year"="Year")) |> mutate(NOR_river_mouth=(NOR/(1-term_UM_HR))) |> group_by(year) |> summarise(NOR_river_mouth=sum(NOR_river_mouth),n=n()) |> filter(n==3) |> ggplot(aes(x=year,y=NOR_river_mouth))+geom_point()+geom_line()+ylim(
+#   0,40000)
+# 
+# long_dat |> filter(age>3) |> group_by(spawn_year,basin) |> summarize(NOR=sum(NO_returns)) |> ungroup() |> ggplot(aes(x=spawn_year,y=NOR,color=basin))+geom_point()+geom_line()
+# 
+# long_dat |> filter(age>3) |> group_by(spawn_year) |> summarize(NOR=sum(NO_returns),n=n()) |> ungroup() |> filter(n>=8) |> ggplot(aes(x=spawn_year,y=NOR))+geom_point()+geom_line()
+# 
+# 
+plotting_past_year_df<-pfmc_HRs |> filter(Year>=2008) |> select(Year,RMRS=`River Mouth Run Size`,`PFMC NT Ocean Impacts`,`PFMC Ocean Abundance`) |>
   left_join(
     long_dat |> group_by(spawn_year) |> summarise(wild_AI=sum(NO_river_mouth)) |> rename(Year=spawn_year)
-  ) |> 
+  ) |>
   mutate(wild_AI=wild_AI/(1-`PFMC NT Ocean Impacts`))
 
 
@@ -403,7 +404,7 @@ returns<-tac_RR |> pivot_longer(Age3:Age6,names_to="Age",values_to="riv_mouth") 
          year=BroodYear+age)|> 
   left_join(long_dat |> group_by(spawn_year,age) |> summarize(wild=sum(NO_river_mouth),n=n()) |> filter(n==3) |> rename(year=spawn_year)) |> mutate(hatchery=riv_mouth-wild) 
 
-returns |>mutate(prop_wid=wild/(hatchery+wild))|> ggplot(aes(x=year,y=prop_wid))+geom_col()+ylab("Proportion wild")+xlab("")+theme_minimal()
+# returns |>mutate(prop_wid=wild/(hatchery+wild))|> ggplot(aes(x=year,y=prop_wid))+geom_col()+ylab("Proportion wild")+xlab("")+theme_minimal()
 
 returns |> pivot_longer(c(wild,hatchery),names_to = "origin",values_to = "RMRS") |> ggplot(aes(x=year,y=RMRS,fill=origin))+geom_col()+ylab("River mouth run size")+xlab("")+theme_minimal()
 
@@ -447,10 +448,8 @@ To simulate the system I needed modules to simulate the following processes:
 
 I fit Ricker spawner-recruit relationships for each natural population.
 $$\text{recruits}_y=\alpha*\text{spawners}_y*\text{exp}\left(\frac{-\alpha*\text{spawners}_y}{e*\text{Rmax}}+\varepsilon_y\right)$$
-where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. 
+where $\alpha$ represents the maximum recruits per spawner as you approach zero spawners, and $\text{Rmax}$ represents the maximum expected recruits and $e$ is Euler's number. The $\varepsilon$ term represents annual deviations from the Ricker relationship. The distribution of those deviations is described below. Hatchery-origin spawners were assumed to contribute to recruits at 80% of natural-natural origin spawners (i.e., a relative reproductive success of 0.8).
 
-
-I explored different assumptions regarding the relative reproductive succes (RRS) of hatchery-origin spawners (e.g., fitting a common RRS or unique RRS  for each population) and found data support (based on AIC) for a common RRS =1.0. Thus hatchery origin spawners were modeled as contributing eqally to recruitment as natural-origin spawners. Interestingly, in models where each basin had a unique RRS, it was high in the Methow and Wenatchee and low in the Okanogan. Thus the lower productivity parameter in the Okanogan (Table 1) might actually be due to lower reproductive contribution of hatchery-origin spawners.  
 
 <!-- For the per-capita reproductive contribution of a hatchery-origin spawner relative to a natural origin spawner, I used the 10-year running average of proportionate natural influence (PNI) through the the brood year 4 years prior to the current year: -->
 
@@ -538,6 +537,10 @@ $$
 where $\varepsilon_y$ represents the vector of errors for the four populations in a given year, $\phi$ determines the degree of autocorrelation and $\sigma=\sqrt{1-\phi^2}$. The annual increments were assumed to follow a multivariate normal distribution with an unstructured covariance matrix. Thus, when simulating future recruitment from this model, I accounted for how recruitment is correlated from year to year and among populations within years.
 
 
+When simulating population trajectories, stock-recruitment model parameters for each simulation were drawn from a multivariate normal distribution defined by the maximum-likelihood estimates of parameters and the hessian matrix at the maximum likleihood estimate.
+
+
+
 ### Fit model
 
 ```{r hatch_recruits_per_release,include =FALSE,cache=TRUE}
@@ -579,7 +582,8 @@ all_SR<-
   mutate(S_RRS=NOS+HOS*.8,
          S_no=NOS,
          S_ho=HOS,
-         S_dummy=1) |> 
+         S_dummy=1
+         ) |> 
   select(basin,brood_year,S_tot=total_spawners,S_no,S_ho, S_RRS ,R=NO_recruits,PHOS,S_dummy,pNI_bar) |> 
   bind_rows(hatch_recruits |> 
               group_by(brood_year) |> 
@@ -807,7 +811,7 @@ var_list<-obj$env$parList(par=diag(fit$SD$cov.fixed))
 # plogis(par_list$logit_RRS)
 # exp(par_list$sigma_RRS)
 # (par_list$mu_RRS)
-exp(par_list$test)
+# exp(par_list$test)
 alpha<-exp(c(par_list$alpha_h,par_list$alpha))
 Rmax<- c(1000000,exp(par_list$Rmax))
 names(alpha)<-names(Rmax)<-rownames(SR_TMB_dat$S_mat)
@@ -828,8 +832,8 @@ sum(Smsy[2:4])
 # fit$AIC
 
 
-Sumsimmer:::internal_data$alphas
-Sumsimmer:::internal_data$Rmax
+# Sumsimmer:::internal_data$alphas
+# Sumsimmer:::internal_data$Rmax
 
 covar_mat<-solve(fit$SD$jointPrecision)
 
@@ -899,7 +903,7 @@ scale_y_continuous(labels = scales::unit_format(suffix="K",scale = 1e-3)) +
 
 ```{r  stock_recruit_tab}
 
-tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(alpha,2),Rmax=c(0,round(Rmax,2)),Smsy=c(2000,round(Smsy,0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts.")
+tibble(population=c("Hatchery","Methow","Okanogan","Wenatchee"),"$\\alpha$"=round(alpha,2),Rmax=c("",round(Rmax[2:4],0)),Smsy=c(2000,round(Smsy[2:4],0)),"$\\phi$"=round(rho,2),"Marginal sd"=round(marg_sd,2)) |> knitr::kable(caption = "Table 1. Mean parameter estimates for stock recruit models for each population. Smsy is the number of spawners at maximum sustainable yield. The Smsy for the hatchery population will be the broodstock target, which is about 2,000 hatchery-origin fish. *Marginal sd* is the standard deviation of the annual deviations around the relationship. Note that $\\alpha$ for the hatchery population is in terms of recruits per 1,000 yearling smolts.")
 
 ```
 
@@ -1114,11 +1118,12 @@ pfmc_mod_fit<-optim(c(c(.06),0),pfmc_mod_fun)
 RMRS<-seq(1,150000,by=10000)
 ```
 
-I model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error. On average from 2010-2021, the PFMC AEQ mortalities were `r round(pfmc_mod_fit$par[1]*100,1)`% of the RMRS, with `r round(exp(pfmc_mod_fit$par[2])*100)`% average inter-annual variability.
+I model the AEQ mortalities in PFMC fisheries as a proportion of the River Mouth Run Size with log-normal error. The PFMC AEQ mortalities were assumed to average 8.2% of the River Mouth Run Size with `r round(exp(pfmc_mod_fit$par[2])*100)`% average inter-annual variability.
 
 
 ```{r , fig.cap="Figure. PFMC AEQ mortalities vs. river mouth run size. The line and shaded area represent the mean and 95% prediction intervals. The points represent observations (from TAC run-reconstruction files) from 2010--2021."}
-tibble(RMRS=RMRS,fit=pfmc_mod_fit$par[1]*RMRS) |> mutate(
+
+tibble(RMRS=RMRS,fit=.082*RMRS) |> mutate(
   lwr=fit*exp(-1.96*exp(pfmc_mod_fit$par[2])),
   upr=fit*exp(1.96*exp(pfmc_mod_fit$par[2]))
 ) |> ggplot(aes(x=RMRS))+geom_ribbon(aes(ymin = (lwr),ymax=(upr)),fill="grey")+geom_line(aes(y=(fit)))+geom_point(data=pfmc_mort_dat,aes(y=PFMCNT))+theme_minimal()+ylab("PFMC AEQ")+xlab("River mouth run size")
@@ -1460,7 +1465,7 @@ if(sim_for_model){
   pfmc_err<-matrix(rnorm(n_year*n_sim,0, exp(pfmc_mod_fit$par[2])),n_year,n_sim)
   
   internal_data$pfmc_err<-pfmc_err
-  internal_data$PFMC_ave_prop<-pfmc_mod_fit$par[1]
+  internal_data$PFMC_ave_prop<-.076/(1-.076)#pfmc_mod_fit$par[1]
   
   #==========================================================================================
   # in-river harvest
@@ -1546,7 +1551,7 @@ if(sim_for_model){
   if(write_internal){
     usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
   }
-  
+
   add_baselines<-FALSE
   if(add_baselines){
     sim<-pop_sim()
@@ -1578,57 +1583,69 @@ if(sim_for_model){
     # internal_data$`PST` <-list(perf=summarize_sim(do.call(pop_sim,PST_HCR),HCR="PST"))#,hcr=do.call(seq_HCR,PST_HCR))
     
     internal_data$`Fixed_20%` <-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0.2,treaty_scalar=NA,treaty_offset=NA,treaty_share=NA,NT_tiers=NA,NT_rates=0.2,NT_scalar=NA,NT_offset=NA,NT_share=NA,PFMC_include_above=0),HCR="1) Fixed 40%"))#,hcr=do.call(seq_HCR,PST_HCR))
-    
-    New_AB_HCR<-list(treaty_tiers=c(20000,50000,rep(NA,2)),
-                   treaty_rates=c(.1,.2,rep(NA,2)),
-                   treaty_scalar=c(NA,NA,.75,rep(NA,1)),
-                   treaty_offset=c(NA,NA,17500,rep(NA,1)),
-                   treaty_share = c(NA,NA,.5,rep(NA,1)),
-                   NT_tiers=c(20000,50000,rep(NA,2)),
-                   NT_rates=c(.1,.2,rep(NA,2)),
-                   NT_scalar=c(NA,NA,.75,rep(NA,1)),
-                   NT_offset=c(NA,NA,17500,rep(NA,1)),
-                   NT_share = c(NA,NA,.5,rep(NA,1)),
-                   PFMC_include_above=0)
-    
-    
-        internal_data$`New_AB_tot` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_HCR),HCR="Option 1"))#,hcr=do.call(seq_HCR,PST_HCR))
-        
-        
-            New_AB_HCR2<-list(treaty_tiers=c(20000,32500,50000,rep(NA,2)),
-                   treaty_rates=c(.1,.12,.2,rep(NA,2)),
-                   treaty_scalar=c(NA,NA,NA,.75,rep(NA,1)),
-                   treaty_offset=c(NA,NA,NA,17500,rep(NA,1)),
-                   treaty_share = c(NA,NA,NA,.5,rep(NA,1)),
-                   NT_tiers=c(20000,32500,50000,rep(NA,2)),
-                   NT_rates=c(.1,.12,.2,rep(NA,2)),
-                   NT_scalar=c(NA,NA,NA,.75,rep(NA,1)),
-                   NT_offset=c(NA,NA,NA,17500,rep(NA,1)),
-                   NT_share = c(NA,NA,NA,.5,rep(NA,1)),
-                   PFMC_include_above=0)
+
+    # New_AB_HCR<-list(treaty_tiers=c(20000,50000,rep(NA,2)),
+    #                treaty_rates=c(.1,.2,rep(NA,2)),
+    #                treaty_scalar=c(NA,NA,.75,rep(NA,1)),
+    #                treaty_offset=c(NA,NA,17500,rep(NA,1)),
+    #                treaty_share = c(NA,NA,.5,rep(NA,1)),
+    #                NT_tiers=c(20000,50000,rep(NA,2)),
+    #                NT_rates=c(.1,.2,rep(NA,2)),
+    #                NT_scalar=c(NA,NA,.75,rep(NA,1)),
+    #                NT_offset=c(NA,NA,17500,rep(NA,1)),
+    #                NT_share = c(NA,NA,.5,rep(NA,1)),
+    #                PFMC_include_above=0)
+    # 
+    New_AB_HCR<-list( treaty_tiers=c(16000/(1-.076),29000/(1-.076),rep(NA,3)),
+                      treaty_rates=c(.05,.1,rep(NA,3)),
+                      treaty_scalar=c(NA,NA,.75,rep(NA,2)),
+                      treaty_offset=c(NA,NA,16500,rep(NA,2)),
+                      treaty_share = c(NA,NA,.5,rep(NA,2)),
+                      NT_tiers=c(16000/(1-.076),29000/(1-.076),rep(NA,3)),
+                      NT_rates=c(.05,.1,rep(NA,3)),
+                      NT_scalar=c(NA,NA,.75,rep(NA,2)),
+                      NT_offset=c(NA,NA,16500,rep(NA,2)),
+                      NT_share = c(NA,NA,.5,rep(NA,2)),
+                      PFMC_include_above=0)
     
     
-        internal_data$`Option 3` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_HCR2),HCR="Option 3"))#,hcr=do.call(seq_HCR,PST_HCR))
+        internal_data$`New_AB_tot` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_HCR),HCR="Proposed"))#,hcr=do.call(seq_HCR,PST_HCR))
         
         
+        #     New_AB_HCR2<-list(treaty_tiers=c(20000,32500,50000,rep(NA,2)),
+        #            treaty_rates=c(.1,.12,.2,rep(NA,2)),
+        #            treaty_scalar=c(NA,NA,NA,.75,rep(NA,1)),
+        #            treaty_offset=c(NA,NA,NA,17500,rep(NA,1)),
+        #            treaty_share = c(NA,NA,NA,.5,rep(NA,1)),
+        #            NT_tiers=c(20000,32500,50000,rep(NA,2)),
+        #            NT_rates=c(.1,.12,.2,rep(NA,2)),
+        #            NT_scalar=c(NA,NA,NA,.75,rep(NA,1)),
+        #            NT_offset=c(NA,NA,NA,17500,rep(NA,1)),
+        #            NT_share = c(NA,NA,NA,.5,rep(NA,1)),
+        #            PFMC_include_above=0)
+        # 
+        # 
+        # internal_data$`Option 3` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_HCR2),HCR="Option 3"))#,hcr=do.call(seq_HCR,PST_HCR))
+        # 
         
         
-          New_AB_NO_HCR<-list(index="wild",
-                             treaty_tiers=c(4000,10000,rep(NA,2)),
-                   treaty_rates=c(.1,.2,rep(NA,2)),
-                   treaty_scalar=c(NA,NA,.75,rep(NA,1)),
-                   treaty_offset=c(NA,NA,3500,rep(NA,1)),
-                   treaty_share = c(NA,NA,.5,rep(NA,1)),
-                   NT_tiers=c(4000,10000,rep(NA,2)),
-                   NT_rates=c(.1,.2,rep(NA,2)),
-                   NT_scalar=c(NA,NA,.75,rep(NA,1)),
-                   NT_offset=c(NA,NA,3500,rep(NA,1)),
-                   NT_share = c(NA,NA,.5,rep(NA,1)),
-                   PFMC_include_above=0)
-          
-          
-        
-         internal_data$`New_AB_nat` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_NO_HCR),HCR="Option 2"))#,hcr=do.call(seq_HCR,PST_HCR))
+          # 
+          # New_AB_NO_HCR<-list(index="wild",
+          #                    treaty_tiers=c(4000,10000,rep(NA,2)),
+          #          treaty_rates=c(.1,.2,rep(NA,2)),
+          #          treaty_scalar=c(NA,NA,.75,rep(NA,1)),
+          #          treaty_offset=c(NA,NA,3500,rep(NA,1)),
+          #          treaty_share = c(NA,NA,.5,rep(NA,1)),
+          #          NT_tiers=c(4000,10000,rep(NA,2)),
+          #          NT_rates=c(.1,.2,rep(NA,2)),
+          #          NT_scalar=c(NA,NA,.75,rep(NA,1)),
+          #          NT_offset=c(NA,NA,3500,rep(NA,1)),
+          #          NT_share = c(NA,NA,.5,rep(NA,1)),
+          #          PFMC_include_above=0)
+
+
+
+         # internal_data$`New_AB_nat` <-list(perf=summarize_sim(do.call(pop_sim,New_AB_NO_HCR),HCR="Option 2"))#,hcr=do.call(seq_HCR,PST_HCR))
     
     # simplified_MA<-list(
     #   treaty_tiers=c(36250,rep(NA,2)),
@@ -1649,30 +1666,30 @@ if(sim_for_model){
     
     # internal_data$`No harvest`<-list(perf=summarize_sim(pop_sim(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0),HCR="No_harvest"),hcr=seq_HCR(treaty_tiers = NA,treaty_rates = 0,NT_tiers=NA,NT_rates=0))
     
-    CRITFC_counter<-list( treaty_tiers=c(16000,36250,50000,Inf,rep(NA,3)),
-                  treaty_rates=c(.05,.1,NA,NA,rep(NA,3)),
-                  treaty_scalar=c(NA,NA,1,.75,rep(NA,3)),
-                  treaty_offset=c(NA,NA,29000,16500,rep(NA,3)),
-                  treaty_share = c(NA,NA,.5,.5,rep(NA,3)),
-                  NT_tiers=c(5000,16000,29000,32000,36250,50001,Inf),
-                  NT_rates=c(200,200,200,200,200,NA,NA),
-                  NT_scalar=c(rep(NA,5),1,.75),
-                  NT_offset=c(rep(NA,5),29000,16500),
-                  NT_share=c(rep(NA,5),.5,.5),
-                  PFMC_include_above=36250)
+    # CRITFC_counter<-list( treaty_tiers=c(16000,36250,50000,Inf,rep(NA,3)),
+    #               treaty_rates=c(.05,.1,NA,NA,rep(NA,3)),
+    #               treaty_scalar=c(NA,NA,1,.75,rep(NA,3)),
+    #               treaty_offset=c(NA,NA,29000,16500,rep(NA,3)),
+    #               treaty_share = c(NA,NA,.5,.5,rep(NA,3)),
+    #               NT_tiers=c(5000,16000,29000,32000,36250,50001,Inf),
+    #               NT_rates=c(200,200,200,200,200,NA,NA),
+    #               NT_scalar=c(rep(NA,5),1,.75),
+    #               NT_offset=c(rep(NA,5),29000,16500),
+    #               NT_share=c(rep(NA,5),.5,.5),
+    #               PFMC_include_above=36250)
+    
+     # 
+     # internal_data$`CRITFC_counter` <-list(perf=summarize_sim(do.call(pop_sim,CRITFC_counter),HCR="Tribes proposed"))
     
     
-     internal_data$`CRITFC_counter` <-list(perf=summarize_sim(do.call(pop_sim,CRITFC_counter),HCR="Tribes proposed"))
-    
-    
-    write_internal<-TRUE
+    write_internal<-FALSE
     if(write_internal){
       usethis::use_data(internal_data, overwrite = TRUE,internal = TRUE)
     } 
   }
 }
 
-
+# rm(internal_data)
 ```
 
 
@@ -1684,6 +1701,8 @@ As a check on whether the simulation model passes the red face test, I compared 
 Note that when considering the outcomes of alternative harvest control rules, we want to compare performance metrics across simulations, rather than comparing them to historical estimates. That is because simulations all assume the same environmental and biological conditions. Comparing to estimates from the past would not be appropriate because those occurred under a different set of environmental conditions.
 
 ```{r do_sim}
+library(here)
+library(tidyverse)
 sim<-pop_sim()
 ```
 
@@ -1815,8 +1834,54 @@ apply(sim_pHOS,c(1,3),quantile,c(.025,.25,.5,.75,.975)) |> apply(1:2,mean) |>
   `colnames<-`(c("River","min","LQI","med","UQI","max","Type"))|> 
   ggplot(aes(x = River, ymin = `min`, lower = `LQI`, middle = `med`, upper = `UQI`, ymax = `max`,fill=Type))+geom_boxplot(stat="identity")+ylab("pHOS")+theme_minimal()+scale_fill_brewer(palette="Dark2") + ylim(0,1)+xlab("")
 
+```
 
+# Simulation of proposed harvest control rules
+
+```{r perf_plots}
+rm(internal_data)
+
+perf_list<-list(internal_data$No_harvest$perf[1:10],
+                internal_data$Current_MA$perf[1:10],
+                internal_data$New_AB_tot$perf[1:10]#,
+
+                # internal_data$`Fixed_20%`$perf[1:10],
+                # internal_data$New_AB_nat$perf[1:10],
+                # internal_data$`Option 3`$perf[1:10]
+
+)
+
+col_vec<-c(
+  "#D55E00" ,"#000000","#0072B2","#009E73","#E69F00", "#56B4E9"
+)
+
+p3<-plot_all_fun(perf_list,guide_rows=1,colors_vec = col_vec)
+# p3$QET_plot
+# ggsave(here("plots","compare_pQET.png"))
+```
+
+
+```{r perf_plots_NOE, fig.cap = "Boxplots of natural-origin escapement, which includes spawning, hatchery broodstock, and hatchery surplus. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across simmulations. Dashed lines represent minimum abundance thresholds of 1,000 in the Wenatchee and Methow, 2,000 in the Okanogan, and 12,143 for the total."}
+p3$NOE_plot
+# ggsave(here("plots","compare_mean_escapement.png"))
+```
+
+```{r perf_plots_MAT, fig.cap= "Proportion of simulations in which the mean escapement was less than a minimum abundane threshold of 1,000 adults in the Wenatchee and Methow, 2,000 in the Okanogan, and 4,000 for these three natural-origin populations combined." }
+p3$MAT_plot
+# ggsave(here("plots","compare_MAT.png"))
 
 ```
+
+```{r perf_plots_harv, fig.cap = "Boxplots of mean annual harvest across 25-year simulations. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across simmulations."}
+p3$Mean_harv_plot
+# ggsave(here("plots","compare_mean_harv.png"))
+```
+
+
+```{r perf_plots_low_harv, fig.cap = "Boxplots of mean annual harvest in the years with the lowest 20% of run sizes. This represents the five lowest run size years out of the 25 year simulations. The whiskers of the boxplot span 95% quantile intervals, the box spans the 50% quantile interval, and the midline is the median. Quantiles were calculated across simmulations."}
+p3$Low_harv_plot
+# ggsave(here("plots","compare_low_harv.png"))
+```
+
 
 

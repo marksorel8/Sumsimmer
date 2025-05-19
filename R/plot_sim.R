@@ -5,7 +5,7 @@ CV<-function(x){(sd(x)/mean(x))*100}
 
 geo_mean<-function(x){exp(mean(log(x+1)))-1}
 
-ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
+ave_quants<-function(x,HCR_name="Current",fun=mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
 
  df_out<- data.frame(
     apply(apply(x[,yrs,],c(1,3),quantile,qtiles),1:2,fun),
@@ -26,7 +26,7 @@ ave_quants<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(
 
 }
 
-quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
+quants_of_ave<-function(x,HCR_name="Current",fun=mean,yrs=7:31,rnames,qtiles=c(0,.25,.5,.75,1),add_NO_tot=FALSE){
   df_out<- data.frame(cbind(
     apply(apply(x[,yrs,],c(1,3),fun),1,quantile,qtiles),
     Total=quantile(apply(apply(x[,yrs,],2:3,sum),2,fun),qtiles)))
@@ -44,7 +44,7 @@ quants_of_ave<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,qtiles
     mutate(HCR=HCR_name)
 }
 
-min_abund_func<-function(x,HCR_name="Current",fun=geo_mean,yrs=7:31,rnames,MAT=c(1000,2000,1000)){
+min_abund_func<-function(x,HCR_name="Current",fun=mean,yrs=7:31,rnames,MAT=c(1000,2000,1000)){
   data.frame(p_MA=c(
     apply(apply(x[-1,yrs,],c(1,3),fun)>=MAT,1,mean),
     NO_total= mean(apply(apply(x[-1,yrs,],c(1,3),fun),2,sum)>=sum(MAT))))|>
@@ -135,7 +135,7 @@ plot_all_fun<-function(sim_list,baseline_name,guide_rows=2,colors_vec){
   # Assign names to the combined list
   names(combined_list) <- unique(names(unlist(sim_list, recursive = FALSE)))
 
-  combined_list<-lapply(combined_list,function(x)mutate(x,HCR=fct_inorder(HCR)))
+  combined_list<-lapply(combined_list,function(x)dplyr::mutate(x,HCR=forcats::fct_inorder(HCR)))
 
   #
 list(
